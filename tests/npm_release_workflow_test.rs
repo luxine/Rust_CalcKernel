@@ -198,6 +198,38 @@ fn npm_release_workflow_should_publish_the_manifest_tarball() {
     );
 }
 
+#[test]
+fn npm_release_workflow_should_sign_off_the_manifest_tarball() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let signoff_job = workflow_section(&workflow, "platform-signoff:", "finalize-signoff:");
+
+    assert!(
+        signoff_job.contains("name: release-manifest")
+            && signoff_job.contains("path: release-manifest"),
+        "platform signoff job must download release-manifest.json before choosing the tarball"
+    );
+    assert!(
+        signoff_job.contains("JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball"),
+        "platform signoff job must derive the signed-off tarball from release-manifest.json"
+    );
+    assert!(
+        !signoff_job.contains("TARBALL=\"$(ls dist/*.tgz | head -n 1)\""),
+        "platform signoff job must not choose the signed-off tarball via ls dist/*.tgz"
+    );
+}
+
+fn workflow_section<'a>(workflow: &'a str, start: &str, end: &str) -> &'a str {
+    let start_index = workflow
+        .find(start)
+        .unwrap_or_else(|| panic!("workflow should include {start}"));
+    let end_index = workflow[start_index..]
+        .find(end)
+        .map(|offset| start_index + offset)
+        .unwrap_or_else(|| panic!("workflow should include {end} after {start}"));
+    &workflow[start_index..end_index]
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

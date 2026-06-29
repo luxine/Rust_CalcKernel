@@ -180,9 +180,14 @@ jobs:
         with:
           name: release-tarball
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest
       - run: mkdir -p signoffs
       - run: |
-          TARBALL="$(ls dist/*.tgz | head -n 1)"
+          TARBALL="dist/$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball")"
+          test -s "${TARBALL}"
           npm run verify:host-npm-install -- "${TARBALL}" > signoffs/${{ matrix.target }}.json
       - uses: actions/upload-artifact@v4
         with:

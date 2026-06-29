@@ -12,6 +12,7 @@ if (!existsSync(workflowPath)) {
   fail(`npm release workflow is missing: ${workflowPath}`);
 } else {
   const workflow = readFileSync(workflowPath, "utf8");
+  const platformSignoffJob = workflowSection(workflow, "platform-signoff:", "finalize-signoff:");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
   expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
   expectIncludes(workflow, "build-binary:", "binary matrix job");
@@ -80,6 +81,18 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "CKC_NPM_BINARIES_DIR=build/npm-binaries", "matrix pack environment");
   expectIncludes(workflow, "npm run verify:npm-release", "release verifier command");
   expectIncludes(workflow, "npm run verify:host-npm-install", "host install verifier command");
+  expectIncludes(platformSignoffJob, "name: release-manifest", "platform signoff release manifest artifact");
+  expectIncludes(platformSignoffJob, "path: release-manifest", "platform signoff release manifest path");
+  expectIncludes(
+    platformSignoffJob,
+    "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball",
+    "platform signoff manifest-derived tarball"
+  );
+  expectNotIncludes(
+    platformSignoffJob,
+    "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"",
+    "platform signoff ls tarball selection"
+  );
   expectIncludes(workflow, "npm run verify:release-signoff", "release sign-off command");
   expectIncludes(workflow, "release-manifest.json", "release manifest artifact");
   expectIncludes(workflow, "signoffs/${{ matrix.target }}.json", "target sign-off output");
@@ -129,6 +142,20 @@ function expectNotIncludes(text, expected, label) {
   if (text.includes(expected)) {
     fail(`${label} must not include ${expected}`);
   }
+}
+
+function workflowSection(workflow, start, end) {
+  const startIndex = workflow.indexOf(start);
+  if (startIndex < 0) {
+    fail(`workflow must include ${start}`);
+    return "";
+  }
+  const endIndex = workflow.indexOf(end, startIndex);
+  if (endIndex < 0) {
+    fail(`workflow must include ${end} after ${start}`);
+    return "";
+  }
+  return workflow.slice(startIndex, endIndex);
 }
 
 function fail(message) {

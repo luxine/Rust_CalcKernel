@@ -131,7 +131,8 @@ The workflow runs these stages:
    `CKC_NPM_BINARIES_DIR`, but first run
    `build:npm-matrix --verify-staged --expect-complete` against the downloaded
    directory. Then write `release-manifest.json` with `verify:npm-release`.
-5. Download the same tarball on every target platform, run
+5. Download the release manifest and the same tarball on every target platform,
+   derive the tarball filename from `release-manifest.json`, and run
    `verify:host-npm-install` with `CKC_BIN` unset; the verifier prepares
    `typescript@^5.8.0` in the temporary consumer when needed so the TypeScript
    declaration smoke must pass, then uploads `signoffs/<npm-target>.json`.

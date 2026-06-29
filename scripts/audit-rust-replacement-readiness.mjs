@@ -30,6 +30,7 @@ expectEqual(packageJson.scripts?.["build:npm-matrix"], "node scripts/build-npm-b
 expectEqual(packageJson.scripts?.["audit:release-workflow"], "node scripts/audit-npm-release-workflow.mjs", "release workflow audit script");
 expectEqual(packageJson.scripts?.["verify:host-npm-install"], "node scripts/verify-host-npm-install.mjs", "host install verifier script");
 expectEqual(packageJson.scripts?.["verify:npm-release"], "node scripts/verify-npm-release.mjs", "release verifier script");
+expectEqual(packageJson.scripts?.["verify:declaration-parity"], "node scripts/verify-declaration-parity.mjs", "declaration parity verifier script");
 expectEqual(packageJson.scripts?.["verify:public-api-parity"], "node scripts/verify-public-api-parity.mjs", "public API parity verifier script");
 expectEqual(packageJson.scripts?.["verify:publish-artifact"], "node scripts/verify-npm-publish-artifact.mjs", "publish artifact verifier script");
 expectEqual(packageJson.scripts?.["verify:publish-result"], "node scripts/verify-npm-publish-result.mjs", "publish result verifier script");
@@ -48,6 +49,7 @@ for (const path of [
   "scripts/audit-typescript-oracle-fixtures.mjs",
   "scripts/verify-host-npm-install.mjs",
   "scripts/verify-npm-release.mjs",
+  "scripts/verify-declaration-parity.mjs",
   "scripts/verify-public-api-parity.mjs",
   "scripts/verify-npm-publish-artifact.mjs",
   "scripts/verify-npm-publish-result.mjs",
@@ -66,6 +68,7 @@ const npmRelease = readFileSync(join(root, "docs/npm-release.md"), "utf8");
 expectIncludes(npmRelease, "CKC_NPM_BINARIES_DIR", "npm release docs");
 expectIncludes(npmRelease, "--expect-complete", "npm release docs");
 expectIncludes(npmRelease, "verify:npm-release", "npm release docs");
+expectIncludes(npmRelease, "verify:declaration-parity", "npm release docs");
 expectIncludes(npmRelease, "verify:public-api-parity", "npm release docs");
 expectIncludes(npmRelease, "verify:publish-artifact", "npm release docs");
 expectIncludes(npmRelease, "verify:publish-result", "npm release docs");

@@ -108,8 +108,8 @@ can be started with `workflow_dispatch` and runs these stages:
 
 1. Verify release scripts with `cargo fmt --check`, `cargo clippy`, package
    release tests including the registry replacement verifier test,
-   `audit-rust-replacement-readiness`, `verify:public-api-parity`, and
-   `audit-npm-release-workflow`.
+   `audit-rust-replacement-readiness`, `verify:declaration-parity`,
+   `verify:public-api-parity`, and `audit-npm-release-workflow`.
 2. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
 3. Download all binaries into `build/npm-binaries`, pack once with
@@ -213,13 +213,16 @@ Before using local oracle parity as replacement evidence, run:
 
 ```sh
 npm run verify:typescript-oracle
+npm run verify:declaration-parity
 npm run verify:public-api-parity
 ```
 
 This confirms the read-only TypeScript oracle checkout exists, its
 `dist/src/cli.js` is built and runnable, the fixture roots used by the Rust
-oracle tests are present, and the Rust package root runtime exports exactly the
-same public JavaScript API names as `dist/src/index.js`.
+oracle tests are present, the Rust package root declaration exports match the
+resolved TypeScript declaration exports from `dist/src/index.d.ts`, and the
+Rust package root runtime exports exactly the same public JavaScript API names
+as `dist/src/index.js`.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the

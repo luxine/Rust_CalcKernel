@@ -16,7 +16,6 @@ export declare class SourceFile {
   constructor(fileName: string, text: string);
 }
 
-export type DiagnosticSeverity = "error";
 export type DiagnosticCode =
   | "CK0001"
   | "CK1001"
@@ -31,7 +30,7 @@ export type DiagnosticCode =
 
 export interface Diagnostic {
   code: DiagnosticCode;
-  severity: DiagnosticSeverity;
+  severity: "error";
   message: string;
   fileName: string;
   line: number;
@@ -405,34 +404,29 @@ export declare function getStructInfo(checkedProgram: CheckedProgram, name: stri
 export declare function getFieldInfo(checkedProgram: CheckedProgram, structName: string, fieldName: string): StructFieldInfo | undefined;
 export declare function getFunctionInfo(checkedProgram: CheckedProgram, name: string): FunctionInfo | undefined;
 
-export type OverflowMode = "unchecked" | "checked";
-export type OptimizationLevel = 0 | 1 | 2 | 3;
-
-export interface OptimizationOptions {
-  optLevel?: OptimizationLevel;
-}
-
-export interface CCodegenOptions extends OptimizationOptions {
-  overflowMode?: OverflowMode;
-}
-
-export interface MirPassDebugFlags {
-  printPassPipeline?: boolean;
-  printMirBeforeOpt?: boolean;
-  printMirAfterOpt?: boolean;
-}
-
-export interface EmitCFilesOptions extends CCodegenOptions {
+export interface EmitCFilesOptions {
+  optLevel?: 0 | 1 | 2 | 3;
+  overflowMode?: "unchecked" | "checked";
   cFile: string;
   headerFile: string;
   headerFileName: string;
-  mirDebug?: MirPassDebugFlags;
+  mirDebug?: {
+    printPassPipeline?: boolean;
+    printMirBeforeOpt?: boolean;
+    printMirAfterOpt?: boolean;
+  };
   writeDebug?: (text: string) => void;
 }
 
-export interface EmitCSourceOptions extends CCodegenOptions {
+export interface EmitCSourceOptions {
+  optLevel?: 0 | 1 | 2 | 3;
+  overflowMode?: "unchecked" | "checked";
   headerFileName: string;
-  mirDebug?: MirPassDebugFlags;
+  mirDebug?: {
+    printPassPipeline?: boolean;
+    printMirBeforeOpt?: boolean;
+    printMirAfterOpt?: boolean;
+  };
   writeDebug?: (text: string) => void;
 }
 
@@ -449,8 +443,6 @@ export type CKHostPlatform =
   | "sunos"
   | "win32"
   | (string & {});
-
-export type BuildPlatform = CKHostPlatform;
 
 export interface CKSystemError extends Error {
   code?: string;
@@ -470,7 +462,7 @@ export type CommandRunner = (command: string, args: string[]) => CommandResult;
 
 export interface BuildSharedLibraryOptions extends EmitCFilesOptions {
   outputPath: string;
-  platform: BuildPlatform;
+  platform: CKHostPlatform;
   runCommand: CommandRunner;
 }
 
@@ -480,11 +472,14 @@ export interface BuildSharedLibraryResult {
   message?: string;
 }
 
-export declare function emitCHeader(checked: CheckResult, options?: CCodegenOptions): string;
+export declare function emitCHeader(
+  checked: CheckResult,
+  options?: { optLevel?: 0 | 1 | 2 | 3; overflowMode?: "unchecked" | "checked" }
+): string;
 export declare function emitCSource(checked: CheckResult, options: EmitCSourceOptions): string;
 export declare function emitCFiles(checked: CheckResult, options: EmitCFilesOptions): void;
 export declare function buildSharedLibrary(checked: CheckResult, options: BuildSharedLibraryOptions): BuildSharedLibraryResult;
-export declare function sharedLibraryOutputPath(outputPath: string, platform: BuildPlatform): string;
+export declare function sharedLibraryOutputPath(outputPath: string, platform: CKHostPlatform): string;
 
 export interface CKWasmArenaOptions {
   heapBase?: number;

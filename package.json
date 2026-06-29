@@ -30,6 +30,7 @@
     "postpack": "node scripts/cleanup-npm-package.mjs",
     "test": "cargo test",
     "verify:cutover-evidence": "node scripts/verify-npm-cutover-evidence.mjs",
+    "verify:declaration-parity": "node scripts/verify-declaration-parity.mjs",
     "verify:host-npm-install": "node scripts/verify-host-npm-install.mjs",
     "verify:npm-release": "node scripts/verify-npm-release.mjs",
     "verify:public-api-parity": "node scripts/verify-public-api-parity.mjs",

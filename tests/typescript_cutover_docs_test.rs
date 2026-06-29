@@ -34,6 +34,7 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
         r#"expectIncludes(npmRelease, "verify:publish-result", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "registry replacement status", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

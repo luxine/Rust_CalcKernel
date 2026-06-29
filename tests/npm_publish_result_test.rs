@@ -62,6 +62,12 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"registryStatus\": \"ok\""),
+        "publish result verifier should report successful registry replacement status\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -112,6 +118,54 @@ fn publish_result_verifier_should_reject_registry_integrity_mismatch() {
     );
 }
 
+#[test]
+fn publish_result_verifier_should_reject_failed_registry_replacement_status() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-registry-status");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", "sha512-test"),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json_with_status("failed", "calckernel-0.8.0.tgz", "sha512-test"),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "failed registry replacement status should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("registry replacement status"),
+        "failure should identify registry replacement status\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball: &str) -> String {
     format!(
         r#"{{
@@ -137,9 +191,13 @@ fn npm_publish_json(filename: &str, integrity: &str) -> String {
 }
 
 fn registry_replacement_json(tarball: &str, integrity: &str) -> String {
+    registry_replacement_json_with_status("ok", tarball, integrity)
+}
+
+fn registry_replacement_json_with_status(status: &str, tarball: &str, integrity: &str) -> String {
     format!(
         r#"{{
-  "status": "ok",
+  "status": "{status}",
   "package": "calckernel",
   "version": "0.8.0",
   "tarball": "https://registry.npmjs.org/calckernel/-/{tarball}",

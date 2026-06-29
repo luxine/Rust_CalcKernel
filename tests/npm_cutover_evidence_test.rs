@@ -61,6 +61,12 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"registryStatus\": \"ok\""),
+        "cutover evidence verifier should report successful registry replacement status\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -163,6 +169,7 @@ fn publish_result_json() -> &'static str {
   "package": "calckernel",
   "version": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz",
+  "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
   "integrity": "sha512-test"
 }"#

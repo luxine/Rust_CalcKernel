@@ -79,6 +79,7 @@ expectIncludes(npmRelease, "verify:publish-artifact", "npm release docs");
 expectIncludes(npmRelease, "verify:publish-result", "npm release docs");
 expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs");
 expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
+expectIncludes(npmRelease, "registry replacement status", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff-summary", "npm release docs");

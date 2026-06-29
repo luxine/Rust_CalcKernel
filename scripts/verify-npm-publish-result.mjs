@@ -24,6 +24,7 @@ expectEqual(publish.name, manifest.packageName, "publish package name");
 expectEqual(publish.version, manifest.packageVersion, "publish package version");
 expectEqual(publish.id, `${manifest.packageName}@${manifest.packageVersion}`, "publish id");
 expectEqual(publish.filename, manifest.tarball, "publish tarball filename");
+expectEqual(registry.status, "ok", "registry replacement status");
 expectEqual(registry.package, manifest.packageName, "registry package name");
 expectEqual(registry.version, manifest.packageVersion, "registry package version");
 expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
@@ -53,6 +54,7 @@ console.log(JSON.stringify({
   package: manifest.packageName,
   version: manifest.packageVersion,
   tarball: manifest.tarball,
+  registryStatus: registry.status,
   registryTarball: registry.tarball,
   integrity: registry.integrity
 }, null, 2));

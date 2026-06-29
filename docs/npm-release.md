@@ -158,7 +158,8 @@ The workflow runs these stages:
    and `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
    `verify:publish-result` to bind `release-manifest.json`,
    `npm publish --json`, and the registry verifier output to the same package,
-   version, tarball filename, and npm integrity. Finally, it runs
+   version, tarball filename, npm integrity, and successful
+   registry replacement status. Finally, it runs
    `verify:cutover-evidence` to bind the release manifest, six-platform
    sign-off summary, pre-publish artifact verifier output, and post-publish
    result verifier output into one final evidence JSON.
@@ -275,8 +276,9 @@ equivalent workflow artifact paths, then pass
 `npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest.json', 'utf8')).packageVersion")"`
 after publication, and then
 pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
-npm-registry-replacement.json` so the manifest, publish result, and registry
-metadata all prove the same npm artifact. The final downloaded evidence set
+npm-registry-replacement.json` so the manifest, publish result, registry
+replacement status, and registry metadata all prove the same npm artifact.
+The final downloaded evidence set
 should also pass `npm run verify:cutover-evidence -- release-manifest.json
 release-signoff.json npm-publish-artifact.json npm-publish-result.json`.
 The TypeScript checkout remains read-only source material during the rewrite;
@@ -333,3 +335,6 @@ workflow 在发布前会先运行 registry replacement verifier 的测试，避�
 `npm run verify:registry-replacement -- <manifest packageVersion>`，从 npm
 registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`types`、
 `exports` 和 `ckc` bin 路径，而不是旧 TypeScript `dist/` 路径。
+`verify:publish-result` 会同时要求 registry replacement status 为 `ok`，
+并把 npm publish JSON、registry metadata 和 release manifest 绑定到同一个
+package、version、tarball 和 integrity。

@@ -51,6 +51,7 @@ console.log(JSON.stringify({
   tarballSha256: manifest.tarballSha256,
   targetCount: signoff.targetCount,
   targets: signoff.targets,
+  registryStatus: publishResult.registryStatus,
   integrity: publishResult.integrity,
   evidence: {
     manifest: manifestPath,
@@ -102,6 +103,7 @@ function validatePublishResult(value, manifest) {
   expectEqual(value.package, manifest.packageName, "publish result package");
   expectEqual(value.version, manifest.packageVersion, "publish result version");
   expectEqual(value.tarball, manifest.tarball, "publish result tarball");
+  expectEqual(value.registryStatus, "ok", "publish result registryStatus");
   if (typeof value.registryTarball !== "string" || !value.registryTarball.endsWith(`/${manifest.packageName}/-/${manifest.tarball}`)) {
     fail(
       `publish result registryTarball must end with /${manifest.packageName}/-/${manifest.tarball}, ` +

@@ -15,6 +15,16 @@ const TARGETS: [&str; 6] = [
 ];
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const REQUIRED_COMMANDS: [&str; 8] = [
+    "ckc --help",
+    "ckc check smoke.ck",
+    "ckc emit-mir smoke.ck -o build/smoke.mir",
+    "ckc emit-c smoke.ck -o build/smoke.c",
+    "ckc emit-wat smoke.ck -o build/smoke.wat",
+    "ckc emit-wasm smoke.ck -o build/smoke.wasm",
+    "ckc emit-llvm smoke.ck -o build/smoke.ll",
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
+];
 
 #[test]
 fn release_signoff_verifier_should_reject_missing_target_smoke() {
@@ -54,6 +64,55 @@ fn release_signoff_verifier_should_reject_missing_target_smoke() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("missing platform sign-off for win32-x64"),
         "missing target failure should identify win32-x64\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_verifier_should_reject_missing_build_llvm_smoke() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-missing-build-llvm");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    let commands_without_build_llvm = REQUIRED_COMMANDS
+        .iter()
+        .copied()
+        .filter(|command| !command.starts_with("ckc build-llvm "))
+        .collect::<Vec<_>>();
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_with_commands(target, &commands_without_build_llvm),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing build-llvm signoff should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("ckc build-llvm smoke.ck --kind object -o build/smoke.o"),
+        "missing build-llvm failure should identify the required command\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -114,6 +173,15 @@ fn release_manifest_json() -> String {
 }
 
 fn signoff_json(target: &str) -> String {
+    signoff_json_with_commands(target, &REQUIRED_COMMANDS)
+}
+
+fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
+    let commands_json = commands
+        .iter()
+        .map(|command| format!("    {command:?}"))
+        .collect::<Vec<_>>()
+        .join(",\n");
     format!(
         r#"{{
   "package": "calckernel",
@@ -121,13 +189,7 @@ fn signoff_json(target: &str) -> String {
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{TARBALL_SHA256}",
   "commands": [
-    "ckc --help",
-    "ckc check smoke.ck",
-    "ckc emit-mir smoke.ck -o build/smoke.mir",
-    "ckc emit-c smoke.ck -o build/smoke.c",
-    "ckc emit-wat smoke.ck -o build/smoke.wat",
-    "ckc emit-wasm smoke.ck -o build/smoke.wasm",
-    "ckc emit-llvm smoke.ck -o build/smoke.ll"
+{commands_json}
   ],
   "apiSymbols": [
     "SourceFile",

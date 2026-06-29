@@ -138,7 +138,8 @@ function requiredCommands() {
     "ckc emit-c smoke.ck -o build/smoke.c",
     "ckc emit-wat smoke.ck -o build/smoke.wat",
     "ckc emit-wasm smoke.ck -o build/smoke.wasm",
-    "ckc emit-llvm smoke.ck -o build/smoke.ll"
+    "ckc emit-llvm smoke.ck -o build/smoke.ll",
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o"
   ];
 }
 

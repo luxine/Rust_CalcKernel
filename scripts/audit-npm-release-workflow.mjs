@@ -53,10 +53,12 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
+  expectIncludes(workflow, "--test typescript_test_surface_audit_test", "TypeScript test surface audit test gate");
   expectIncludes(workflow, "--test npm_declaration_parity_test", "declaration parity test gate");
   expectIncludes(workflow, "--test npm_public_api_parity_test", "public API parity test gate");
   expectIncludes(workflow, "--test npm_publish_artifact_test", "publish artifact verifier test gate");
   expectIncludes(workflow, "--test npm_registry_replacement_test", "registry replacement verifier test gate");
+  expectIncludes(workflow, "node scripts/audit-typescript-test-surface.mjs", "TypeScript test surface audit command");
   expectIncludes(workflow, "node scripts/verify-declaration-parity.mjs", "declaration parity verifier command");
   expectIncludes(workflow, "node scripts/verify-public-api-parity.mjs", "public API parity verifier command");
   expectIncludes(workflow, "scripts/audit-rust-replacement-readiness.mjs", "readiness audit");

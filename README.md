@@ -79,11 +79,13 @@ TypeScript 到 Rust 的模块映射见 `docs/architecture-review.md` /
 - npm package surface，覆盖 `calckernel`/Cargo `0.8.0` version alignment、唯一 `ckc` bin、Node wrapper 调用 Rust `ckc`、root `SourceFile`/`TokenKind`/`lex`/`parse`/`check`/type-checker helpers/`Scope`/`SymbolTable`/C backend API/diagnostic formatter/`CKWasmArena/createCKWasmArena` export、`lex` 与 TS oracle 的 token/diagnostic parity、`parse` 与 TS oracle 的 AST/diagnostic parity、`check` 与 TS oracle 的 checked-program/helper/diagnostic parity、root C header/source/files/build helper 与 TS oracle parity、平台二进制矩阵、`build:npm-matrix` 全矩阵构建/staging、`build:npm-matrix --expect-complete` 全矩阵 staging 门禁、正式 tarball package metadata、strict file-surface manifest、binary file mode/architecture/format/size/SHA256 校验和额外文件拒绝、TS 兼容的 `CKWasmArena` 错误/heap/memory.grow/typed-array 边界、生成 WASM f64 helper interop、`npm pack --dry-run --ignore-scripts` 文件面，以及真实 tarball fresh-install 后通过 `node_modules/.bin/ckc` 启动随包 Rust 二进制。
 - checked WASM/LLVM rejection、invalid flag、usage errors、legacy `.ik` rejection、缺失输入文件 `ENOENT`、目录输入 `EISDIR`、非法 UTF-8 replacement 解码、UTF-16 code unit 风格的 Unicode 诊断位置/marker/public lexer token offset、direct/atomic 输出写入错误，以及父目录创建 `EEXIST`/`ENOTDIR` 错误、TS 兼容的未知 command/flag、延迟语义 flag 校验和参数错误优先级行为。
 - TS oracle fixture coverage audit：只读枚举 TS checkout 的 `examples`、`bench/perf/fixtures`、`tests/fixtures` `.ck` 输入，要求现有 examples/perf fixtures 在 MIR/C/WASM/LLVM backend oracle 测试中横向覆盖。
+- TS oracle test-surface audit：只读枚举 TS checkout 的 `tests/**/*.test.ts`，要求每个原始测试文件在 `docs/typescript-test-surface.json` 中有显式 Rust 迁移映射。
 
 运行验证：
 
 ```sh
 npm run verify:typescript-oracle
+npm run audit:typescript-test-surface
 cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
@@ -93,7 +95,8 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 
 这不是最终完成声明。当前 Rust 实现已经有较强的 TS oracle 覆盖，会先验证
 TS oracle CLI 可用，并且会自动审计 TS checkout 现有 `.ck` fixture 是否进入
-Rust 横向 backend oracle 测试；完整替换还需要继续签核：
+Rust 横向 backend oracle 测试，以及 TS oracle 的每个 `.test.ts` 文件是否有
+显式 Rust 迁移映射；完整替换还需要继续签核：
 
 - npm 多平台二进制产物在真实目标平台的实际签核、`verify:release-signoff` 汇总验收和版本号发布面。
 - 最终发布切换必须由 Rust package 自身的 release checklist、release verifier、sign-off verifier 和

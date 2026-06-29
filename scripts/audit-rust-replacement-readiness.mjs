@@ -28,6 +28,7 @@ expectJson(
 expectNoDependencyFields(packageJson, "Rust package");
 expectEqual(packageJson.scripts?.["build:npm-matrix"], "node scripts/build-npm-binary-matrix.mjs", "binary matrix script");
 expectEqual(packageJson.scripts?.["audit:release-workflow"], "node scripts/audit-npm-release-workflow.mjs", "release workflow audit script");
+expectEqual(packageJson.scripts?.["audit:typescript-test-surface"], "node scripts/audit-typescript-test-surface.mjs", "TypeScript test surface audit script");
 expectEqual(packageJson.scripts?.["verify:host-npm-install"], "node scripts/verify-host-npm-install.mjs", "host install verifier script");
 expectEqual(packageJson.scripts?.["verify:npm-release"], "node scripts/verify-npm-release.mjs", "release verifier script");
 expectEqual(packageJson.scripts?.["verify:declaration-parity"], "node scripts/verify-declaration-parity.mjs", "declaration parity verifier script");
@@ -46,6 +47,7 @@ for (const path of [
   "npm/platform.js",
   "scripts/build-npm-binary-matrix.mjs",
   "scripts/audit-npm-release-workflow.mjs",
+  "scripts/audit-typescript-test-surface.mjs",
   "scripts/audit-typescript-oracle-fixtures.mjs",
   "scripts/verify-host-npm-install.mjs",
   "scripts/verify-npm-release.mjs",
@@ -57,6 +59,7 @@ for (const path of [
   "scripts/verify-npm-registry-replacement.mjs",
   "scripts/verify-npm-release-signoff.mjs",
   "scripts/verify-typescript-oracle.mjs",
+  "docs/typescript-test-surface.json",
   "docs/npm-release.md",
   "docs/architecture-review.md",
   "docs/zh-CN/architecture-review.md"

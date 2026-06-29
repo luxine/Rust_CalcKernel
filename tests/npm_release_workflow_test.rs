@@ -79,6 +79,21 @@ fn npm_release_workflow_should_test_declaration_parity_before_release() {
 }
 
 #[test]
+fn npm_release_workflow_should_audit_typescript_test_surface_before_release() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("--test typescript_test_surface_audit_test"),
+        "release workflow must test TypeScript test surface audit before release"
+    );
+    assert!(
+        workflow.contains("node scripts/audit-typescript-test-surface.mjs"),
+        "release workflow must run TypeScript test surface audit before release"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_publish_result_after_registry_replacement() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

@@ -194,7 +194,9 @@ Current oracle-covered CLI surfaces:
   `npm/platform.js` target matrix,
   `docs/npm-release.md` release/migration checklist, all-target
   `CKC_NPM_BINARIES_DIR` staging coverage, formal tarball manifest/SHA256
-  verification, and `npm pack --dry-run --ignore-scripts` file coverage.
+  verification, TypeScript test-surface migration mapping for every current
+  `tests/**/*.test.ts` file in the oracle checkout, and
+  `npm pack --dry-run --ignore-scripts` file coverage.
 - npm `CKWasmArena` helper boundary behavior, including TS-compatible repair
   hints for invalid memory, heap base, allocation, alignment, pointer, length,
   memory.grow, and typed-array input errors; heap-base precedence; view refresh
@@ -255,7 +257,7 @@ cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-At this point the suite has 94 Rust tests. This is substantial coverage but not
+At this point the suite has 138 Rust tests. This is substantial coverage but not
 completion of the full replacement objective; broader generated-output/runtime
 parity fixtures plus real target-platform npm binary sign-off runs are still
 required.

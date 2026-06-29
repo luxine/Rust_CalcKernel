@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "audit:release-workflow": "node scripts/audit-npm-release-workflow.mjs",
+    "audit:typescript-test-surface": "node scripts/audit-typescript-test-surface.mjs",
     "build": "cargo build --release",
     "build:npm-matrix": "node scripts/build-npm-binary-matrix.mjs",
     "ckc": "node npm/ckc.js",

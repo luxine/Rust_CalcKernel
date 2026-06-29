@@ -76,6 +76,23 @@ fn rust_replacement_readiness_audit_should_require_declaration_parity_verifier()
     }
 }
 
+#[test]
+fn rust_replacement_readiness_audit_should_require_typescript_test_surface_audit() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"packageJson.scripts?.["audit:typescript-test-surface"]"#,
+        "scripts/audit-typescript-test-surface.mjs",
+        "docs/typescript-test-surface.json",
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

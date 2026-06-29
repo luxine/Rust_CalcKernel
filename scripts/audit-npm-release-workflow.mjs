@@ -33,6 +33,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
+  expectIncludes(workflow, "--test npm_registry_replacement_test", "registry replacement verifier test gate");
   expectIncludes(workflow, "scripts/audit-rust-replacement-readiness.mjs", "readiness audit");
   expectIncludes(workflow, "scripts/audit-npm-release-workflow.mjs", "workflow self-audit");
   expectIncludes(workflow, "npm run build:npm-matrix -- --target", "matrix build command");

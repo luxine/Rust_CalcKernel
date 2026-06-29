@@ -31,7 +31,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
-      - run: cargo test --test npm_host_install_smoke_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
+      - run: cargo test --test npm_host_install_smoke_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
       - run: node scripts/audit-rust-replacement-readiness.mjs
       - run: node scripts/audit-npm-release-workflow.mjs
 

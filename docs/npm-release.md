@@ -107,8 +107,8 @@ the executable release path for producing a formal multi-platform artifact. It
 can be started with `workflow_dispatch` and runs these stages:
 
 1. Verify release scripts with `cargo fmt --check`, `cargo clippy`, package
-   release tests, `audit-rust-replacement-readiness`, and
-   `audit-npm-release-workflow`.
+   release tests including the registry replacement verifier test,
+   `audit-rust-replacement-readiness`, and `audit-npm-release-workflow`.
 2. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
 3. Download all binaries into `build/npm-binaries`, pack once with
@@ -241,6 +241,8 @@ API symbol 缺失和 TypeScript declaration smoke 未通过的签核文件。
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
 同一个 tarball。默认 `publish=false` 只生成 artifact 和 sign-off evidence，
 不会发布。
+workflow 在发布前会先运行 registry replacement verifier 的测试，避免
+`publish=true` 之后才发现 registry metadata 检查脚本本身失效。
 发布后 workflow 会运行 `npm run verify:registry-replacement -- <version>`，
 从 npm registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`types`、
 `exports` 和 `ckc` bin 路径，而不是旧 TypeScript `dist/` 路径。

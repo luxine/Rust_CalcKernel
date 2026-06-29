@@ -31,7 +31,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
-      - run: cargo test --test npm_host_install_smoke_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
+      - run: cargo test --test npm_host_install_smoke_test --test npm_publish_artifact_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
       - run: node scripts/audit-rust-replacement-readiness.mjs
       - run: node scripts/audit-npm-release-workflow.mjs
 
@@ -205,9 +205,14 @@ jobs:
           path: dist
       - uses: actions/download-artifact@v4
         with:
+          name: release-manifest
+          path: release-manifest
+      - uses: actions/download-artifact@v4
+        with:
           name: release-signoff
           path: release
       - run: test -s release/release-signoff.json
+      - run: npm run verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json
       - run: |
           TARBALL="$(ls dist/*.tgz | head -n 1)"
           npm publish "${TARBALL}" --provenance --access public --json > npm-publish.json
@@ -218,6 +223,7 @@ jobs:
         with:
           name: npm-publish
           path: |
+            npm-publish-artifact.json
             npm-publish.json
             npm-registry-replacement.json
           if-no-files-found: error

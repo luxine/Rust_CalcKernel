@@ -144,13 +144,16 @@ these gates are true in the current checkout:
 10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow still builds, packs, platform-smokes,
    and final-signs the six-target npm matrix.
-11. Registry replacement is executed only through the workflow's gated
+11. `npm run verify:publish-artifact -- <release-manifest.json> <dist-dir>`
+   passes in the publish job before `npm publish`, proving the tarball SHA256
+   still matches the signed-off release manifest.
+12. Registry replacement is executed only through the workflow's gated
    `publish=true` path, which requires `NPM_TOKEN`, the `npm-production`
    environment, and `npm publish --provenance --access public` after sign-off.
-12. `npm run verify:registry-replacement -- <version>` passes after publish,
+13. `npm run verify:registry-replacement -- <version>` passes after publish,
    proving the npm registry metadata points at Rust `npm/` entrypoints and not
    stale TypeScript `dist/` entrypoints.
-13. The Rust replacement package carries its own release checklist and
+14. The Rust replacement package carries its own release checklist and
    verification scripts without requiring edits to the TypeScript checkout.
 
 ## Current Boundary

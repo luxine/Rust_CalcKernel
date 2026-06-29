@@ -122,8 +122,10 @@ can be started with `workflow_dispatch` and runs these stages:
 6. When publication is intentionally approved, rerun or dispatch the workflow
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
-   (`npm publish --provenance --access public`) before the signed-off tarball is
-   uploaded to the npm registry. After publish, it runs
+   (`npm publish --provenance --access public`). Before publishing, it runs
+   `verify:publish-artifact` against `release-manifest.json` and `dist/` to
+   prove the tarball SHA256 still matches the signed-off release manifest. After
+   publish, it runs
    `verify:registry-replacement` against npm registry metadata to confirm the
    published package exposes the Rust package `main`, `types`, `exports`, and
    `ckc` bin paths rather than stale TypeScript `dist/` paths.
@@ -212,8 +214,10 @@ Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
 Rust package's own release, sign-off, and compatibility oracle verifiers pass.
 Actual registry replacement requires the workflow's gated `publish=true` path
-to publish the signed-off tarball with `NPM_TOKEN` and npm provenance, followed
-by `npm run verify:registry-replacement -- <version>`.
+to publish the signed-off tarball with `NPM_TOKEN` and npm provenance. That job
+must first pass `npm run verify:publish-artifact -- release-manifest.json dist`
+or the equivalent workflow artifact paths, then pass
+`npm run verify:registry-replacement -- <version>` after publication.
 The TypeScript checkout remains read-only source material during the rewrite;
 this package does not require changes to the original TypeScript repository.
 
@@ -253,8 +257,9 @@ API symbol 缺失和 TypeScript declaration smoke 未通过的签核文件。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
-同一个 tarball。默认 `publish=false` 只生成 artifact 和 sign-off evidence，
-不会发布。
+同一个 tarball。发布前必须运行 `verify:publish-artifact`，用
+`release-manifest.json` 校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核
+manifest。默认 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
 workflow 在发布前会先运行 registry replacement verifier 的测试，避免
 `publish=true` 之后才发现 registry metadata 检查脚本本身失效。
 发布后 workflow 会运行 `npm run verify:registry-replacement -- <version>`，

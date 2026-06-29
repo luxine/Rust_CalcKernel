@@ -37,6 +37,34 @@ fn npm_release_workflow_should_test_registry_replacement_verifier_before_publish
     );
 }
 
+#[test]
+fn npm_release_workflow_should_test_publish_artifact_verifier_before_publish() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("--test npm_publish_artifact_test"),
+        "release workflow must test publish artifact verifier before publish"
+    );
+}
+
+#[test]
+fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("name: release-manifest") && workflow.contains("path: release-manifest"),
+        "publish job must download the release manifest before npm publish"
+    );
+    assert!(
+        workflow.contains(
+            "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist"
+        ),
+        "publish job must verify the tarball SHA256 against release-manifest.json before npm publish"
+    );
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

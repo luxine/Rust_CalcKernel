@@ -27,12 +27,17 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");
   expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
   expectIncludes(workflow, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm token secret");
+  expectIncludes(workflow, "name: release-manifest", "publish release manifest artifact");
+  expectIncludes(workflow, "path: release-manifest", "publish release manifest path");
+  expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
+  expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");
   expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
   expectIncludes(workflow, "npm run verify:registry-replacement", "post-publish registry verifier command");
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
+  expectIncludes(workflow, "--test npm_publish_artifact_test", "publish artifact verifier test gate");
   expectIncludes(workflow, "--test npm_registry_replacement_test", "registry replacement verifier test gate");
   expectIncludes(workflow, "scripts/audit-rust-replacement-readiness.mjs", "readiness audit");
   expectIncludes(workflow, "scripts/audit-npm-release-workflow.mjs", "workflow self-audit");

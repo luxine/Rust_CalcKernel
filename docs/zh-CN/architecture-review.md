@@ -135,13 +135,16 @@ JavaScript compatibility surface。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 仍会构建、打包、平台 smoke，并最终签核
    六目标 npm matrix。
-11. registry 替换只能通过 workflow 里 gated `publish=true` 路径执行；它要求
+11. publish job 在 `npm publish` 前必须通过
+   `npm run verify:publish-artifact -- <release-manifest.json> <dist-dir>`，
+   证明即将发布的 tarball SHA256 仍然匹配已签核的 release manifest。
+12. registry 替换只能通过 workflow 里 gated `publish=true` 路径执行；它要求
    `NPM_TOKEN`、`npm-production` environment，并在 sign-off 后使用
    `npm publish --provenance --access public`。
-12. 发布后 `npm run verify:registry-replacement -- <version>` 通过，证明 npm
+13. 发布后 `npm run verify:registry-replacement -- <version>` 通过，证明 npm
    registry metadata 指向 Rust `npm/` entrypoints，而不是旧 TypeScript `dist/`
    entrypoints。
-13. Rust replacement package 自带 release checklist 和 verification scripts，
+14. Rust replacement package 自带 release checklist 和 verification scripts，
    不要求修改 TypeScript checkout。
 
 ## 当前边界

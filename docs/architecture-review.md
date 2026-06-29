@@ -117,37 +117,40 @@ published JavaScript compatibility surface.
 The Rust implementation should be considered a replacement candidate only when
 these gates are true in the current checkout:
 
-1. `cargo test` passes with TypeScript oracle tests enabled.
-2. `cargo fmt --check` and
+1. `npm run verify:typescript-oracle` passes, proving the read-only TypeScript
+   oracle checkout and `dist/src/cli.js` are present before local parity tests
+   are trusted.
+2. `cargo test` passes with TypeScript oracle tests enabled.
+3. `cargo fmt --check` and
    `cargo clippy --all-targets --all-features --locked -- -D warnings` pass.
-3. The TypeScript oracle fixture coverage audit passes, proving every current
+4. The TypeScript oracle fixture coverage audit passes, proving every current
    `examples` and `bench/perf/fixtures` `.ck` input is present in MIR, C, WASM,
    and LLVM backend oracle tests.
-4. `npm run verify:host-npm-install` passes with `CKC_BIN` unset and
+5. `npm run verify:host-npm-install` passes with `CKC_BIN` unset and
    `typeSmoke: "passed"`.
-5. A formal release tarball is built with all binaries from `npm/platform.js`
+6. A formal release tarball is built with all binaries from `npm/platform.js`
    staged by `npm run build:npm-matrix`, checked with
    `build:npm-matrix --expect-complete`, and packed through
    `CKC_NPM_BINARIES_DIR`.
-6. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
+7. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
    Rust package metadata, binary file mode, binary architecture, binary format,
    binary size, binary SHA256s, and strict file-surface manifest data.
-7. Each supported target platform fresh-installs the same tarball with scripts
+8. Each supported target platform fresh-installs the same tarball with scripts
    disabled and runs packaged `node_modules/.bin/ckc`, not a local checkout
    fallback.
-8. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
+9. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same tarball SHA256.
-9. `npm run audit:release-workflow` passes, proving the checked-in
+10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow still builds, packs, platform-smokes,
    and final-signs the six-target npm matrix.
-10. Registry replacement is executed only through the workflow's gated
+11. Registry replacement is executed only through the workflow's gated
    `publish=true` path, which requires `NPM_TOKEN`, the `npm-production`
    environment, and `npm publish --provenance --access public` after sign-off.
-11. `npm run verify:registry-replacement -- <version>` passes after publish,
+12. `npm run verify:registry-replacement -- <version>` passes after publish,
    proving the npm registry metadata points at Rust `npm/` entrypoints and not
    stale TypeScript `dist/` entrypoints.
-12. The Rust replacement package carries its own release checklist and
+13. The Rust replacement package carries its own release checklist and
    verification scripts without requiring edits to the TypeScript checkout.
 
 ## Current Boundary

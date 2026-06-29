@@ -64,6 +64,8 @@ TypeScript 到 Rust 的模块映射见 `docs/architecture-review.md` /
 ## 兼容性验证
 
 当前测试会直接调用 TS oracle `/Users/lynn/code/CalcKernel/dist/src/cli.js`，对比 Rust `ckc` 的 stdout、stderr、退出码和生成文件。
+先运行 `npm run verify:typescript-oracle`，确认只读 TS oracle checkout 和
+`dist/src/cli.js` 存在且可启动，避免本地 parity 证据来自被跳过的 oracle 测试。
 
 已覆盖的主要横向面：
 
@@ -81,6 +83,7 @@ TypeScript 到 Rust 的模块映射见 `docs/architecture-review.md` /
 运行验证：
 
 ```sh
+npm run verify:typescript-oracle
 cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
@@ -88,8 +91,9 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 
 ## 当前边界
 
-这不是最终完成声明。当前 Rust 实现已经有较强的 TS oracle 覆盖，并且会自动审计
-TS checkout 现有 `.ck` fixture 是否进入 Rust 横向 backend oracle 测试；完整替换还需要继续签核：
+这不是最终完成声明。当前 Rust 实现已经有较强的 TS oracle 覆盖，会先验证
+TS oracle CLI 可用，并且会自动审计 TS checkout 现有 `.ck` fixture 是否进入
+Rust 横向 backend oracle 测试；完整替换还需要继续签核：
 
 - npm 多平台二进制产物在真实目标平台的实际签核、`verify:release-signoff` 汇总验收和版本号发布面。
 - 最终发布切换必须由 Rust package 自身的 release checklist、release verifier、sign-off verifier 和

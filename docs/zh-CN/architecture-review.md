@@ -110,36 +110,38 @@ JavaScript compatibility surface。
 
 只有当前 checkout 满足以下条件时，Rust 实现才应被视为 replacement candidate：
 
-1. `cargo test` 在 TypeScript oracle tests 启用时通过。
-2. `cargo fmt --check` 和
+1. `npm run verify:typescript-oracle` 通过，证明只读 TypeScript oracle
+   checkout 和 `dist/src/cli.js` 存在，然后才能信任本地 parity tests。
+2. `cargo test` 在 TypeScript oracle tests 启用时通过。
+3. `cargo fmt --check` 和
    `cargo clippy --all-targets --all-features --locked -- -D warnings` 通过。
-3. TypeScript oracle fixture coverage audit 通过，证明当前 `examples` 和
+4. TypeScript oracle fixture coverage audit 通过，证明当前 `examples` 和
    `bench/perf/fixtures` 的 `.ck` 输入都已经进入 MIR、C、WASM、LLVM
    backend oracle 测试。
-4. `npm run verify:host-npm-install` 在 `CKC_BIN` unset 且
+5. `npm run verify:host-npm-install` 在 `CKC_BIN` unset 且
    `typeSmoke: "passed"` 的情况下通过。
-5. 正式 release tarball 使用 `npm run build:npm-matrix` staging
+6. 正式 release tarball 使用 `npm run build:npm-matrix` staging
    `npm/platform.js` 里的全部二进制，通过
    `build:npm-matrix --expect-complete` 检查完整性，并通过
    `CKC_NPM_BINARIES_DIR` 打包。
-6. `npm run verify:npm-release -- <tarball>` 通过，并记录 tarball SHA256、
+7. `npm run verify:npm-release -- <tarball>` 通过，并记录 tarball SHA256、
    Rust package metadata、每个 binary 的 file mode、architecture、格式、大小、
    SHA256 和 strict file-surface manifest 数据。
-7. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
+8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
    `node_modules/.bin/ckc`，不能依赖本地 checkout fallback。
-8. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
+9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
    tarball SHA256。
-9. `npm run audit:release-workflow` 通过，证明 checked-in
+10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 仍会构建、打包、平台 smoke，并最终签核
    六目标 npm matrix。
-10. registry 替换只能通过 workflow 里 gated `publish=true` 路径执行；它要求
+11. registry 替换只能通过 workflow 里 gated `publish=true` 路径执行；它要求
    `NPM_TOKEN`、`npm-production` environment，并在 sign-off 后使用
    `npm publish --provenance --access public`。
-11. 发布后 `npm run verify:registry-replacement -- <version>` 通过，证明 npm
+12. 发布后 `npm run verify:registry-replacement -- <version>` 通过，证明 npm
    registry metadata 指向 Rust `npm/` entrypoints，而不是旧 TypeScript `dist/`
    entrypoints。
-12. Rust replacement package 自带 release checklist 和 verification scripts，
+13. Rust replacement package 自带 release checklist 和 verification scripts，
    不要求修改 TypeScript checkout。
 
 ## 当前边界

@@ -32,6 +32,7 @@ expectEqual(packageJson.scripts?.["verify:host-npm-install"], "node scripts/veri
 expectEqual(packageJson.scripts?.["verify:npm-release"], "node scripts/verify-npm-release.mjs", "release verifier script");
 expectEqual(packageJson.scripts?.["verify:registry-replacement"], "node scripts/verify-npm-registry-replacement.mjs", "registry replacement verifier script");
 expectEqual(packageJson.scripts?.["verify:release-signoff"], "node scripts/verify-npm-release-signoff.mjs", "release sign-off verifier script");
+expectEqual(packageJson.scripts?.["verify:typescript-oracle"], "node scripts/verify-typescript-oracle.mjs", "TypeScript oracle verifier script");
 
 for (const path of [
   "npm/ckc.js",
@@ -45,6 +46,7 @@ for (const path of [
   "scripts/verify-npm-release.mjs",
   "scripts/verify-npm-registry-replacement.mjs",
   "scripts/verify-npm-release-signoff.mjs",
+  "scripts/verify-typescript-oracle.mjs",
   "docs/npm-release.md",
   "docs/architecture-review.md",
   "docs/zh-CN/architecture-review.md"
@@ -59,6 +61,7 @@ expectIncludes(npmRelease, "verify:npm-release", "npm release docs");
 expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
+expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
 expectIncludes(npmRelease, "audit:release-workflow", "npm release docs");
 expectIncludes(npmRelease, "publish=true", "npm release docs");
 expectIncludes(npmRelease, "NPM_TOKEN", "npm release docs");

@@ -131,7 +131,10 @@ can be started with `workflow_dispatch` and runs these stages:
    `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
    `verify:publish-result` to bind `release-manifest.json`,
    `npm publish --json`, and the registry verifier output to the same package,
-   version, tarball filename, and npm integrity.
+   version, tarball filename, and npm integrity. Finally, it runs
+   `verify:cutover-evidence` to bind the release manifest, six-platform
+   sign-off summary, pre-publish artifact verifier output, and post-publish
+   result verifier output into one final evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -187,7 +190,9 @@ names, mismatched tarball SHA256s, `CKC_BIN` overrides, missing backend smoke
 commands, missing `build-llvm --kind object` smoke evidence, missing public API
 symbols, and TypeScript declaration smoke failures.
 Record the release manifest and the final sign-off verifier output in the
-release notes.
+release notes. After publication, also archive `npm-cutover-evidence.json`;
+it proves the signed tarball, platform sign-offs, pre-publish artifact check,
+and registry publish result all refer to the same replacement package version.
 
 ## TypeScript Package Migration
 
@@ -223,7 +228,9 @@ or the equivalent workflow artifact paths, then pass
 `npm run verify:registry-replacement -- <version>` after publication, and then
 pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
 npm-registry-replacement.json` so the manifest, publish result, and registry
-metadata all prove the same npm artifact.
+metadata all prove the same npm artifact. The final downloaded evidence set
+should also pass `npm run verify:cutover-evidence -- release-manifest.json
+release-signoff.json npm-publish-artifact.json npm-publish-result.json`.
 The TypeScript checkout remains read-only source material during the rewrite;
 this package does not require changes to the original TypeScript repository.
 

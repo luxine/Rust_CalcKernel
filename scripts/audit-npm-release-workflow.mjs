@@ -37,12 +37,19 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "npm run verify:registry-replacement", "post-publish registry verifier command");
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
   expectIncludes(workflow, "--test npm_publish_result_test", "publish result verifier test gate");
+  expectIncludes(workflow, "--test npm_cutover_evidence_test", "cutover evidence verifier test gate");
   expectIncludes(
     workflow,
     "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
     "post-publish result verifier command"
   );
   expectIncludes(workflow, "npm-publish-result.json", "post-publish result verifier artifact");
+  expectIncludes(
+    workflow,
+    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
+    "final cutover evidence verifier command"
+  );
+  expectIncludes(workflow, "npm-cutover-evidence.json", "final cutover evidence verifier artifact");
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");

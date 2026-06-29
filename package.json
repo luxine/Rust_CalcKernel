@@ -29,6 +29,7 @@
     "prepack": "cargo build --release --quiet && node scripts/prepare-npm-package.mjs",
     "postpack": "node scripts/cleanup-npm-package.mjs",
     "test": "cargo test",
+    "verify:cutover-evidence": "node scripts/verify-npm-cutover-evidence.mjs",
     "verify:host-npm-install": "node scripts/verify-host-npm-install.mjs",
     "verify:npm-release": "node scripts/verify-npm-release.mjs",
     "verify:publish-artifact": "node scripts/verify-npm-publish-artifact.mjs",

@@ -70,6 +70,27 @@ fn npm_release_workflow_should_verify_publish_result_after_registry_replacement(
 }
 
 #[test]
+fn npm_release_workflow_should_verify_final_cutover_evidence_after_publish() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("--test npm_cutover_evidence_test"),
+        "release workflow must test final cutover evidence verifier before publish"
+    );
+    assert!(
+        workflow.contains(
+            "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json"
+        ),
+        "publish job must verify the final cutover evidence bundle"
+    );
+    assert!(
+        workflow.contains("npm-cutover-evidence.json"),
+        "publish job must upload final cutover evidence output"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

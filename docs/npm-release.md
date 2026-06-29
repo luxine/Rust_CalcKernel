@@ -123,7 +123,10 @@ can be started with `workflow_dispatch` and runs these stages:
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
    (`npm publish --provenance --access public`) before the signed-off tarball is
-   uploaded to the npm registry.
+   uploaded to the npm registry. After publish, it runs
+   `verify:registry-replacement` against npm registry metadata to confirm the
+   published package exposes the Rust package `main`, `types`, `exports`, and
+   `ckc` bin paths rather than stale TypeScript `dist/` paths.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -198,7 +201,8 @@ Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
 Rust package's own release, sign-off, and compatibility oracle verifiers pass.
 Actual registry replacement requires the workflow's gated `publish=true` path
-to publish the signed-off tarball with `NPM_TOKEN` and npm provenance.
+to publish the signed-off tarball with `NPM_TOKEN` and npm provenance, followed
+by `npm run verify:registry-replacement -- <version>`.
 The TypeScript checkout remains read-only source material during the rewrite;
 this package does not require changes to the original TypeScript repository.
 
@@ -236,3 +240,6 @@ backend smoke 命令缺失、公开 API symbol 缺失和 TypeScript declaration 
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
 同一个 tarball。默认 `publish=false` 只生成 artifact 和 sign-off evidence，
 不会发布。
+发布后 workflow 会运行 `npm run verify:registry-replacement -- <version>`，
+从 npm registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`types`、
+`exports` 和 `ckc` bin 路径，而不是旧 TypeScript `dist/` 路径。

@@ -213,8 +213,11 @@ jobs:
           npm publish "${TARBALL}" --provenance --access public --json > npm-publish.json
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm run verify:registry-replacement -- "$(node -p "require('./package.json').version")" > npm-registry-replacement.json
       - uses: actions/upload-artifact@v4
         with:
           name: npm-publish
-          path: npm-publish.json
+          path: |
+            npm-publish.json
+            npm-registry-replacement.json
           if-no-files-found: error

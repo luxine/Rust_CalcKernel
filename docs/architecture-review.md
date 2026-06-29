@@ -144,7 +144,10 @@ these gates are true in the current checkout:
 10. Registry replacement is executed only through the workflow's gated
    `publish=true` path, which requires `NPM_TOKEN`, the `npm-production`
    environment, and `npm publish --provenance --access public` after sign-off.
-11. The Rust replacement package carries its own release checklist and
+11. `npm run verify:registry-replacement -- <version>` passes after publish,
+   proving the npm registry metadata points at Rust `npm/` entrypoints and not
+   stale TypeScript `dist/` entrypoints.
+12. The Rust replacement package carries its own release checklist and
    verification scripts without requiring edits to the TypeScript checkout.
 
 ## Current Boundary

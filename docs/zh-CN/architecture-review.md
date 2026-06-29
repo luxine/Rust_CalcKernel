@@ -136,7 +136,10 @@ JavaScript compatibility surface。
 10. registry 替换只能通过 workflow 里 gated `publish=true` 路径执行；它要求
    `NPM_TOKEN`、`npm-production` environment，并在 sign-off 后使用
    `npm publish --provenance --access public`。
-11. Rust replacement package 自带 release checklist 和 verification scripts，
+11. 发布后 `npm run verify:registry-replacement -- <version>` 通过，证明 npm
+   registry metadata 指向 Rust `npm/` entrypoints，而不是旧 TypeScript `dist/`
+   entrypoints。
+12. Rust replacement package 自带 release checklist 和 verification scripts，
    不要求修改 TypeScript checkout。
 
 ## 当前边界

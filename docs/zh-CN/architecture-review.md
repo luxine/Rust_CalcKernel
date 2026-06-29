@@ -124,7 +124,8 @@ JavaScript compatibility surface。
    本地 TypeScript checkout。
 6. 正式 release tarball 使用 `npm run build:npm-matrix` staging
    `npm/platform.js` 里的全部二进制，通过
-   `build:npm-matrix --expect-complete` 检查完整性，并通过
+   `build:npm-matrix --expect-complete` 或
+   `build:npm-matrix --verify-staged --expect-complete` 检查完整性，并通过
    `CKC_NPM_BINARIES_DIR` 打包。
 7. `npm run verify:npm-release -- <tarball>` 通过，并记录 tarball SHA256、
    Rust package metadata、每个 binary 的 file mode、architecture、格式、大小、

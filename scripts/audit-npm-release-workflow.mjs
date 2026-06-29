@@ -76,6 +76,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "scripts/audit-rust-replacement-readiness.mjs", "readiness audit");
   expectIncludes(workflow, "scripts/audit-npm-release-workflow.mjs", "workflow self-audit");
   expectIncludes(workflow, "npm run build:npm-matrix -- --target", "matrix build command");
+  expectIncludes(workflow, "npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries", "staged binary matrix verifier command");
   expectIncludes(workflow, "CKC_NPM_BINARIES_DIR=build/npm-binaries", "matrix pack environment");
   expectIncludes(workflow, "npm run verify:npm-release", "release verifier command");
   expectIncludes(workflow, "npm run verify:host-npm-install", "host install verifier command");

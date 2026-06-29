@@ -19,50 +19,87 @@ const selectedTargets = args.targets.length > 0
   ? args.targets.map((name) => targetByName(name))
   : SUPPORTED_CKC_BINARY_TARGETS;
 
+if (args.verifyStaged && args.clean) {
+  fail("--verify-staged cannot be combined with --clean");
+}
+
 if (args.clean) {
   rmSync(outputDir, { recursive: true, force: true });
 }
 mkdirSync(outputDir, { recursive: true });
 
-const targets = selectedTargets.map((target) => {
-  if (!args.skipBuild) {
-    runCargoBuild(args.cargo, target);
-  }
+if (args.verifyStaged && args.expectComplete) {
+  requireCompleteStaging(outputDir);
+}
 
-  const sourcePath = join(cargoTargetDir, target.rustTarget, "release", target.platform === "win32" ? "ckc.exe" : "ckc");
-  if (!existsSync(sourcePath)) {
-    fail(`Missing ${target.name} binary at ${sourcePath}`);
-  }
+const targets = args.verifyStaged
+  ? verifyStagedBinaries(outputDir, selectedTargets)
+  : stageTargetBinaries(selectedTargets);
 
-  const binaryPath = join(outputDir, binaryNameForTarget(target.name));
-  copyFileSync(sourcePath, binaryPath);
-  if (target.platform !== "win32") {
-    chmodSync(binaryPath, 0o755);
-  }
-
-  const binaryBytes = readFileSync(binaryPath);
-  return {
-    name: target.name,
-    rustTarget: target.rustTarget,
-    sourcePath,
-    binaryPath,
-    fileMode: modeString(statSync(binaryPath).mode),
-    sizeBytes: binaryBytes.length,
-    sha256: sha256(binaryBytes)
-  };
-});
-
-if (args.expectComplete) {
-  const missingTargets = missingStagedTargets(outputDir);
-  if (missingTargets.length > 0) {
-    fail(
-      `missing staged targets in ${outputDir}: ` +
-        missingTargets.map((target) => `${target.name} (${binaryNameForTarget(target.name)})`).join(", ")
-    );
-  }
+if (!args.verifyStaged && args.expectComplete) {
+  requireCompleteStaging(outputDir);
 }
 
 console.log(JSON.stringify({ outputDir, targets }, null, 2));
+
+function stageTargetBinaries(targets) {
+  return targets.map((target) => {
+    if (!args.skipBuild) {
+      runCargoBuild(args.cargo, target);
+    }
+
+    const sourcePath = join(cargoTargetDir, target.rustTarget, "release", target.platform === "win32" ? "ckc.exe" : "ckc");
+    if (!existsSync(sourcePath)) {
+      fail(`Missing ${target.name} binary at ${sourcePath}`);
+    }
+
+    const binaryPath = join(outputDir, binaryNameForTarget(target.name));
+    copyFileSync(sourcePath, binaryPath);
+    if (target.platform !== "win32") {
+      chmodSync(binaryPath, 0o755);
+    }
+
+    const binaryBytes = readFileSync(binaryPath);
+    return {
+      name: target.name,
+      rustTarget: target.rustTarget,
+      sourcePath,
+      binaryPath,
+      fileMode: modeString(statSync(binaryPath).mode),
+      sizeBytes: binaryBytes.length,
+      sha256: sha256(binaryBytes)
+    };
+  });
+}
+
+function verifyStagedBinaries(stagedDir, targets) {
+  return targets.map((target) => {
+    const binaryPath = join(stagedDir, binaryNameForTarget(target.name));
+    if (!existsSync(binaryPath)) {
+      fail(`Missing ${target.name} staged binary at ${binaryPath}`);
+    }
+    const stats = statSync(binaryPath);
+    if (!stats.isFile()) {
+      fail(`${target.name} staged binary is not a file: ${binaryPath}`);
+    }
+    if (target.platform !== "win32" && (stats.mode & 0o100) === 0) {
+      fail(`${target.name} staged binary must be executable: ${binaryPath}`);
+    }
+    const binaryBytes = readFileSync(binaryPath);
+    if (binaryBytes.length === 0) {
+      fail(`${target.name} staged binary is empty: ${binaryPath}`);
+    }
+    return {
+      name: target.name,
+      rustTarget: target.rustTarget,
+      sourcePath: binaryPath,
+      binaryPath,
+      fileMode: modeString(stats.mode),
+      sizeBytes: binaryBytes.length,
+      sha256: sha256(binaryBytes)
+    };
+  });
+}
 
 function parseArgs(argv) {
   const parsed = {
@@ -72,7 +109,8 @@ function parseArgs(argv) {
     expectComplete: false,
     out: undefined,
     skipBuild: false,
-    targets: []
+    targets: [],
+    verifyStaged: false
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -83,6 +121,10 @@ function parseArgs(argv) {
     }
     if (arg === "--skip-build") {
       parsed.skipBuild = true;
+      continue;
+    }
+    if (arg === "--verify-staged") {
+      parsed.verifyStaged = true;
       continue;
     }
     if (arg === "--clean") {
@@ -158,6 +200,16 @@ function missingStagedTargets(stagedDir) {
   });
 }
 
+function requireCompleteStaging(stagedDir) {
+  const missingTargets = missingStagedTargets(stagedDir);
+  if (missingTargets.length > 0) {
+    fail(
+      `missing staged targets in ${stagedDir}: ` +
+        missingTargets.map((target) => `${target.name} (${binaryNameForTarget(target.name)})`).join(", ")
+    );
+  }
+}
+
 function printUsage() {
   console.log(
     [
@@ -171,6 +223,7 @@ function printUsage() {
       "  --clean                    Remove the output directory before staging.",
       "  --expect-complete          Fail unless the output directory contains every supported target.",
       "  --skip-build               Stage existing target binaries without running cargo build.",
+      "  --verify-staged            Validate files already present in --out without building or copying.",
       "",
       `Supported targets: ${supportedTargetNames().join(", ")}`
     ].join("\n")

@@ -123,6 +123,7 @@ jobs:
           path: build/npm-binaries
           merge-multiple: true
       - run: ls -la build/npm-binaries
+      - run: npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries
       - run: mkdir -p dist
       - run: CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack --json --pack-destination dist > pack.json
       - run: |

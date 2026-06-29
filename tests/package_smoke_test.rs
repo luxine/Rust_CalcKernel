@@ -486,6 +486,19 @@ try {
     assert.match(incompleteMatrix.stderr, new RegExp(platformApi.binaryNameForTarget(targetName).replace(".", "\\.")));
   }
 
+  const incompleteStagedVerify = spawnSync(process.execPath, [
+    "scripts/build-npm-binary-matrix.mjs",
+    "--verify-staged",
+    "--expect-complete",
+    "--out",
+    stagedBinaryRoot
+  ], {
+    cwd: root,
+    encoding: "utf8"
+  });
+  assert.notEqual(incompleteStagedVerify.status, 0, incompleteStagedVerify.stdout);
+  assert.match(incompleteStagedVerify.stderr, /missing staged targets/);
+
   const stageMatrix = spawnSync(process.execPath, [
     "scripts/build-npm-binary-matrix.mjs",
     "--clean",
@@ -514,6 +527,20 @@ try {
     assert.equal(stagedTarget.sizeBytes, binaryStubForTarget(target).length);
     assert.match(stagedTarget.sha256, /^[0-9a-f]{64}$/);
   }
+
+  const verifiedStagedMatrix = spawnSync(process.execPath, [
+    "scripts/build-npm-binary-matrix.mjs",
+    "--verify-staged",
+    "--expect-complete",
+    "--out",
+    stagedBinaryRoot
+  ], {
+    cwd: root,
+    encoding: "utf8"
+  });
+  assert.equal(verifiedStagedMatrix.status, 0, verifiedStagedMatrix.stderr || verifiedStagedMatrix.stdout);
+  const verifiedStagedManifest = JSON.parse(verifiedStagedMatrix.stdout);
+  assert.deepEqual(verifiedStagedManifest.targets.map((target) => target.name).sort(), platformApi.supportedTargetNames().sort());
 
   const prepareMatrix = spawnSync(process.execPath, ["scripts/prepare-npm-package.mjs"], {
     cwd: root,

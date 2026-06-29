@@ -99,6 +99,7 @@ once the merged staging directory is supposed to be complete.
 After all six files are staged, pack once:
 
 ```sh
+npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries
 CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack --json
 npm run verify:npm-release -- calckernel-0.8.0.tgz > release-manifest.json
 ```
@@ -126,8 +127,9 @@ The workflow runs these stages:
 3. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
 4. Download all binaries into `build/npm-binaries`, pack once with
-   `CKC_NPM_BINARIES_DIR`, and write `release-manifest.json` with
-   `verify:npm-release`.
+   `CKC_NPM_BINARIES_DIR`, but first run
+   `build:npm-matrix --verify-staged --expect-complete` against the downloaded
+   directory. Then write `release-manifest.json` with `verify:npm-release`.
 5. Download the same tarball on every target platform, run
    `verify:host-npm-install` with `CKC_BIN` unset; the verifier prepares
    `typescript@^5.8.0` in the temporary consumer when needed so the TypeScript
@@ -165,6 +167,7 @@ cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
 npm run build:npm-matrix -- --target <npm-target>
 npm run build:npm-matrix -- --skip-build --expect-complete --cargo-target-dir target --out build/npm-binaries
+npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries
 CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack --json
 npm run verify:npm-release -- calckernel-0.8.0.tgz > release-manifest.json
 npm run verify:host-npm-install -- calckernel-0.8.0.tgz > signoffs/<npm-target>.json

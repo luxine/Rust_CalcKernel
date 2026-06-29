@@ -166,6 +166,24 @@ fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_verify_staged_binary_matrix_before_pack() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    let verify_index = workflow
+        .find("npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries")
+        .expect("workflow should verify staged npm binaries before pack");
+    let pack_index = workflow
+        .find("CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack")
+        .expect("workflow should pack staged npm binaries");
+
+    assert!(
+        verify_index < pack_index,
+        "workflow must verify the downloaded binary matrix before npm pack"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_publish_the_manifest_tarball() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

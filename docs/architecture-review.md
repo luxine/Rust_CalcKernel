@@ -132,7 +132,8 @@ these gates are true in the current checkout:
    sign-offs do not depend on the developer-local TypeScript checkout.
 6. A formal release tarball is built with all binaries from `npm/platform.js`
    staged by `npm run build:npm-matrix`, checked with
-   `build:npm-matrix --expect-complete`, and packed through
+   `build:npm-matrix --expect-complete` or
+   `build:npm-matrix --verify-staged --expect-complete`, and packed through
    `CKC_NPM_BINARIES_DIR`.
 7. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
    Rust package metadata, binary file mode, binary architecture, binary format,

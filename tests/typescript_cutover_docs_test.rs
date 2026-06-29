@@ -1,3 +1,4 @@
+use std::fs;
 use std::process::Command;
 
 #[test]
@@ -18,6 +19,27 @@ fn rust_replacement_readiness_audit_should_not_require_typescript_checkout_edits
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifiers() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"packageJson.scripts?.["verify:publish-result"]"#,
+        r#"packageJson.scripts?.["verify:cutover-evidence"]"#,
+        "scripts/verify-npm-publish-result.mjs",
+        "scripts/verify-npm-cutover-evidence.mjs",
+        r#"expectIncludes(npmRelease, "verify:publish-result", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
 }
 
 fn node_available() -> bool {

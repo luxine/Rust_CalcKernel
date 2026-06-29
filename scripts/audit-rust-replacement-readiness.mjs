@@ -31,6 +31,8 @@ expectEqual(packageJson.scripts?.["audit:release-workflow"], "node scripts/audit
 expectEqual(packageJson.scripts?.["verify:host-npm-install"], "node scripts/verify-host-npm-install.mjs", "host install verifier script");
 expectEqual(packageJson.scripts?.["verify:npm-release"], "node scripts/verify-npm-release.mjs", "release verifier script");
 expectEqual(packageJson.scripts?.["verify:publish-artifact"], "node scripts/verify-npm-publish-artifact.mjs", "publish artifact verifier script");
+expectEqual(packageJson.scripts?.["verify:publish-result"], "node scripts/verify-npm-publish-result.mjs", "publish result verifier script");
+expectEqual(packageJson.scripts?.["verify:cutover-evidence"], "node scripts/verify-npm-cutover-evidence.mjs", "cutover evidence verifier script");
 expectEqual(packageJson.scripts?.["verify:registry-replacement"], "node scripts/verify-npm-registry-replacement.mjs", "registry replacement verifier script");
 expectEqual(packageJson.scripts?.["verify:release-signoff"], "node scripts/verify-npm-release-signoff.mjs", "release sign-off verifier script");
 expectEqual(packageJson.scripts?.["verify:typescript-oracle"], "node scripts/verify-typescript-oracle.mjs", "TypeScript oracle verifier script");
@@ -46,6 +48,8 @@ for (const path of [
   "scripts/verify-host-npm-install.mjs",
   "scripts/verify-npm-release.mjs",
   "scripts/verify-npm-publish-artifact.mjs",
+  "scripts/verify-npm-publish-result.mjs",
+  "scripts/verify-npm-cutover-evidence.mjs",
   "scripts/verify-npm-registry-replacement.mjs",
   "scripts/verify-npm-release-signoff.mjs",
   "scripts/verify-typescript-oracle.mjs",
@@ -61,11 +65,14 @@ expectIncludes(npmRelease, "CKC_NPM_BINARIES_DIR", "npm release docs");
 expectIncludes(npmRelease, "--expect-complete", "npm release docs");
 expectIncludes(npmRelease, "verify:npm-release", "npm release docs");
 expectIncludes(npmRelease, "verify:publish-artifact", "npm release docs");
+expectIncludes(npmRelease, "verify:publish-result", "npm release docs");
+expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs");
 expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
 expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
 expectIncludes(npmRelease, "audit:release-workflow", "npm release docs");
+expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs");
 expectIncludes(npmRelease, "publish=true", "npm release docs");
 expectIncludes(npmRelease, "NPM_TOKEN", "npm release docs");
 

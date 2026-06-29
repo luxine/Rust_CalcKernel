@@ -22,6 +22,17 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "publish:", "publish workflow input");
   expectIncludes(workflow, "type: boolean", "boolean publish input");
   expectIncludes(workflow, "default: false", "publish default");
+  expectIncludes(workflow, "typescript_oracle_repository:", "TypeScript oracle repository input");
+  expectIncludes(workflow, "default: \"luxine/CalcKernel\"", "TypeScript oracle default repository");
+  expectIncludes(workflow, "typescript_oracle_ref:", "TypeScript oracle ref input");
+  expectIncludes(workflow, "CALCKERNEL_TS_ROOT: ${{ github.workspace }}/typescript-oracle", "TypeScript oracle root env");
+  expectIncludes(workflow, "repository: ${{ inputs.typescript_oracle_repository }}", "TypeScript oracle checkout repository");
+  expectIncludes(workflow, "ref: ${{ inputs.typescript_oracle_ref }}", "TypeScript oracle checkout ref");
+  expectIncludes(workflow, "path: typescript-oracle", "TypeScript oracle checkout path");
+  expectIncludes(workflow, "corepack enable", "TypeScript oracle package manager setup");
+  expectIncludes(workflow, "pnpm install --frozen-lockfile", "TypeScript oracle dependency install");
+  expectIncludes(workflow, "pnpm build", "TypeScript oracle build");
+  expectIncludes(workflow, "npm run verify:typescript-oracle", "TypeScript oracle readiness gate");
   expectIncludes(workflow, "if: ${{ inputs.publish }}", "publish job guard");
   expectIncludes(workflow, "environment: npm-production", "publish environment");
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");

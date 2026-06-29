@@ -70,6 +70,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = process.cwd();
+const tsRoot = process.env.CALCKERNEL_TS_ROOT ?? "/Users/lynn/code/CalcKernel";
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const cargoToml = readFileSync(join(root, "Cargo.toml"), "utf8");
 
@@ -131,7 +132,7 @@ assert.equal(
 );
 assert.equal(publicApi.formatDiagnostics(diagnosticSource, [diagnostic]), publicApi.formatDiagnostic(diagnosticSource, diagnostic));
 
-const tsIndexPath = "/Users/lynn/code/CalcKernel/dist/src/index.js";
+const tsIndexPath = join(tsRoot, "dist", "src", "index.js");
 assert(existsSync(tsIndexPath), `${tsIndexPath} is required for package API oracle coverage`);
 const tsApi = await import(pathToFileURL(tsIndexPath));
 for (const [fileName, text] of [

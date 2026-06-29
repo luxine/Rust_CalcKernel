@@ -166,7 +166,7 @@ fn llvm_backend_should_match_typescript_oracle_for_official_examples() {
     ];
 
     for example in examples {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source = typescript_root().join(example);
 
         let ts_output = Command::new("node")
             .arg(&ts_cli)
@@ -208,7 +208,7 @@ fn llvm_backend_should_match_typescript_oracle_for_f64_edge_fixture() {
     let Some(ts_cli) = typescript_cli() else {
         return;
     };
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/tests/fixtures/f64_edges.ck");
+    let source = typescript_root().join("tests/fixtures/f64_edges.ck");
     let target = "ck-test-target";
 
     let ts_output = Command::new("node")
@@ -252,7 +252,7 @@ fn llvm_backend_should_match_typescript_oracle_for_perf_f64_kernels_at_o3() {
     let Some(ts_cli) = typescript_cli() else {
         return;
     };
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/bench/perf/fixtures/f64_kernels.ck");
+    let source = typescript_root().join("bench/perf/fixtures/f64_kernels.ck");
     let target = "ck-test-target";
 
     let ts_output = Command::new("node")
@@ -295,7 +295,7 @@ fn llvm_cli_should_match_typescript_oracle_for_default_target_detection() {
     let Some(ts_cli) = typescript_cli() else {
         return;
     };
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/scalar.ck");
+    let source = typescript_root().join("examples/scalar.ck");
 
     let ts_output = Command::new("node")
         .arg(ts_cli)
@@ -344,7 +344,7 @@ fn build_llvm_should_match_typescript_oracle_without_default_target_detection() 
     let rust_dir = dir.join("rust");
     fs::create_dir_all(&ts_dir).expect("create TS output dir");
     fs::create_dir_all(&rust_dir).expect("create Rust output dir");
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/scalar.ck");
+    let source = typescript_root().join("examples/scalar.ck");
     let ts_object = ts_dir.join("scalar.o");
     let rust_object = rust_dir.join("scalar.o");
 
@@ -406,7 +406,7 @@ fn build_llvm_object_should_match_typescript_oracle_for_pricing_runtime_behavior
     let harness_path = dir.join("pricing_harness.c");
     fs::write(&harness_path, pricing_llvm_object_harness()).expect("write pricing harness");
 
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/pricing.ck");
+    let source = typescript_root().join("examples/pricing.ck");
     let ts_object = ts_dir.join("pricing.o");
     let rust_object = rust_dir.join("pricing.o");
 
@@ -480,7 +480,7 @@ fn build_llvm_object_should_match_typescript_oracle_for_official_e2e_runtime_beh
     ];
 
     for (case_name, example) in cases {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source = typescript_root().join(example);
         let harness_path = dir.join(format!("{case_name}.c"));
         fs::write(&harness_path, official_llvm_object_harness(case_name))
             .expect("write official LLVM harness");
@@ -548,7 +548,7 @@ fn build_llvm_object_should_match_typescript_oracle_for_perf_f64_kernels_runtime
     fs::create_dir_all(&ts_dir).expect("create TS output dir");
     fs::create_dir_all(&rust_dir).expect("create Rust output dir");
     let case_name = "llvm-perf-f64-kernels";
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/bench/perf/fixtures/f64_kernels.ck");
+    let source = typescript_root().join("bench/perf/fixtures/f64_kernels.ck");
     let harness_path = dir.join("perf_f64_kernels.c");
     fs::write(&harness_path, official_llvm_object_harness(case_name))
         .expect("write perf f64 LLVM harness");
@@ -622,7 +622,7 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_pricing_runtime_behavio
     let runner = dir.join("run_pricing_llvm_dynamic.py");
     fs::write(&runner, pricing_llvm_dynamic_runner()).expect("write dynamic runner");
 
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/pricing.ck");
+    let source = typescript_root().join("examples/pricing.ck");
     let ts_base = ts_dir.join("pricing_llvm_dynamic");
     let rust_base = rust_dir.join("pricing_llvm_dynamic");
 
@@ -696,7 +696,7 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_official_e2e_runtime_be
     ];
 
     for (case_name, example) in cases {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source = typescript_root().join(example);
         let ts_base = ts_dir.join(case_name);
         let rust_base = rust_dir.join(case_name);
 
@@ -763,7 +763,7 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_perf_f64_kernels_runtim
     let runner = dir.join("run_perf_f64_llvm_dynamic.py");
     fs::write(&runner, official_llvm_dynamic_runner()).expect("write perf dynamic runner");
     let case_name = "llvm-perf-f64-kernels";
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/bench/perf/fixtures/f64_kernels.ck");
+    let source = typescript_root().join("bench/perf/fixtures/f64_kernels.ck");
     let ts_base = ts_dir.join(case_name);
     let rust_base = rust_dir.join(case_name);
 
@@ -816,11 +816,14 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_perf_f64_kernels_runtim
 }
 
 fn typescript_cli() -> Option<PathBuf> {
-    let root = std::env::var_os("CALCKERNEL_TS_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"));
-    let cli = root.join("dist/src/cli.js");
+    let cli = typescript_root().join("dist/src/cli.js");
     cli.exists().then_some(cli)
+}
+
+fn typescript_root() -> PathBuf {
+    std::env::var_os("CALCKERNEL_TS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"))
 }
 
 fn clang_available() -> bool {

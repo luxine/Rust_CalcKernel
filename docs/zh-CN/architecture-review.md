@@ -133,7 +133,9 @@ JavaScript compatibility surface。
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
    tarball SHA256。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
-   `workflow_dispatch` release workflow 仍会构建、打包、平台 smoke，并最终签核
+   `workflow_dispatch` release workflow 会通过 `typescript_oracle_repository` /
+   `typescript_oracle_ref` checkout 并构建只读 TypeScript oracle，为 parity
+   tests 设置 `CALCKERNEL_TS_ROOT`，然后构建、打包、平台 smoke，并最终签核
    六目标 npm matrix。
 11. publish job 在 `npm publish` 前必须通过
    `npm run verify:publish-artifact -- <release-manifest.json> <dist-dir>`，

@@ -290,7 +290,7 @@ fn c_backend_should_match_typescript_oracle_for_official_examples() {
     ];
 
     for (index, example) in examples.iter().enumerate() {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source = typescript_root().join(example);
         let ts_out = ts_dir.join(format!("case_{index}")).join("out.c");
         let rust_out = rust_dir.join(format!("case_{index}")).join("out.c");
 
@@ -369,7 +369,7 @@ fn c_backend_should_match_typescript_oracle_for_perf_fixtures_at_benchmark_opt_l
     ];
 
     for (case_name, fixture, opt_level) in cases {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(fixture);
+        let source = typescript_root().join(fixture);
         let output_dir = dir.join(case_name);
         fs::create_dir_all(&output_dir).expect("create case temp dir");
         let out = output_dir.join("out.c");
@@ -440,9 +440,12 @@ fn c_backend_should_match_typescript_oracle_for_perf_fixtures_at_benchmark_opt_l
 }
 
 fn typescript_cli() -> Option<PathBuf> {
-    let root = std::env::var_os("CALCKERNEL_TS_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"));
-    let cli = root.join("dist/src/cli.js");
+    let cli = typescript_root().join("dist/src/cli.js");
     cli.exists().then_some(cli)
+}
+
+fn typescript_root() -> PathBuf {
+    std::env::var_os("CALCKERNEL_TS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"))
 }

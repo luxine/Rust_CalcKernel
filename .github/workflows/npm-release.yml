@@ -8,6 +8,16 @@ on:
         required: true
         default: false
         type: boolean
+      typescript_oracle_repository:
+        description: "GitHub repository for the read-only TypeScript CalcKernel oracle"
+        required: true
+        default: "luxine/CalcKernel"
+        type: string
+      typescript_oracle_ref:
+        description: "Git ref for the TypeScript CalcKernel oracle"
+        required: true
+        default: "main"
+        type: string
 
 permissions:
   contents: read
@@ -23,11 +33,25 @@ env:
 jobs:
   verify-release-scripts:
     runs-on: ubuntu-24.04
+    env:
+      CALCKERNEL_TS_ROOT: ${{ github.workspace }}/typescript-oracle
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.typescript_oracle_repository }}
+          ref: ${{ inputs.typescript_oracle_ref }}
+          path: typescript-oracle
+          token: ${{ secrets.TYPESCRIPT_ORACLE_TOKEN || github.token }}
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+        working-directory: typescript-oracle
+      - run: pnpm build
+        working-directory: typescript-oracle
+      - run: npm run verify:typescript-oracle
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings

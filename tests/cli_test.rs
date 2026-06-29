@@ -376,7 +376,7 @@ fn build_should_match_typescript_oracle_for_generated_c_header_and_stdout() {
         .as_nanos();
     let dir = std::env::temp_dir().join(format!("rust_calckernel_build_oracle_{unique}"));
     fs::create_dir_all(&dir).expect("create temp dir");
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/scalar.ck");
+    let source = typescript_root().join("examples/scalar.ck");
 
     for overflow in ["unchecked", "checked"] {
         let output_base = dir.join(format!("libscalar_{overflow}"));
@@ -427,7 +427,7 @@ fn build_should_match_typescript_oracle_for_pricing_dynamic_library_runtime_beha
     fs::create_dir_all(&dir).expect("create temp dir");
     let runner = dir.join("run_pricing_dynamic.py");
     fs::write(&runner, pricing_dynamic_library_runner()).expect("write dynamic library runner");
-    let source = PathBuf::from("/Users/lynn/code/CalcKernel/examples/pricing.ck");
+    let source = typescript_root().join("examples/pricing.ck");
 
     for overflow in ["unchecked", "checked"] {
         let ts_base = dir.join(format!("ts_pricing_{overflow}"));
@@ -521,7 +521,7 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
     ];
 
     for (case_name, overflow, example) in cases {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source = typescript_root().join(example);
         let ts_base = dir.join(format!("ts_{case_name}"));
         let rust_base = dir.join(format!("rust_{case_name}"));
         let ts_args = vec![
@@ -627,7 +627,7 @@ fn build_should_match_typescript_oracle_for_perf_c_dynamic_library_runtime_behav
     ];
 
     for (case_name, fixture, opt_level) in cases {
-        let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(fixture);
+        let source = typescript_root().join(fixture);
         let ts_base = dir.join(format!("ts_{case_name}"));
         let rust_base = dir.join(format!("rust_{case_name}"));
         let ts_args = vec![
@@ -1488,11 +1488,14 @@ fn normalize_atomic_temp_paths(text: &str) -> String {
 }
 
 fn typescript_cli() -> Option<PathBuf> {
-    let root = std::env::var_os("CALCKERNEL_TS_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"));
-    let cli = root.join("dist/src/cli.js");
+    let cli = typescript_root().join("dist/src/cli.js");
     cli.exists().then_some(cli)
+}
+
+fn typescript_root() -> PathBuf {
+    std::env::var_os("CALCKERNEL_TS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"))
 }
 
 fn run_rust_cli(args: &[OsString]) -> CapturedOutput {

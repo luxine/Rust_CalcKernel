@@ -104,24 +104,33 @@ npm run verify:npm-release -- calckernel-0.8.0.tgz > release-manifest.json
 
 The checked-in GitHub Actions workflow `.github/workflows/npm-release.yml` is
 the executable release path for producing a formal multi-platform artifact. It
-can be started with `workflow_dispatch` and runs these stages:
+can be started with `workflow_dispatch`. The dispatch inputs include the npm
+`publish` switch plus `typescript_oracle_repository` and `typescript_oracle_ref`
+for the read-only TypeScript compatibility oracle. The default oracle repository
+is `luxine/CalcKernel`; if that repository is private or cross-org, configure
+`TYPESCRIPT_ORACLE_TOKEN` with read access.
 
-1. Verify release scripts with `cargo fmt --check`, `cargo clippy`, full
+The workflow runs these stages:
+
+1. Checkout and build the TypeScript oracle with `pnpm install --frozen-lockfile`
+   and `pnpm build`, set `CALCKERNEL_TS_ROOT` to that checkout, and run
+   `verify:typescript-oracle`.
+2. Verify release scripts with `cargo fmt --check`, `cargo clippy`, full
    `cargo test`, package release tests including the registry replacement
    verifier test, `audit-rust-replacement-readiness`,
    `audit:typescript-test-surface`, `verify:declaration-parity`,
    `verify:public-api-parity`, and `audit-npm-release-workflow`.
-2. Build the six npm targets from `npm/platform.js` on their matching runners
+3. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
-3. Download all binaries into `build/npm-binaries`, pack once with
+4. Download all binaries into `build/npm-binaries`, pack once with
    `CKC_NPM_BINARIES_DIR`, and write `release-manifest.json` with
    `verify:npm-release`.
-4. Download the same tarball on every target platform, run
+5. Download the same tarball on every target platform, run
    `verify:host-npm-install` with `CKC_BIN` unset, and upload
    `signoffs/<npm-target>.json`.
-5. Download all signoffs and run `verify:release-signoff` to prove that every
+6. Download all signoffs and run `verify:release-signoff` to prove that every
    supported platform installed the same tarball SHA256.
-6. When publication is intentionally approved, rerun or dispatch the workflow
+7. When publication is intentionally approved, rerun or dispatch the workflow
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
    (`npm publish --provenance --access public`). Before publishing, it runs

@@ -142,8 +142,10 @@ these gates are true in the current checkout:
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same tarball SHA256.
 10. `npm run audit:release-workflow` passes, proving the checked-in
-   `workflow_dispatch` release workflow still builds, packs, platform-smokes,
-   and final-signs the six-target npm matrix.
+   `workflow_dispatch` release workflow checks out and builds the read-only
+   TypeScript oracle through `typescript_oracle_repository` /
+   `typescript_oracle_ref`, sets `CALCKERNEL_TS_ROOT` for parity tests, then
+   builds, packs, platform-smokes, and final-signs the six-target npm matrix.
 11. `npm run verify:publish-artifact -- <release-manifest.json> <dist-dir>`
    passes in the publish job before `npm publish`, proving the tarball SHA256
    still matches the signed-off release manifest.

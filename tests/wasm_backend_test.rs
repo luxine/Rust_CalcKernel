@@ -126,7 +126,7 @@ fn wat_backend_should_match_typescript_oracle_for_official_examples() {
     ];
 
     for example in examples {
-        let source_path = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source_path = typescript_root().join(example);
         let source_text = std::fs::read_to_string(&source_path).expect("read TS WAT example");
         let rust_wat = emit_wat(&source_text, 0);
         let ts_output = Command::new("node")
@@ -190,7 +190,7 @@ fn wasm_cli_should_match_typescript_oracle_for_official_example_bytes() {
     ];
 
     for (index, example) in examples.iter().enumerate() {
-        let source_path = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source_path = typescript_root().join(example);
         let wasm_path = dir.join(format!("example_{index}.wasm"));
 
         let ts_output = Command::new("node")
@@ -261,7 +261,7 @@ fn wasm_cli_should_match_typescript_oracle_for_official_interop_runtime_behavior
     ];
 
     for (case_name, example) in cases {
-        let source_path = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+        let source_path = typescript_root().join(example);
         let ts_wasm = dir.join(format!("{case_name}.ts.wasm"));
         let rust_wasm = dir.join(format!("{case_name}.rust.wasm"));
 
@@ -357,7 +357,7 @@ fn wasm_cli_should_match_typescript_oracle_for_perf_fixture_runtime_behavior() {
     ];
 
     for (case_name, fixture) in cases {
-        let source_path = PathBuf::from("/Users/lynn/code/CalcKernel").join(fixture);
+        let source_path = typescript_root().join(fixture);
         let ts_wasm = dir.join(format!("{case_name}.ts.wasm"));
         let rust_wasm = dir.join(format!("{case_name}.rust.wasm"));
 
@@ -428,11 +428,14 @@ fn wasm_cli_should_match_typescript_oracle_for_perf_fixture_runtime_behavior() {
 }
 
 fn typescript_cli() -> Option<PathBuf> {
-    let root = std::env::var_os("CALCKERNEL_TS_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"));
-    let cli = root.join("dist/src/cli.js");
+    let cli = typescript_root().join("dist/src/cli.js");
     cli.exists().then_some(cli)
+}
+
+fn typescript_root() -> PathBuf {
+    std::env::var_os("CALCKERNEL_TS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"))
 }
 
 fn node_available() -> bool {

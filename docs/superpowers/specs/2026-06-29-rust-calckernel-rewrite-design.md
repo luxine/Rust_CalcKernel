@@ -197,6 +197,11 @@ Current oracle-covered CLI surfaces:
   verification, TypeScript test-surface migration mapping for every current
   `tests/**/*.test.ts` file in the oracle checkout, and
   `npm pack --dry-run --ignore-scripts` file coverage.
+- npm release workflow portability, including `workflow_dispatch` inputs for
+  the TypeScript oracle repository/ref, checkout/build of that oracle before
+  Rust tests, `CALCKERNEL_TS_ROOT` propagation to oracle-dependent tests and
+  parity scripts, and an audit that rejects direct local fixture-path joins in
+  Rust oracle tests.
 - npm `CKWasmArena` helper boundary behavior, including TS-compatible repair
   hints for invalid memory, heap base, allocation, alignment, pointer, length,
   memory.grow, and typed-array input errors; heap-base precedence; view refresh

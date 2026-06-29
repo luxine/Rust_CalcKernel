@@ -207,7 +207,7 @@ fn mir_cli_should_match_typescript_oracle_for_official_examples_across_opt_level
     for opt_level in 0..=3 {
         let opt_flag = format!("-O{opt_level}");
         for example in examples {
-            let source = PathBuf::from("/Users/lynn/code/CalcKernel").join(example);
+            let source = typescript_root().join(example);
 
             let ts_output = Command::new("node")
                 .arg(&ts_cli)
@@ -249,9 +249,12 @@ fn mir_cli_should_match_typescript_oracle_for_official_examples_across_opt_level
 }
 
 fn typescript_cli() -> Option<PathBuf> {
-    let root = std::env::var_os("CALCKERNEL_TS_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"));
-    let cli = root.join("dist/src/cli.js");
+    let cli = typescript_root().join("dist/src/cli.js");
     cli.exists().then_some(cli)
+}
+
+fn typescript_root() -> PathBuf {
+    std::env::var_os("CALCKERNEL_TS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/Users/lynn/code/CalcKernel"))
 }

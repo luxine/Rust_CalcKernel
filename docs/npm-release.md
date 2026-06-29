@@ -146,8 +146,10 @@ The workflow runs these stages:
    `release-signoff.json` so publication cannot start from a missing or
    mismatched six-platform sign-off summary. It also runs
    `verify:publish-artifact` against `release-manifest.json` and `dist/` to
-   prove the tarball SHA256 still matches the signed-off release manifest. After
-   publish, it runs `verify:registry-replacement` for the `packageVersion`
+   prove the tarball SHA256 still matches the signed-off release manifest and
+   that the manifest carries the formal release verifier metadata, file surface,
+   and target matrix evidence. After publish, it runs `verify:registry-replacement`
+   for the `packageVersion`
    recorded in `release-manifest.json` against npm registry metadata to confirm
    the published package exposes the Rust package `main`, `types`, `exports`,
    and `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
@@ -316,8 +318,9 @@ API symbol 缺失和 TypeScript declaration smoke 未通过的签核文件。
 同一个 tarball。发布前必须先运行 `verify:release-signoff-summary`，确认
 `release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
 SHA256 和六个平台；随后运行 `verify:publish-artifact`，用 `release-manifest.json`
-校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest。默认
-`publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
+校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest，并确认
+manifest 带有正式 release verifier 产生的 metadata、文件面和目标矩阵证据。
+默认 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
 workflow 在发布前会先运行 registry replacement verifier 的测试，避免
 `publish=true` 之后才发现 registry metadata 检查脚本本身失效。
 发布后 workflow 会从 `release-manifest.json` 读取 `packageVersion` 并运行

@@ -49,6 +49,27 @@ fn npm_release_workflow_should_test_publish_artifact_verifier_before_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_verify_publish_result_after_registry_replacement() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("--test npm_publish_result_test"),
+        "release workflow must test npm publish result verifier before publish"
+    );
+    assert!(
+        workflow.contains(
+            "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json"
+        ),
+        "publish job must verify npm publish output against release manifest and registry metadata"
+    );
+    assert!(
+        workflow.contains("npm-publish-result.json"),
+        "publish job must upload npm publish result verifier output"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

@@ -128,7 +128,10 @@ can be started with `workflow_dispatch` and runs these stages:
    publish, it runs
    `verify:registry-replacement` against npm registry metadata to confirm the
    published package exposes the Rust package `main`, `types`, `exports`, and
-   `ckc` bin paths rather than stale TypeScript `dist/` paths.
+   `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
+   `verify:publish-result` to bind `release-manifest.json`,
+   `npm publish --json`, and the registry verifier output to the same package,
+   version, tarball filename, and npm integrity.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -217,7 +220,10 @@ Actual registry replacement requires the workflow's gated `publish=true` path
 to publish the signed-off tarball with `NPM_TOKEN` and npm provenance. That job
 must first pass `npm run verify:publish-artifact -- release-manifest.json dist`
 or the equivalent workflow artifact paths, then pass
-`npm run verify:registry-replacement -- <version>` after publication.
+`npm run verify:registry-replacement -- <version>` after publication, and then
+pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
+npm-registry-replacement.json` so the manifest, publish result, and registry
+metadata all prove the same npm artifact.
 The TypeScript checkout remains read-only source material during the rewrite;
 this package does not require changes to the original TypeScript repository.
 

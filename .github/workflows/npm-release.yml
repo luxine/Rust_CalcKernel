@@ -31,7 +31,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
-      - run: cargo test --test npm_host_install_smoke_test --test npm_publish_artifact_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
+      - run: cargo test --test npm_host_install_smoke_test --test npm_publish_artifact_test --test npm_publish_result_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test
       - run: node scripts/audit-rust-replacement-readiness.mjs
       - run: node scripts/audit-npm-release-workflow.mjs
 
@@ -219,6 +219,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm run verify:registry-replacement -- "$(node -p "require('./package.json').version")" > npm-registry-replacement.json
+      - run: npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
       - uses: actions/upload-artifact@v4
         with:
           name: npm-publish
@@ -226,4 +227,5 @@ jobs:
             npm-publish-artifact.json
             npm-publish.json
             npm-registry-replacement.json
+            npm-publish-result.json
           if-no-files-found: error

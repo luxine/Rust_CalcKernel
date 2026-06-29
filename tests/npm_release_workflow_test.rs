@@ -166,6 +166,24 @@ fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_verify_release_signoff_summary_before_publish() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    let signoff_index = workflow
+        .find("npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json")
+        .expect("publish job should verify release signoff summary before npm publish");
+    let publish_index = workflow
+        .find("npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json")
+        .expect("publish job should publish the manifest tarball");
+
+    assert!(
+        signoff_index < publish_index,
+        "publish job must verify release-signoff.json against release-manifest.json before npm publish"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_staged_binary_matrix_before_pack() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

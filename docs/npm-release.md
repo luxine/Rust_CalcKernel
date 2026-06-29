@@ -142,6 +142,9 @@ The workflow runs these stages:
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
    (`npm publish --provenance --access public`). Before publishing, it runs
+   `verify:release-signoff-summary` against `release-manifest.json` and
+   `release-signoff.json` so publication cannot start from a missing or
+   mismatched six-platform sign-off summary. It also runs
    `verify:publish-artifact` against `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest. After
    publish, it runs
@@ -173,7 +176,8 @@ npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-bi
 CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack --json
 npm run verify:npm-release -- calckernel-0.8.0.tgz > release-manifest.json
 npm run verify:host-npm-install -- calckernel-0.8.0.tgz > signoffs/<npm-target>.json
-npm run verify:release-signoff -- release-manifest.json signoffs
+npm run verify:release-signoff -- release-manifest.json signoffs > release-signoff.json
+npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json
 npm pack --dry-run --json --ignore-scripts
 ```
 
@@ -216,6 +220,11 @@ Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
 it proves the signed tarball, platform sign-offs, pre-publish artifact check,
 and registry publish result all refer to the same replacement package version.
+Before `npm publish`, run
+`npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
+so the publish step is gated by the same release manifest and six-platform
+sign-off summary that the final cutover evidence will later bind to registry
+metadata.
 
 ## TypeScript Package Migration
 
@@ -253,8 +262,10 @@ binary, each target platform has passed `verify:host-npm-install`, and the
 Rust package's own release, sign-off, and compatibility oracle verifiers pass.
 Actual registry replacement requires the workflow's gated `publish=true` path
 to publish the signed-off tarball with `NPM_TOKEN` and npm provenance. That job
-must first pass `npm run verify:publish-artifact -- release-manifest.json dist`
-or the equivalent workflow artifact paths, then pass
+must first pass
+`npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
+and `npm run verify:publish-artifact -- release-manifest.json dist`, or the
+equivalent workflow artifact paths, then pass
 `npm run verify:registry-replacement -- <version>` after publication, and then
 pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
 npm-registry-replacement.json` so the manifest, publish result, and registry
@@ -301,9 +312,11 @@ API symbol 缺失和 TypeScript declaration smoke 未通过的签核文件。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
-同一个 tarball。发布前必须运行 `verify:publish-artifact`，用
-`release-manifest.json` 校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核
-manifest。默认 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
+同一个 tarball。发布前必须先运行 `verify:release-signoff-summary`，确认
+`release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
+SHA256 和六个平台；随后运行 `verify:publish-artifact`，用 `release-manifest.json`
+校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest。默认
+`publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
 workflow 在发布前会先运行 registry replacement verifier 的测试，避免
 `publish=true` 之后才发现 registry metadata 检查脚本本身失效。
 发布后 workflow 会运行 `npm run verify:registry-replacement -- <version>`，

@@ -50,6 +50,19 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
   expectIncludes(workflow, "--test npm_publish_result_test", "publish result verifier test gate");
   expectIncludes(workflow, "--test npm_cutover_evidence_test", "cutover evidence verifier test gate");
+  expectIncludes(workflow, "--test npm_release_signoff_summary_test", "release signoff summary verifier test gate");
+  expectIncludes(
+    workflow,
+    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "pre-publish release signoff summary verifier command"
+  );
+  expectIncludes(workflow, "release-signoff-summary.json", "pre-publish release signoff summary artifact");
+  expectOrder(
+    workflow,
+    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "release signoff summary verification before npm publish"
+  );
   expectIncludes(
     workflow,
     "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
@@ -156,6 +169,22 @@ function workflowSection(workflow, start, end) {
     return "";
   }
   return workflow.slice(startIndex, endIndex);
+}
+
+function expectOrder(text, before, after, label) {
+  const beforeIndex = text.indexOf(before);
+  if (beforeIndex < 0) {
+    fail(`${label} must include ${before}`);
+    return;
+  }
+  const afterIndex = text.indexOf(after);
+  if (afterIndex < 0) {
+    fail(`${label} must include ${after}`);
+    return;
+  }
+  if (beforeIndex >= afterIndex) {
+    fail(`${label} must place ${before} before ${after}`);
+  }
 }
 
 function fail(message) {

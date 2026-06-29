@@ -38,6 +38,7 @@ expectEqual(packageJson.scripts?.["verify:publish-result"], "node scripts/verify
 expectEqual(packageJson.scripts?.["verify:cutover-evidence"], "node scripts/verify-npm-cutover-evidence.mjs", "cutover evidence verifier script");
 expectEqual(packageJson.scripts?.["verify:registry-replacement"], "node scripts/verify-npm-registry-replacement.mjs", "registry replacement verifier script");
 expectEqual(packageJson.scripts?.["verify:release-signoff"], "node scripts/verify-npm-release-signoff.mjs", "release sign-off verifier script");
+expectEqual(packageJson.scripts?.["verify:release-signoff-summary"], "node scripts/verify-npm-release-signoff-summary.mjs", "release sign-off summary verifier script");
 expectEqual(packageJson.scripts?.["verify:typescript-oracle"], "node scripts/verify-typescript-oracle.mjs", "TypeScript oracle verifier script");
 
 for (const path of [
@@ -58,6 +59,7 @@ for (const path of [
   "scripts/verify-npm-cutover-evidence.mjs",
   "scripts/verify-npm-registry-replacement.mjs",
   "scripts/verify-npm-release-signoff.mjs",
+  "scripts/verify-npm-release-signoff-summary.mjs",
   "scripts/verify-typescript-oracle.mjs",
   "docs/typescript-test-surface.json",
   "docs/npm-release.md",
@@ -79,6 +81,7 @@ expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs");
 expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
+expectIncludes(npmRelease, "verify:release-signoff-summary", "npm release docs");
 expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
 expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");

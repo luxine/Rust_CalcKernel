@@ -56,7 +56,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
       - run: cargo test
-      - run: cargo test --test npm_cutover_evidence_test --test npm_declaration_parity_test --test npm_host_install_smoke_test --test npm_public_api_parity_test --test npm_publish_artifact_test --test npm_publish_result_test --test npm_registry_replacement_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test --test typescript_test_surface_audit_test
+      - run: cargo test --test npm_cutover_evidence_test --test npm_declaration_parity_test --test npm_host_install_smoke_test --test npm_public_api_parity_test --test npm_publish_artifact_test --test npm_publish_result_test --test npm_registry_replacement_test --test npm_release_signoff_summary_test --test npm_release_signoff_test --test npm_release_workflow_test --test typescript_cutover_docs_test --test typescript_test_surface_audit_test
       - run: node scripts/audit-rust-replacement-readiness.mjs
       - run: node scripts/audit-typescript-test-surface.mjs
       - run: node scripts/verify-declaration-parity.mjs
@@ -245,7 +245,7 @@ jobs:
         with:
           name: release-signoff
           path: release
-      - run: test -s release/release-signoff.json
+      - run: npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json
       - run: npm run verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json
       - run: |
           TARBALL="dist/$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball")"
@@ -261,6 +261,7 @@ jobs:
           path: |
             npm-publish-artifact.json
             npm-publish.json
+            release-signoff-summary.json
             npm-registry-replacement.json
             npm-publish-result.json
             npm-cutover-evidence.json

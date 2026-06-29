@@ -119,6 +119,49 @@ fn release_signoff_verifier_should_reject_missing_build_llvm_smoke() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_missing_packaged_binary_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-missing-package-binary");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_without_binary_evidence(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing packaged binary evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("packagedBinary"),
+        "missing packaged binary evidence failure should identify packagedBinary\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_accept_complete_target_smokes() {
     if !node_available() {
         return;
@@ -177,6 +220,28 @@ fn signoff_json(target: &str) -> String {
 }
 
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    signoff_json_with_commands_and_binary_evidence(
+        target,
+        commands,
+        &format!("{installed_bin}{packaged_binary}"),
+    )
+}
+
+fn signoff_json_without_binary_evidence(target: &str) -> String {
+    signoff_json_with_commands_and_binary_evidence(
+        target,
+        &REQUIRED_COMMANDS,
+        &installed_bin_evidence(target),
+    )
+}
+
+fn signoff_json_with_commands_and_binary_evidence(
+    target: &str,
+    commands: &[&str],
+    binary_evidence: &str,
+) -> String {
     let commands_json = commands
         .iter()
         .map(|command| format!("    {command:?}"))
@@ -204,9 +269,46 @@ fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
     "createCKWasmArena"
   ],
   "typeSmoke": "passed",
-  "ckcBinOverride": "unset"
+  "ckcBinOverride": "unset"{binary_evidence}
 }}"#
     )
+}
+
+fn installed_bin_evidence(target: &str) -> String {
+    if target.starts_with("win32-") {
+        r#",
+  "installedBin": "C:\\consumer\\node_modules\\.bin\\ckc.cmd""#
+            .to_string()
+    } else {
+        r#",
+  "installedBin": "/tmp/consumer/node_modules/.bin/ckc""#
+            .to_string()
+    }
+}
+
+fn packaged_binary_evidence(target: &str) -> String {
+    let binary_file = match target {
+        "win32-arm64" => "ckc-win32-arm64.exe",
+        "win32-x64" => "ckc-win32-x64.exe",
+        _ => target,
+    };
+    let binary_file = if target.starts_with("win32-") {
+        binary_file.to_string()
+    } else {
+        format!("ckc-{binary_file}")
+    };
+
+    if target.starts_with("win32-") {
+        format!(
+            r#",
+  "packagedBinary": "C:\\consumer\\node_modules\\calckernel\\npm\\bin\\{binary_file}""#
+        )
+    } else {
+        format!(
+            r#",
+  "packagedBinary": "/tmp/consumer/node_modules/calckernel/npm/bin/{binary_file}""#
+        )
+    }
 }
 
 fn temp_dir(prefix: &str) -> PathBuf {

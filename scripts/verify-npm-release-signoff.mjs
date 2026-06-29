@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { SUPPORTED_CKC_BINARY_TARGETS, supportedTargetNames } from "../npm/platform.js";
+import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
 const [manifestArg, signoffDirArg] = process.argv.slice(2);
 if (!manifestArg || !signoffDirArg || manifestArg === "--help" || manifestArg === "-h") {
@@ -97,11 +97,26 @@ function validateSignoff(signoff, target, manifest) {
   if (signoff.ckcBinOverride !== "unset") {
     fail(`${target.name} sign-off must run with CKC_BIN unset`);
   }
+  validateBinaryEvidence(signoff, target);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
   }
   requireIncludes(signoff.commands, requiredCommands(), `${target.name} commands`);
   requireIncludes(signoff.apiSymbols, requiredApiSymbols(), `${target.name} apiSymbols`);
+}
+
+function validateBinaryEvidence(signoff, target) {
+  const installedBinName = target.platform === "win32" ? "ckc.cmd" : "ckc";
+  requirePathSuffix(
+    signoff.installedBin,
+    `node_modules/.bin/${installedBinName}`,
+    `${target.name} installedBin`
+  );
+  requirePathSuffix(
+    signoff.packagedBinary,
+    `node_modules/calckernel/npm/bin/${binaryNameForTarget(target.name)}`,
+    `${target.name} packagedBinary`
+  );
 }
 
 function readSignoffs(dir) {
@@ -127,6 +142,16 @@ function requireIncludes(actual, expected, label) {
     if (!actual.includes(value)) {
       fail(`${label} is missing ${value}`);
     }
+  }
+}
+
+function requirePathSuffix(actual, expectedSuffix, label) {
+  if (typeof actual !== "string" || actual.length === 0) {
+    fail(`${label} is missing`);
+  }
+  const normalizedActual = actual.replace(/\\/g, "/");
+  if (!normalizedActual.endsWith(expectedSuffix)) {
+    fail(`${label} must end with ${expectedSuffix}, found ${JSON.stringify(actual)}`);
   }
 }
 

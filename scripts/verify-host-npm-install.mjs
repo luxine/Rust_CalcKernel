@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { currentTarget } from "../npm/platform.js";
+import { currentPlatformBinaryName, currentTarget } from "../npm/platform.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TYPESCRIPT_COMPILER_PACKAGE = "typescript@^5.8.0";
@@ -32,6 +32,9 @@ try {
     ".bin",
     process.platform === "win32" ? "ckc.cmd" : "ckc"
   );
+  const packageRoot = join(consumer, "node_modules", "calckernel");
+  const packagedBinary = join(packageRoot, "npm", "bin", currentPlatformBinaryName());
+  requireNonEmpty(packagedBinary);
 
   const smokeRoot = join(consumer, "smoke");
   const buildRoot = join(smokeRoot, "build");
@@ -77,6 +80,9 @@ try {
     targetName: target.name,
     platform: target.platform,
     arch: target.arch,
+    installedBin,
+    packageRoot,
+    packagedBinary,
     commands: completedCommands,
     apiSymbols: [
       "SourceFile",

@@ -15,6 +15,7 @@ const TARGETS: [&str; 6] = [
 ];
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 const REQUIRED_COMMANDS: [&str; 8] = [
     "ckc --help",
     "ckc check smoke.ck",
@@ -162,6 +163,53 @@ fn release_signoff_verifier_should_reject_missing_packaged_binary_evidence() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_packaged_binary_sha256_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-binary-sha-mismatch");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        let signoff = if target == "linux-x64" {
+            signoff_json_with_packaged_binary_sha256(
+                target,
+                "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+            )
+        } else {
+            signoff_json(target)
+        };
+        fs::write(signoffs.join(format!("{target}.json")), signoff).expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched packaged binary SHA256 should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("packagedBinarySha256"),
+        "mismatch failure should identify packagedBinarySha256\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_accept_complete_target_smokes() {
     if !node_available() {
         return;
@@ -207,7 +255,7 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
 fn release_manifest_json() -> String {
     let targets = TARGETS
         .iter()
-        .map(|target| format!("{{\"name\":\"{target}\"}}"))
+        .map(|target| format!("{{\"name\":\"{target}\",\"sha256\":\"{BINARY_SHA256}\"}}"))
         .collect::<Vec<_>>()
         .join(",");
     format!(
@@ -222,10 +270,22 @@ fn signoff_json(target: &str) -> String {
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
     signoff_json_with_commands_and_binary_evidence(
         target,
         commands,
-        &format!("{installed_bin}{packaged_binary}"),
+        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}"),
+    )
+}
+
+fn signoff_json_with_packaged_binary_sha256(target: &str, packaged_binary_sha256: &str) -> String {
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(packaged_binary_sha256);
+    signoff_json_with_commands_and_binary_evidence(
+        target,
+        &REQUIRED_COMMANDS,
+        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}"),
     )
 }
 
@@ -309,6 +369,13 @@ fn packaged_binary_evidence(target: &str) -> String {
   "packagedBinary": "/tmp/consumer/node_modules/calckernel/npm/bin/{binary_file}""#
         )
     }
+}
+
+fn packaged_binary_sha256_evidence(packaged_binary_sha256: &str) -> String {
+    format!(
+        r#",
+  "packagedBinarySha256": "{packaged_binary_sha256}""#
+    )
 }
 
 fn temp_dir(prefix: &str) -> PathBuf {

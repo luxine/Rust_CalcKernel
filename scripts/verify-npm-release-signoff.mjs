@@ -22,6 +22,7 @@ const manifest = readJson(manifestPath, "release manifest");
 validateManifest(manifest);
 const signoffs = readSignoffs(signoffDir);
 const manifestTargetNames = new Set(manifest.targets.map((target) => target.name));
+const manifestTargetsByName = new Map(manifest.targets.map((target) => [target.name, target]));
 const signoffsByTarget = new Map();
 
 for (const signoff of signoffs) {
@@ -46,7 +47,7 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
   if (!signoff) {
     fail(`missing platform sign-off for ${target.name}`);
   }
-  validateSignoff(signoff, target, manifest);
+  validateSignoff(signoff, target, manifest, manifestTargetsByName.get(target.name));
   verifiedTargets.push(target.name);
 }
 
@@ -78,7 +79,7 @@ function validateManifest(manifest) {
   }
 }
 
-function validateSignoff(signoff, target, manifest) {
+function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.package !== "calckernel") {
     fail(`${target.name} sign-off package must be "calckernel"`);
   }
@@ -97,7 +98,7 @@ function validateSignoff(signoff, target, manifest) {
   if (signoff.ckcBinOverride !== "unset") {
     fail(`${target.name} sign-off must run with CKC_BIN unset`);
   }
-  validateBinaryEvidence(signoff, target);
+  validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
   }
@@ -105,7 +106,7 @@ function validateSignoff(signoff, target, manifest) {
   requireIncludes(signoff.apiSymbols, requiredApiSymbols(), `${target.name} apiSymbols`);
 }
 
-function validateBinaryEvidence(signoff, target) {
+function validateBinaryEvidence(signoff, target, manifestTarget) {
   const installedBinName = target.platform === "win32" ? "ckc.cmd" : "ckc";
   requirePathSuffix(
     signoff.installedBin,
@@ -117,6 +118,14 @@ function validateBinaryEvidence(signoff, target) {
     `node_modules/calckernel/npm/bin/${binaryNameForTarget(target.name)}`,
     `${target.name} packagedBinary`
   );
+  if (!isSha256(manifestTarget?.sha256)) {
+    fail(`${target.name} release manifest target sha256 is invalid`);
+  }
+  if (signoff.packagedBinarySha256 !== manifestTarget.sha256) {
+    fail(
+      `${target.name} sign-off packagedBinarySha256 does not match release manifest target sha256`
+    );
+  }
 }
 
 function readSignoffs(dir) {

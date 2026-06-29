@@ -35,6 +35,7 @@ try {
   const packageRoot = join(consumer, "node_modules", "calckernel");
   const packagedBinary = join(packageRoot, "npm", "bin", currentPlatformBinaryName());
   requireNonEmpty(packagedBinary);
+  const packagedBinaryBytes = readFileSync(packagedBinary);
 
   const smokeRoot = join(consumer, "smoke");
   const buildRoot = join(smokeRoot, "build");
@@ -83,6 +84,7 @@ try {
     installedBin,
     packageRoot,
     packagedBinary,
+    packagedBinarySha256: sha256(packagedBinaryBytes),
     commands: completedCommands,
     apiSymbols: [
       "SourceFile",

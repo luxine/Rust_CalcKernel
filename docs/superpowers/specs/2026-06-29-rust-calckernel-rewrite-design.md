@@ -194,8 +194,9 @@ Current oracle-covered CLI surfaces:
   `npm/platform.js` target matrix,
   `docs/npm-release.md` release/migration checklist, all-target
   `CKC_NPM_BINARIES_DIR` staging coverage, formal tarball manifest/SHA256
-  verification, TypeScript test-surface migration mapping for every current
-  `tests/**/*.test.ts` file in the oracle checkout, and
+  verification, host sign-off `packagedBinarySha256` binding against the
+  manifest target binary SHA256, TypeScript test-surface migration mapping for
+  every current `tests/**/*.test.ts` file in the oracle checkout, and
   `npm pack --dry-run --ignore-scripts` file coverage.
 - npm release workflow portability, including `workflow_dispatch` inputs for
   the TypeScript oracle repository/ref, checkout/build of that oracle before

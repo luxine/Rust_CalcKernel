@@ -49,6 +49,21 @@ fn npm_release_workflow_should_test_publish_artifact_verifier_before_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_test_public_api_parity_before_release() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("--test npm_public_api_parity_test"),
+        "release workflow must test public API parity verifier before release"
+    );
+    assert!(
+        workflow.contains("node scripts/verify-public-api-parity.mjs"),
+        "release workflow must run public API parity verifier before release"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_publish_result_after_registry_replacement() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

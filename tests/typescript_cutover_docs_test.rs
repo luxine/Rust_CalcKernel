@@ -42,6 +42,23 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
     }
 }
 
+#[test]
+fn rust_replacement_readiness_audit_should_require_public_api_parity_verifier() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"packageJson.scripts?.["verify:public-api-parity"]"#,
+        "scripts/verify-public-api-parity.mjs",
+        r#"expectIncludes(npmRelease, "verify:public-api-parity", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

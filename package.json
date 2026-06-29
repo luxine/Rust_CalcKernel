@@ -32,6 +32,7 @@
     "verify:cutover-evidence": "node scripts/verify-npm-cutover-evidence.mjs",
     "verify:host-npm-install": "node scripts/verify-host-npm-install.mjs",
     "verify:npm-release": "node scripts/verify-npm-release.mjs",
+    "verify:public-api-parity": "node scripts/verify-public-api-parity.mjs",
     "verify:publish-artifact": "node scripts/verify-npm-publish-artifact.mjs",
     "verify:publish-result": "node scripts/verify-npm-publish-result.mjs",
     "verify:registry-replacement": "node scripts/verify-npm-registry-replacement.mjs",

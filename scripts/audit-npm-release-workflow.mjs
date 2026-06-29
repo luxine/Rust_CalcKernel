@@ -47,6 +47,16 @@ if (!existsSync(workflowPath)) {
   expectNotIncludes(workflow, "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish", "publish job ls tarball selection");
   expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
   expectIncludes(workflow, "npm run verify:registry-replacement", "post-publish registry verifier command");
+  expectIncludes(
+    workflow,
+    "npm run verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
+    "post-publish registry verifier manifest version command"
+  );
+  expectNotIncludes(
+    workflow,
+    "npm run verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\"",
+    "post-publish registry verifier package.json version"
+  );
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
   expectIncludes(workflow, "--test npm_publish_result_test", "publish result verifier test gate");
   expectIncludes(workflow, "--test npm_cutover_evidence_test", "cutover evidence verifier test gate");

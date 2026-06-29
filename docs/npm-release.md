@@ -147,10 +147,10 @@ The workflow runs these stages:
    mismatched six-platform sign-off summary. It also runs
    `verify:publish-artifact` against `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest. After
-   publish, it runs
-   `verify:registry-replacement` against npm registry metadata to confirm the
-   published package exposes the Rust package `main`, `types`, `exports`, and
-   `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
+   publish, it runs `verify:registry-replacement` for the `packageVersion`
+   recorded in `release-manifest.json` against npm registry metadata to confirm
+   the published package exposes the Rust package `main`, `types`, `exports`,
+   and `ckc` bin paths rather than stale TypeScript `dist/` paths. It then runs
    `verify:publish-result` to bind `release-manifest.json`,
    `npm publish --json`, and the registry verifier output to the same package,
    version, tarball filename, and npm integrity. Finally, it runs
@@ -266,7 +266,8 @@ must first pass
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
 and `npm run verify:publish-artifact -- release-manifest.json dist`, or the
 equivalent workflow artifact paths, then pass
-`npm run verify:registry-replacement -- <version>` after publication, and then
+`npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest.json', 'utf8')).packageVersion")"`
+after publication, and then
 pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
 npm-registry-replacement.json` so the manifest, publish result, and registry
 metadata all prove the same npm artifact. The final downloaded evidence set
@@ -319,6 +320,7 @@ SHA256 和六个平台；随后运行 `verify:publish-artifact`，用 `release-m
 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
 workflow 在发布前会先运行 registry replacement verifier 的测试，避免
 `publish=true` 之后才发现 registry metadata 检查脚本本身失效。
-发布后 workflow 会运行 `npm run verify:registry-replacement -- <version>`，
-从 npm registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`types`、
+发布后 workflow 会从 `release-manifest.json` 读取 `packageVersion` 并运行
+`npm run verify:registry-replacement -- <manifest packageVersion>`，从 npm
+registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`types`、
 `exports` 和 `ckc` bin 路径，而不是旧 TypeScript `dist/` 路径。

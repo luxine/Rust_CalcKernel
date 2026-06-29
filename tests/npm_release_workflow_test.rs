@@ -38,6 +38,21 @@ fn npm_release_workflow_should_test_registry_replacement_verifier_before_publish
 }
 
 #[test]
+fn npm_release_workflow_should_verify_registry_replacement_for_manifest_version() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion"),
+        "registry replacement verifier must derive the npm version from release-manifest.json"
+    );
+    assert!(
+        !workflow.contains("npm run verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\""),
+        "registry replacement verifier must not derive the npm version from package.json"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_run_full_cargo_test_before_release() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

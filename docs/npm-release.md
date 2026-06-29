@@ -106,11 +106,11 @@ The checked-in GitHub Actions workflow `.github/workflows/npm-release.yml` is
 the executable release path for producing a formal multi-platform artifact. It
 can be started with `workflow_dispatch` and runs these stages:
 
-1. Verify release scripts with `cargo fmt --check`, `cargo clippy`, package
-   release tests including the registry replacement verifier test,
-   `audit-rust-replacement-readiness`, `audit:typescript-test-surface`,
-   `verify:declaration-parity`, `verify:public-api-parity`, and
-   `audit-npm-release-workflow`.
+1. Verify release scripts with `cargo fmt --check`, `cargo clippy`, full
+   `cargo test`, package release tests including the registry replacement
+   verifier test, `audit-rust-replacement-readiness`,
+   `audit:typescript-test-surface`, `verify:declaration-parity`,
+   `verify:public-api-parity`, and `audit-npm-release-workflow`.
 2. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
 3. Download all binaries into `build/npm-binaries`, pack once with

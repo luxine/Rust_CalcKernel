@@ -38,6 +38,19 @@ fn npm_release_workflow_should_test_registry_replacement_verifier_before_publish
 }
 
 #[test]
+fn npm_release_workflow_should_run_full_cargo_test_before_release() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow
+            .lines()
+            .any(|line| line.trim() == "- run: cargo test"),
+        "release workflow must run the full Rust test suite before release"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_test_publish_artifact_verifier_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

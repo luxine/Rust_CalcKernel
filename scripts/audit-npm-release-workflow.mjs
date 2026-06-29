@@ -53,6 +53,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
+  expectIncludes(workflow, "- run: cargo test\n", "full Rust test suite gate");
   expectIncludes(workflow, "--test typescript_test_surface_audit_test", "TypeScript test surface audit test gate");
   expectIncludes(workflow, "--test npm_declaration_parity_test", "declaration parity test gate");
   expectIncludes(workflow, "--test npm_public_api_parity_test", "public API parity test gate");

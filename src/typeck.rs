@@ -1,0 +1,1345 @@
+use std::collections::HashMap;
+
+use crate::{
+    AssignmentStatement, BlockStatement, Declaration, Diagnostic, DiagnosticCode, Expression,
+    FunctionDeclaration, FunctionParam, IfStatement, LetStatement, ParseResult, Program,
+    ReturnStatement, SourceFile, SourceSpan, Statement, StructDeclaration, StructField, TypeNode,
+    WhileStatement, parse,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PrimitiveTypeName {
+    I32,
+    I64,
+    U32,
+    U64,
+    F64,
+    Bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CalcKernelType {
+    Primitive(PrimitiveTypeName),
+    Pointer(Box<CalcKernelType>),
+    Struct(String),
+    IntegerLiteral,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariableSymbol {
+    pub name: String,
+    pub type_node: CalcKernelType,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructSymbol {
+    pub name: String,
+    pub declaration: StructDeclaration,
+    pub fields: HashMap<String, CalcKernelType>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionSymbol {
+    pub name: String,
+    pub declaration: FunctionDeclaration,
+    pub params: Vec<CalcKernelType>,
+    pub return_type: CalcKernelType,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SymbolTable {
+    pub structs: HashMap<String, StructSymbol>,
+    pub functions: HashMap<String, FunctionSymbol>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructFieldInfo {
+    pub name: String,
+    pub type_node: CalcKernelType,
+    pub declaration: StructField,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructInfo {
+    pub name: String,
+    pub declaration: StructDeclaration,
+    pub fields: Vec<StructFieldInfo>,
+    pub field_map: HashMap<String, StructFieldInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionParamInfo {
+    pub name: String,
+    pub type_node: CalcKernelType,
+    pub declaration: FunctionParam,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionInfo {
+    pub name: String,
+    pub exported: bool,
+    pub declaration: FunctionDeclaration,
+    pub params: Vec<FunctionParamInfo>,
+    pub return_type: CalcKernelType,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckedProgram {
+    pub ast: Program,
+    pub symbols: SymbolTable,
+    pub types: TypeMap,
+    pub local_types: LetTypeMap,
+    pub structs: Vec<StructInfo>,
+    pub functions: Vec<FunctionInfo>,
+    pub struct_map: HashMap<String, StructInfo>,
+    pub function_map: HashMap<String, FunctionInfo>,
+}
+
+pub type TypeMap = HashMap<SourceSpan, CalcKernelType>;
+pub type LetTypeMap = HashMap<SourceSpan, CalcKernelType>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedAst {
+    pub program: Program,
+    pub expression_types: TypeMap,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckResult {
+    pub ast: Program,
+    pub typed_ast: TypedAst,
+    pub checked_program: CheckedProgram,
+    pub diagnostics: Vec<Diagnostic>,
+    pub symbols: SymbolTable,
+}
+
+#[must_use]
+pub fn check(source: &SourceFile) -> CheckResult {
+    let parse_result = parse(source);
+    Checker::new(source, parse_result).check()
+}
+
+#[derive(Debug, Clone)]
+struct CompilerBuiltin {
+    name: &'static str,
+    params: Vec<CalcKernelType>,
+    return_type: CalcKernelType,
+}
+
+struct Checker<'source> {
+    source: &'source SourceFile,
+    program: Program,
+    diagnostics: Vec<Diagnostic>,
+    symbols: SymbolTable,
+    expression_types: TypeMap,
+    local_types: LetTypeMap,
+}
+
+impl<'source> Checker<'source> {
+    fn new(source: &'source SourceFile, parse_result: ParseResult) -> Self {
+        Self {
+            source,
+            program: parse_result.ast,
+            diagnostics: parse_result.diagnostics,
+            symbols: SymbolTable::default(),
+            expression_types: HashMap::new(),
+            local_types: HashMap::new(),
+        }
+    }
+
+    fn check(mut self) -> CheckResult {
+        self.collect_struct_names();
+        self.collect_struct_fields();
+        self.collect_function_signatures();
+        self.check_function_bodies();
+
+        let typed_ast = TypedAst {
+            program: self.program.clone(),
+            expression_types: self.expression_types.clone(),
+        };
+        let checked_program = create_checked_program(
+            self.program.clone(),
+            self.symbols.clone(),
+            self.expression_types.clone(),
+            self.local_types.clone(),
+        );
+        CheckResult {
+            ast: self.program,
+            typed_ast,
+            checked_program,
+            diagnostics: self.diagnostics,
+            symbols: self.symbols,
+        }
+    }
+
+    fn collect_struct_names(&mut self) {
+        for declaration in self.program.declarations.clone() {
+            let Declaration::Struct(struct_decl) = declaration else {
+                continue;
+            };
+            let name = struct_decl.name.name.clone();
+            if self.symbols.structs.contains_key(&name) {
+                self.error(struct_decl.name.span, format!("Duplicate struct '{name}'."));
+                continue;
+            }
+            self.symbols.structs.insert(
+                name.clone(),
+                StructSymbol {
+                    name,
+                    declaration: struct_decl,
+                    fields: HashMap::new(),
+                },
+            );
+        }
+    }
+
+    fn collect_struct_fields(&mut self) {
+        for declaration in self.program.declarations.clone() {
+            let Declaration::Struct(struct_decl) = declaration else {
+                continue;
+            };
+            let Some(existing_symbol) = self.symbols.structs.get(&struct_decl.name.name) else {
+                continue;
+            };
+            if existing_symbol.declaration != struct_decl {
+                continue;
+            }
+
+            let mut resolved_fields = Vec::new();
+            let mut duplicate_errors = Vec::new();
+            let mut field_names = HashMap::<String, SourceSpan>::new();
+            for field in &struct_decl.fields {
+                if field_names
+                    .insert(field.name.name.clone(), field.name.span)
+                    .is_some()
+                {
+                    duplicate_errors.push((
+                        field.name.span,
+                        format!(
+                            "Duplicate field '{}' in struct '{}'.",
+                            field.name.name, struct_decl.name.name
+                        ),
+                    ));
+                    continue;
+                }
+                let field_type = self.resolve_type(&field.type_node);
+                resolved_fields.push((field.name.name.clone(), field_type));
+            }
+
+            if let Some(symbol) = self.symbols.structs.get_mut(&struct_decl.name.name) {
+                for (name, field_type) in resolved_fields {
+                    symbol.fields.insert(name, field_type);
+                }
+            }
+            for (span, message) in duplicate_errors {
+                self.error(span, message);
+            }
+        }
+    }
+
+    fn collect_function_signatures(&mut self) {
+        for declaration in self.program.declarations.clone() {
+            let Declaration::Function(function_decl) = declaration else {
+                continue;
+            };
+            let name = function_decl.name.name.clone();
+            if compiler_builtin(&name).is_some() {
+                self.error(
+                    function_decl.name.span,
+                    format!("Cannot define reserved compiler builtin '{name}'."),
+                );
+                continue;
+            }
+            if self.symbols.functions.contains_key(&name) {
+                self.error(
+                    function_decl.name.span,
+                    format!("Duplicate function '{name}'."),
+                );
+                continue;
+            }
+            let params = function_decl
+                .params
+                .iter()
+                .map(|param| self.resolve_type(&param.type_node))
+                .collect();
+            let return_type = self.resolve_type(&function_decl.return_type);
+            self.symbols.functions.insert(
+                name.clone(),
+                FunctionSymbol {
+                    name,
+                    declaration: function_decl,
+                    params,
+                    return_type,
+                },
+            );
+        }
+    }
+
+    fn check_function_bodies(&mut self) {
+        for declaration in self.program.declarations.clone() {
+            let Declaration::Function(function_decl) = declaration else {
+                continue;
+            };
+            let Some(function_symbol) = self
+                .symbols
+                .functions
+                .get(&function_decl.name.name)
+                .cloned()
+            else {
+                continue;
+            };
+            if function_symbol.declaration != function_decl {
+                continue;
+            }
+            self.check_function_body(&function_decl, &function_symbol);
+        }
+    }
+
+    fn check_function_body(
+        &mut self,
+        declaration: &FunctionDeclaration,
+        function_symbol: &FunctionSymbol,
+    ) {
+        let mut scope = Scope::default();
+        for (index, param) in declaration.params.iter().enumerate() {
+            let name = param.name.name.clone();
+            let type_node = function_symbol
+                .params
+                .get(index)
+                .cloned()
+                .unwrap_or(CalcKernelType::Unknown);
+            if !scope.declare(VariableSymbol {
+                name: name.clone(),
+                type_node,
+            }) {
+                self.error(param.name.span, format!("Duplicate variable '{name}'."));
+            }
+        }
+
+        self.check_block(
+            &declaration.body,
+            &mut scope,
+            &function_symbol.return_type,
+            false,
+        );
+        if !block_definitely_returns(&declaration.body) {
+            self.error(
+                declaration.body.span,
+                format!("Missing return in function '{}'.", declaration.name.name),
+            );
+        }
+    }
+
+    fn check_block(
+        &mut self,
+        block: &BlockStatement,
+        scope: &mut Scope,
+        return_type: &CalcKernelType,
+        create_scope: bool,
+    ) {
+        if create_scope {
+            scope.push();
+        }
+        for statement in &block.statements {
+            self.check_statement(statement, scope, return_type);
+        }
+        if create_scope {
+            scope.pop();
+        }
+    }
+
+    fn check_statement(
+        &mut self,
+        statement: &Statement,
+        scope: &mut Scope,
+        return_type: &CalcKernelType,
+    ) {
+        match statement {
+            Statement::Block(block) => self.check_block(block, scope, return_type, true),
+            Statement::Let(statement) => self.check_let_statement(statement, scope),
+            Statement::Assignment(statement) => self.check_assignment_statement(statement, scope),
+            Statement::Return(statement) => {
+                self.check_return_statement(statement, scope, return_type)
+            }
+            Statement::If(statement) => self.check_if_statement(statement, scope, return_type),
+            Statement::While(statement) => {
+                self.check_while_statement(statement, scope, return_type)
+            }
+            Statement::Error { .. } => {}
+        }
+    }
+
+    fn check_let_statement(&mut self, statement: &LetStatement, scope: &mut Scope) {
+        let declared_type = self.resolve_type(&statement.type_node);
+        self.local_types
+            .insert(statement.span, declared_type.clone());
+        if !scope.declare(VariableSymbol {
+            name: statement.name.name.clone(),
+            type_node: declared_type.clone(),
+        }) {
+            self.error(
+                statement.name.span,
+                format!("Duplicate variable '{}'.", statement.name.name),
+            );
+        }
+
+        let initializer_type =
+            self.check_expression(&statement.initializer, scope, Some(&declared_type));
+        if !is_unknown(&declared_type)
+            && !is_unknown(&initializer_type)
+            && !can_assign(&declared_type, &initializer_type)
+        {
+            self.error(
+                statement.initializer.span(),
+                format!(
+                    "Cannot initialize '{}': expected {} but got {}.",
+                    statement.name.name,
+                    type_to_string(&declared_type),
+                    type_to_string(&initializer_type)
+                ),
+            );
+        }
+    }
+
+    fn check_assignment_statement(&mut self, statement: &AssignmentStatement, scope: &mut Scope) {
+        if !is_assignable_expression(&statement.target) {
+            self.error(statement.target.span(), "Invalid assignment target.");
+        }
+
+        let target_type = self.check_expression(&statement.target, scope, None);
+        let value_type = self.check_expression(&statement.value, scope, Some(&target_type));
+        if !is_unknown(&target_type)
+            && !is_unknown(&value_type)
+            && !can_assign(&target_type, &value_type)
+        {
+            self.error(
+                statement.value.span(),
+                format!(
+                    "Cannot assign {} to {}.",
+                    type_to_string(&value_type),
+                    type_to_string(&target_type)
+                ),
+            );
+        }
+    }
+
+    fn check_return_statement(
+        &mut self,
+        statement: &ReturnStatement,
+        scope: &mut Scope,
+        return_type: &CalcKernelType,
+    ) {
+        let value_type = self.check_expression(&statement.value, scope, Some(return_type));
+        if !is_unknown(return_type)
+            && !is_unknown(&value_type)
+            && !can_assign(return_type, &value_type)
+        {
+            self.error(
+                statement.value.span(),
+                format!(
+                    "Return type mismatch: expected {} but got {}.",
+                    type_to_string(return_type),
+                    type_to_string(&value_type)
+                ),
+            );
+        }
+    }
+
+    fn check_if_statement(
+        &mut self,
+        statement: &IfStatement,
+        scope: &mut Scope,
+        return_type: &CalcKernelType,
+    ) {
+        let condition_type = materialize_integer_literal(
+            self.check_expression(&statement.condition, scope, None),
+            primitive_i32(),
+        );
+        if !is_unknown(&condition_type) && !is_bool(&condition_type) {
+            self.error(
+                statement.condition.span(),
+                format!(
+                    "If condition must be bool, got {}.",
+                    type_to_string(&condition_type)
+                ),
+            );
+        }
+        self.check_block(&statement.then_block, scope, return_type, true);
+        if let Some(else_block) = &statement.else_block {
+            self.check_block(else_block, scope, return_type, true);
+        }
+    }
+
+    fn check_while_statement(
+        &mut self,
+        statement: &WhileStatement,
+        scope: &mut Scope,
+        return_type: &CalcKernelType,
+    ) {
+        let condition_type = materialize_integer_literal(
+            self.check_expression(&statement.condition, scope, None),
+            primitive_i32(),
+        );
+        if !is_unknown(&condition_type) && !is_bool(&condition_type) {
+            self.error(
+                statement.condition.span(),
+                format!(
+                    "While condition must be bool, got {}.",
+                    type_to_string(&condition_type)
+                ),
+            );
+        }
+        self.check_block(&statement.body, scope, return_type, true);
+    }
+
+    fn check_expression(
+        &mut self,
+        expression: &Expression,
+        scope: &mut Scope,
+        expected_type: Option<&CalcKernelType>,
+    ) -> CalcKernelType {
+        let type_node = match expression {
+            Expression::Identifier { name, span } => {
+                if let Some(symbol) = scope.lookup(name) {
+                    symbol.type_node.clone()
+                } else {
+                    self.error(*span, format!("Unknown variable '{name}'."));
+                    CalcKernelType::Unknown
+                }
+            }
+            Expression::IntegerLiteral { .. } => {
+                if let Some(expected) = expected_type.filter(|type_node| is_integer(type_node)) {
+                    expected.clone()
+                } else {
+                    CalcKernelType::IntegerLiteral
+                }
+            }
+            Expression::FloatLiteral { .. } => primitive_f64(),
+            Expression::BoolLiteral { .. } => primitive_bool(),
+            Expression::Unary {
+                operator, operand, ..
+            } => self.check_unary_expression(operator, operand, scope, expected_type),
+            Expression::Binary {
+                operator,
+                left,
+                right,
+                span,
+            } => self.check_binary_expression(operator, left, right, *span, scope, expected_type),
+            Expression::Call { callee, args, span } => {
+                self.check_call_expression(callee, args, *span, scope)
+            }
+            Expression::Field {
+                object,
+                field,
+                span: _,
+            } => self.check_field_expression(object, field, scope),
+            Expression::Index { object, index, .. } => {
+                self.check_index_expression(object, index, scope)
+            }
+            Expression::Parenthesized { expression, .. } => {
+                self.check_expression(expression, scope, expected_type)
+            }
+            Expression::Error { .. } => CalcKernelType::Unknown,
+        };
+        self.expression_types
+            .insert(expression.span(), type_node.clone());
+        type_node
+    }
+
+    fn check_unary_expression(
+        &mut self,
+        operator: &str,
+        operand: &Expression,
+        scope: &mut Scope,
+        expected_type: Option<&CalcKernelType>,
+    ) -> CalcKernelType {
+        if operator == "!" {
+            let operand_type = materialize_integer_literal(
+                self.check_expression(operand, scope, None),
+                primitive_i32(),
+            );
+            if !is_unknown(&operand_type) && !is_bool(&operand_type) {
+                self.error(
+                    operand.span(),
+                    format!(
+                        "Unary operator '!' requires bool operand, got {}.",
+                        type_to_string(&operand_type)
+                    ),
+                );
+            }
+            return primitive_bool();
+        }
+
+        let fallback = integer_literal_fallback(expected_type);
+        let operand_type = materialize_integer_literal(
+            self.check_expression(operand, scope, Some(&fallback)),
+            fallback.clone(),
+        );
+        if !is_unknown(&operand_type) && !is_numeric_type(&operand_type) {
+            self.error(
+                operand.span(),
+                format!(
+                    "Unary operator '-' requires integer operand, got {}.",
+                    type_to_string(&operand_type)
+                ),
+            );
+            return CalcKernelType::Unknown;
+        }
+        materialize_integer_literal(operand_type, fallback)
+    }
+
+    fn check_binary_expression(
+        &mut self,
+        operator: &str,
+        left: &Expression,
+        right: &Expression,
+        span: SourceSpan,
+        scope: &mut Scope,
+        expected_type: Option<&CalcKernelType>,
+    ) -> CalcKernelType {
+        if is_arithmetic_operator(operator) {
+            return self.check_arithmetic_expression(
+                operator,
+                left,
+                right,
+                span,
+                scope,
+                expected_type,
+            );
+        }
+        if is_comparison_operator(operator) {
+            return self.check_comparison_expression(operator, left, right, span, scope);
+        }
+        if operator == "&&" || operator == "||" {
+            let left_type = materialize_integer_literal(
+                self.check_expression(left, scope, None),
+                primitive_i32(),
+            );
+            let right_type = materialize_integer_literal(
+                self.check_expression(right, scope, None),
+                primitive_i32(),
+            );
+            if !is_unknown(&left_type) && !is_bool(&left_type) {
+                self.error(
+                    left.span(),
+                    format!("Logical operator '{operator}' requires bool operands."),
+                );
+            }
+            if !is_unknown(&right_type) && !is_bool(&right_type) {
+                self.error(
+                    right.span(),
+                    format!("Logical operator '{operator}' requires bool operands."),
+                );
+            }
+            return primitive_bool();
+        }
+        CalcKernelType::Unknown
+    }
+
+    fn check_arithmetic_expression(
+        &mut self,
+        operator: &str,
+        left: &Expression,
+        right: &Expression,
+        span: SourceSpan,
+        scope: &mut Scope,
+        expected_type: Option<&CalcKernelType>,
+    ) -> CalcKernelType {
+        let left_raw = self.check_expression(left, scope, None);
+        let right_raw = self.check_expression(right, scope, None);
+        let fallback = integer_literal_fallback(expected_type);
+        let left_type = materialize_integer_literal(
+            left_raw,
+            if matches!(right_raw, CalcKernelType::IntegerLiteral) {
+                fallback.clone()
+            } else {
+                integer_literal_fallback(Some(&right_raw))
+            },
+        );
+        let right_type =
+            materialize_integer_literal(right_raw, integer_literal_fallback(Some(&left_type)));
+        self.expression_types.insert(left.span(), left_type.clone());
+        self.expression_types
+            .insert(right.span(), right_type.clone());
+
+        if operator == "%" && (is_float_type(&left_type) || is_float_type(&right_type)) {
+            self.error(
+                span,
+                "Arithmetic operator '%' does not support f64 operands.",
+            );
+            return CalcKernelType::Unknown;
+        }
+
+        if !is_unknown(&left_type)
+            && !is_unknown(&right_type)
+            && (!is_numeric_type(&left_type)
+                || !is_numeric_type(&right_type)
+                || !same_type(&left_type, &right_type))
+        {
+            self.error(
+                span,
+                format!(
+                    "Arithmetic operator '{operator}' requires integer operands of the same type."
+                ),
+            );
+            return CalcKernelType::Unknown;
+        }
+
+        materialize_integer_literal(left_type, fallback)
+    }
+
+    fn check_comparison_expression(
+        &mut self,
+        operator: &str,
+        left: &Expression,
+        right: &Expression,
+        span: SourceSpan,
+        scope: &mut Scope,
+    ) -> CalcKernelType {
+        let left_raw = self.check_expression(left, scope, None);
+        let right_raw = self.check_expression(right, scope, None);
+        let left_type = materialize_integer_literal(
+            left_raw,
+            if matches!(right_raw, CalcKernelType::IntegerLiteral) {
+                primitive_i32()
+            } else {
+                integer_literal_fallback(Some(&right_raw))
+            },
+        );
+        let right_type =
+            materialize_integer_literal(right_raw, integer_literal_fallback(Some(&left_type)));
+        self.expression_types.insert(left.span(), left_type.clone());
+        self.expression_types
+            .insert(right.span(), right_type.clone());
+        let valid = if operator == "==" || operator == "!=" {
+            same_type(&left_type, &right_type)
+        } else {
+            is_numeric_type(&left_type)
+                && is_numeric_type(&right_type)
+                && same_type(&left_type, &right_type)
+        };
+
+        if !is_unknown(&left_type) && !is_unknown(&right_type) && !valid {
+            self.error(
+                span,
+                format!("Comparison operator '{operator}' requires compatible operands."),
+            );
+        }
+        primitive_bool()
+    }
+
+    fn check_call_expression(
+        &mut self,
+        callee: &Expression,
+        args: &[Expression],
+        span: SourceSpan,
+        scope: &mut Scope,
+    ) -> CalcKernelType {
+        let Expression::Identifier {
+            name,
+            span: name_span,
+        } = callee
+        else {
+            self.error(callee.span(), "Can only call functions by name.");
+            for arg in args {
+                self.check_expression(arg, scope, None);
+            }
+            return CalcKernelType::Unknown;
+        };
+
+        if let Some(builtin) = compiler_builtin(name) {
+            return self.check_builtin_call(&builtin, args, span, scope);
+        }
+
+        let Some(function_symbol) = self.symbols.functions.get(name).cloned() else {
+            self.error(*name_span, format!("Unknown function '{name}'."));
+            for arg in args {
+                self.check_expression(arg, scope, None);
+            }
+            return CalcKernelType::Unknown;
+        };
+
+        if args.len() != function_symbol.params.len() {
+            self.error(
+                span,
+                format!(
+                    "Function '{}' expects {} argument{} but got {}.",
+                    function_symbol.name,
+                    function_symbol.params.len(),
+                    if function_symbol.params.len() == 1 {
+                        ""
+                    } else {
+                        "s"
+                    },
+                    args.len()
+                ),
+            );
+        }
+
+        for (index, arg) in args.iter().enumerate() {
+            let expected = function_symbol.params.get(index);
+            let arg_type = self.check_expression(arg, scope, expected);
+            if let Some(expected) = expected
+                && !is_unknown(expected)
+                && !is_unknown(&arg_type)
+                && !can_assign(expected, &arg_type)
+            {
+                self.error(
+                    arg.span(),
+                    format!(
+                        "Argument {} of function '{}' expects {} but got {}.",
+                        index + 1,
+                        function_symbol.name,
+                        type_to_string(expected),
+                        type_to_string(&arg_type)
+                    ),
+                );
+            }
+        }
+
+        function_symbol.return_type
+    }
+
+    fn check_builtin_call(
+        &mut self,
+        builtin: &CompilerBuiltin,
+        args: &[Expression],
+        span: SourceSpan,
+        scope: &mut Scope,
+    ) -> CalcKernelType {
+        if args.len() != builtin.params.len() {
+            self.error(
+                span,
+                format!(
+                    "Compiler builtin '{}' expects {} argument{} but got {}.",
+                    builtin.name,
+                    builtin.params.len(),
+                    if builtin.params.len() == 1 { "" } else { "s" },
+                    args.len()
+                ),
+            );
+        }
+
+        for (index, arg) in args.iter().enumerate() {
+            let expected = builtin.params.get(index);
+            let arg_type = self.check_expression(arg, scope, expected);
+            if let Some(expected) = expected
+                && !is_unknown(expected)
+                && !is_unknown(&arg_type)
+                && !can_assign(expected, &arg_type)
+            {
+                self.error(
+                    arg.span(),
+                    format!(
+                        "Argument {} of compiler builtin '{}' expects {} but got {}.",
+                        index + 1,
+                        builtin.name,
+                        type_to_string(expected),
+                        type_to_string(&arg_type)
+                    ),
+                );
+            }
+        }
+
+        builtin.return_type.clone()
+    }
+
+    fn check_field_expression(
+        &mut self,
+        object: &Expression,
+        field: &crate::IdentifierNode,
+        scope: &mut Scope,
+    ) -> CalcKernelType {
+        let object_type = self.check_expression(object, scope, None);
+        let CalcKernelType::Struct(struct_name) = object_type else {
+            if !is_unknown(&object_type) {
+                self.error(
+                    object.span(),
+                    format!(
+                        "Field access requires struct value, got {}.",
+                        type_to_string(&object_type)
+                    ),
+                );
+            }
+            return CalcKernelType::Unknown;
+        };
+
+        let Some(struct_symbol) = self.symbols.structs.get(&struct_name) else {
+            self.error(
+                field.span,
+                format!("Struct '{struct_name}' has no field '{}'.", field.name),
+            );
+            return CalcKernelType::Unknown;
+        };
+        let Some(field_type) = struct_symbol.fields.get(&field.name) else {
+            self.error(
+                field.span,
+                format!("Struct '{struct_name}' has no field '{}'.", field.name),
+            );
+            return CalcKernelType::Unknown;
+        };
+        field_type.clone()
+    }
+
+    fn check_index_expression(
+        &mut self,
+        object: &Expression,
+        index: &Expression,
+        scope: &mut Scope,
+    ) -> CalcKernelType {
+        let object_type = self.check_expression(object, scope, None);
+        let index_type =
+            materialize_integer_literal(self.check_expression(index, scope, None), primitive_i32());
+        if !is_unknown(&index_type) && !is_index_integer(&index_type) {
+            self.error(
+                index.span(),
+                format!(
+                    "Index expression requires i32 or u32 index, got {}.",
+                    type_to_string(&index_type)
+                ),
+            );
+        }
+
+        let CalcKernelType::Pointer(element_type) = object_type else {
+            if !is_unknown(&object_type) {
+                self.error(
+                    object.span(),
+                    format!(
+                        "Index access requires pointer value, got {}.",
+                        type_to_string(&object_type)
+                    ),
+                );
+            }
+            return CalcKernelType::Unknown;
+        };
+        *element_type
+    }
+
+    fn resolve_type(&mut self, type_node: &TypeNode) -> CalcKernelType {
+        match type_node {
+            TypeNode::Primitive { name, .. } => primitive_type_from_str(name),
+            TypeNode::Pointer { element_type, .. } => {
+                CalcKernelType::Pointer(Box::new(self.resolve_type(element_type)))
+            }
+            TypeNode::Named { name, .. } => {
+                if !self.symbols.structs.contains_key(&name.name) {
+                    self.error(name.span, format!("Unknown type '{}'.", name.name));
+                    return CalcKernelType::Unknown;
+                }
+                CalcKernelType::Struct(name.name.clone())
+            }
+            TypeNode::Error { .. } => CalcKernelType::Unknown,
+        }
+    }
+
+    fn error(&mut self, span: SourceSpan, message: impl Into<String>) {
+        let message = message.into();
+        self.diagnostics.push(Diagnostic::error(
+            checker_diagnostic_code(&message),
+            message,
+            self.source.file_name.clone(),
+            span,
+        ));
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Scope {
+    frames: Vec<HashMap<String, VariableSymbol>>,
+}
+
+impl Scope {
+    pub fn push(&mut self) {
+        self.frames.push(HashMap::new());
+    }
+
+    pub fn pop(&mut self) {
+        self.frames.pop();
+    }
+
+    pub fn declare(&mut self, variable: VariableSymbol) -> bool {
+        if self.frames.is_empty() {
+            self.push();
+        }
+        let frame = self
+            .frames
+            .last_mut()
+            .expect("scope has at least one frame");
+        if frame.contains_key(&variable.name) {
+            return false;
+        }
+        frame.insert(variable.name.clone(), variable);
+        true
+    }
+
+    #[must_use]
+    pub fn lookup(&self, name: &str) -> Option<&VariableSymbol> {
+        self.frames.iter().rev().find_map(|frame| frame.get(name))
+    }
+}
+
+fn create_checked_program(
+    ast: Program,
+    symbols: SymbolTable,
+    types: TypeMap,
+    local_types: LetTypeMap,
+) -> CheckedProgram {
+    let structs: Vec<StructInfo> = ast
+        .declarations
+        .iter()
+        .filter_map(|declaration| {
+            let Declaration::Struct(struct_decl) = declaration else {
+                return None;
+            };
+            let symbol = symbols.structs.get(&struct_decl.name.name)?;
+            (symbol.declaration == *struct_decl).then(|| to_struct_info(symbol))
+        })
+        .collect();
+    let functions: Vec<FunctionInfo> = ast
+        .declarations
+        .iter()
+        .filter_map(|declaration| {
+            let Declaration::Function(function_decl) = declaration else {
+                return None;
+            };
+            let symbol = symbols.functions.get(&function_decl.name.name)?;
+            (symbol.declaration == *function_decl).then(|| to_function_info(symbol))
+        })
+        .collect();
+    CheckedProgram {
+        ast,
+        symbols,
+        types,
+        local_types,
+        struct_map: structs
+            .iter()
+            .cloned()
+            .map(|struct_info| (struct_info.name.clone(), struct_info))
+            .collect(),
+        function_map: functions
+            .iter()
+            .cloned()
+            .map(|function_info| (function_info.name.clone(), function_info))
+            .collect(),
+        structs,
+        functions,
+    }
+}
+
+fn to_struct_info(symbol: &StructSymbol) -> StructInfo {
+    let fields: Vec<StructFieldInfo> = symbol
+        .declaration
+        .fields
+        .iter()
+        .filter_map(|field| {
+            symbol
+                .fields
+                .get(&field.name.name)
+                .map(|type_node| StructFieldInfo {
+                    name: field.name.name.clone(),
+                    type_node: type_node.clone(),
+                    declaration: field.clone(),
+                })
+        })
+        .collect();
+    StructInfo {
+        name: symbol.name.clone(),
+        declaration: symbol.declaration.clone(),
+        field_map: fields
+            .iter()
+            .cloned()
+            .map(|field| (field.name.clone(), field))
+            .collect(),
+        fields,
+    }
+}
+
+fn to_function_info(symbol: &FunctionSymbol) -> FunctionInfo {
+    FunctionInfo {
+        name: symbol.name.clone(),
+        exported: symbol.declaration.exported,
+        declaration: symbol.declaration.clone(),
+        params: symbol
+            .declaration
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| FunctionParamInfo {
+                name: param.name.name.clone(),
+                type_node: symbol
+                    .params
+                    .get(index)
+                    .cloned()
+                    .unwrap_or(CalcKernelType::Unknown),
+                declaration: param.clone(),
+            })
+            .collect(),
+        return_type: symbol.return_type.clone(),
+    }
+}
+
+fn compiler_builtin(name: &str) -> Option<CompilerBuiltin> {
+    match name {
+        "i32_to_f64" => Some(CompilerBuiltin {
+            name: "i32_to_f64",
+            params: vec![primitive_i32()],
+            return_type: primitive_f64(),
+        }),
+        "u32_to_f64" => Some(CompilerBuiltin {
+            name: "u32_to_f64",
+            params: vec![primitive_u32()],
+            return_type: primitive_f64(),
+        }),
+        _ => None,
+    }
+}
+
+#[must_use]
+pub fn get_expr_type<'program>(
+    checked_program: &'program CheckedProgram,
+    expression: &Expression,
+) -> Option<&'program CalcKernelType> {
+    checked_program.types.get(&expression.span())
+}
+
+#[must_use]
+pub fn get_let_type<'program>(
+    checked_program: &'program CheckedProgram,
+    statement: &LetStatement,
+) -> Option<&'program CalcKernelType> {
+    checked_program.local_types.get(&statement.span)
+}
+
+#[must_use]
+pub fn get_struct_info<'program>(
+    checked_program: &'program CheckedProgram,
+    name: &str,
+) -> Option<&'program StructInfo> {
+    checked_program.struct_map.get(name)
+}
+
+#[must_use]
+pub fn get_field_info<'program>(
+    checked_program: &'program CheckedProgram,
+    struct_name: &str,
+    field_name: &str,
+) -> Option<&'program StructFieldInfo> {
+    checked_program
+        .struct_map
+        .get(struct_name)?
+        .field_map
+        .get(field_name)
+}
+
+#[must_use]
+pub fn get_function_info<'program>(
+    checked_program: &'program CheckedProgram,
+    name: &str,
+) -> Option<&'program FunctionInfo> {
+    checked_program.function_map.get(name)
+}
+
+#[must_use]
+pub fn primitive_type(name: PrimitiveTypeName) -> CalcKernelType {
+    CalcKernelType::Primitive(name)
+}
+
+#[must_use]
+pub fn materialize_integer_literal_type(
+    type_node: CalcKernelType,
+    fallback: CalcKernelType,
+) -> CalcKernelType {
+    materialize_integer_literal(type_node, fallback)
+}
+
+fn primitive_type_from_str(name: &str) -> CalcKernelType {
+    match name {
+        "i32" => primitive_i32(),
+        "i64" => primitive_i64(),
+        "u32" => primitive_u32(),
+        "u64" => primitive_u64(),
+        "f64" => primitive_f64(),
+        "bool" => primitive_bool(),
+        _ => CalcKernelType::Unknown,
+    }
+}
+
+fn primitive_i32() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::I32)
+}
+
+fn primitive_i64() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::I64)
+}
+
+fn primitive_u32() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::U32)
+}
+
+fn primitive_u64() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::U64)
+}
+
+fn primitive_f64() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::F64)
+}
+
+fn primitive_bool() -> CalcKernelType {
+    CalcKernelType::Primitive(PrimitiveTypeName::Bool)
+}
+
+fn is_unknown(type_node: &CalcKernelType) -> bool {
+    matches!(type_node, CalcKernelType::Unknown)
+}
+
+fn is_bool(type_node: &CalcKernelType) -> bool {
+    matches!(
+        type_node,
+        CalcKernelType::Primitive(PrimitiveTypeName::Bool)
+    )
+}
+
+fn is_integer_primitive(type_node: &CalcKernelType) -> bool {
+    matches!(
+        type_node,
+        CalcKernelType::Primitive(
+            PrimitiveTypeName::I32
+                | PrimitiveTypeName::I64
+                | PrimitiveTypeName::U32
+                | PrimitiveTypeName::U64
+        )
+    )
+}
+
+fn is_float_type(type_node: &CalcKernelType) -> bool {
+    matches!(type_node, CalcKernelType::Primitive(PrimitiveTypeName::F64))
+}
+
+fn is_integer(type_node: &CalcKernelType) -> bool {
+    matches!(type_node, CalcKernelType::IntegerLiteral) || is_integer_primitive(type_node)
+}
+
+fn is_numeric_type(type_node: &CalcKernelType) -> bool {
+    is_integer(type_node) || is_float_type(type_node)
+}
+
+fn is_index_integer(type_node: &CalcKernelType) -> bool {
+    matches!(
+        type_node,
+        CalcKernelType::IntegerLiteral
+            | CalcKernelType::Primitive(PrimitiveTypeName::I32 | PrimitiveTypeName::U32)
+    )
+}
+
+fn same_type(left: &CalcKernelType, right: &CalcKernelType) -> bool {
+    if is_unknown(left) || is_unknown(right) {
+        return true;
+    }
+    if matches!(left, CalcKernelType::IntegerLiteral) && is_integer(right) {
+        return true;
+    }
+    if matches!(right, CalcKernelType::IntegerLiteral) && is_integer(left) {
+        return true;
+    }
+    left == right
+}
+
+fn can_assign(target: &CalcKernelType, value: &CalcKernelType) -> bool {
+    same_type(target, value)
+}
+
+fn materialize_integer_literal(
+    type_node: CalcKernelType,
+    fallback: CalcKernelType,
+) -> CalcKernelType {
+    if matches!(type_node, CalcKernelType::IntegerLiteral) {
+        fallback
+    } else {
+        type_node
+    }
+}
+
+fn integer_literal_fallback(type_node: Option<&CalcKernelType>) -> CalcKernelType {
+    if type_node.is_some_and(is_integer_primitive) {
+        type_node.cloned().unwrap_or_else(primitive_i32)
+    } else {
+        primitive_i32()
+    }
+}
+
+fn type_to_string(type_node: &CalcKernelType) -> String {
+    match type_node {
+        CalcKernelType::Primitive(PrimitiveTypeName::I32) => "i32".to_string(),
+        CalcKernelType::Primitive(PrimitiveTypeName::I64) => "i64".to_string(),
+        CalcKernelType::Primitive(PrimitiveTypeName::U32) => "u32".to_string(),
+        CalcKernelType::Primitive(PrimitiveTypeName::U64) => "u64".to_string(),
+        CalcKernelType::Primitive(PrimitiveTypeName::F64) => "f64".to_string(),
+        CalcKernelType::Primitive(PrimitiveTypeName::Bool) => "bool".to_string(),
+        CalcKernelType::Pointer(element_type) => format!("ptr<{}>", type_to_string(element_type)),
+        CalcKernelType::Struct(name) => name.clone(),
+        CalcKernelType::IntegerLiteral => "i32".to_string(),
+        CalcKernelType::Unknown => "unknown".to_string(),
+    }
+}
+
+fn is_assignable_expression(expression: &Expression) -> bool {
+    matches!(
+        expression,
+        Expression::Identifier { .. } | Expression::Field { .. } | Expression::Index { .. }
+    )
+}
+
+fn block_definitely_returns(block: &BlockStatement) -> bool {
+    block
+        .statements
+        .last()
+        .is_some_and(statement_definitely_returns)
+}
+
+fn statement_definitely_returns(statement: &Statement) -> bool {
+    match statement {
+        Statement::Return(_) => true,
+        Statement::Block(block) => block_definitely_returns(block),
+        Statement::If(statement) => statement.else_block.as_ref().is_some_and(|else_block| {
+            block_definitely_returns(&statement.then_block) && block_definitely_returns(else_block)
+        }),
+        Statement::Let(_)
+        | Statement::Assignment(_)
+        | Statement::While(_)
+        | Statement::Error { .. } => false,
+    }
+}
+
+fn checker_diagnostic_code(message: &str) -> DiagnosticCode {
+    if message.starts_with("Unknown variable") {
+        return DiagnosticCode::Ck2001;
+    }
+    if message.starts_with("Unknown function") {
+        return DiagnosticCode::Ck2002;
+    }
+    if message.starts_with("Unknown type") {
+        return DiagnosticCode::Ck2003;
+    }
+    if message.starts_with("Duplicate") {
+        return DiagnosticCode::Ck2005;
+    }
+    if message.starts_with("If condition") || message.starts_with("While condition") {
+        return DiagnosticCode::Ck2006;
+    }
+    if message.starts_with("Invalid assignment target") {
+        return DiagnosticCode::Ck2007;
+    }
+    if message.starts_with("Missing return") {
+        return DiagnosticCode::Ck2008;
+    }
+    DiagnosticCode::Ck2004
+}
+
+fn is_arithmetic_operator(operator: &str) -> bool {
+    matches!(operator, "+" | "-" | "*" | "/" | "%")
+}
+
+fn is_comparison_operator(operator: &str) -> bool {
+    matches!(operator, "==" | "!=" | "<" | "<=" | ">" | ">=")
+}

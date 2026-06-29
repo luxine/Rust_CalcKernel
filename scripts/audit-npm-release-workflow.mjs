@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const workflowPath = join(root, ".github", "workflows", "npm-release.yml");
+const failures = [];
+
+if (!existsSync(workflowPath)) {
+  fail(`npm release workflow is missing: ${workflowPath}`);
+} else {
+  const workflow = readFileSync(workflowPath, "utf8");
+  expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
+  expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
+  expectIncludes(workflow, "build-binary:", "binary matrix job");
+  expectIncludes(workflow, "pack-release:", "release packing job");
+  expectIncludes(workflow, "platform-signoff:", "platform sign-off job");
+  expectIncludes(workflow, "finalize-signoff:", "final sign-off job");
+  expectIncludes(workflow, "publish-npm:", "npm publish job");
+  expectIncludes(workflow, "publish:", "publish workflow input");
+  expectIncludes(workflow, "type: boolean", "boolean publish input");
+  expectIncludes(workflow, "default: false", "publish default");
+  expectIncludes(workflow, "if: ${{ inputs.publish }}", "publish job guard");
+  expectIncludes(workflow, "environment: npm-production", "publish environment");
+  expectIncludes(workflow, "id-token: write", "npm provenance token permission");
+  expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
+  expectIncludes(workflow, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm token secret");
+  expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
+  expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
+  expectIncludes(workflow, "cargo fmt --check", "format gate");
+  expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
+  expectIncludes(workflow, "scripts/audit-rust-replacement-readiness.mjs", "readiness audit");
+  expectIncludes(workflow, "scripts/audit-npm-release-workflow.mjs", "workflow self-audit");
+  expectIncludes(workflow, "npm run build:npm-matrix -- --target", "matrix build command");
+  expectIncludes(workflow, "CKC_NPM_BINARIES_DIR=build/npm-binaries", "matrix pack environment");
+  expectIncludes(workflow, "npm run verify:npm-release", "release verifier command");
+  expectIncludes(workflow, "npm run verify:host-npm-install", "host install verifier command");
+  expectIncludes(workflow, "npm run verify:release-signoff", "release sign-off command");
+  expectIncludes(workflow, "release-manifest.json", "release manifest artifact");
+  expectIncludes(workflow, "signoffs/${{ matrix.target }}.json", "target sign-off output");
+  expectIncludes(workflow, "name: signoff-${{ matrix.target }}", "target sign-off artifact");
+  expectIncludes(workflow, "actions/upload-artifact@v4", "artifact upload");
+  expectIncludes(workflow, "actions/download-artifact@v4", "artifact download");
+
+  for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
+    expectIncludes(workflow, `target: ${target.name}`, `${target.name} matrix entry`);
+    expectIncludes(workflow, `rust-target: ${target.rustTarget}`, `${target.name} rust target`);
+    expectIncludes(workflow, `binary: ${binaryNameForTarget(target.name)}`, `${target.name} binary artifact`);
+  }
+
+  for (const runner of [
+    "ubuntu-24.04",
+    "ubuntu-24.04-arm",
+    "macos-15",
+    "macos-15-intel",
+    "windows-2025",
+    "windows-11-arm"
+  ]) {
+    expectIncludes(workflow, `runner: ${runner}`, `${runner} runner`);
+  }
+}
+
+if (failures.length > 0) {
+  for (const failure of failures) {
+    console.error(failure);
+  }
+  process.exit(1);
+}
+
+console.log(JSON.stringify({
+  status: "ok",
+  workflow: workflowPath,
+  publishJob: true,
+  targets: SUPPORTED_CKC_BINARY_TARGETS.map((target) => target.name)
+}, null, 2));
+
+function expectIncludes(text, expected, label) {
+  if (!text.includes(expected)) {
+    fail(`${label} must include ${expected}`);
+  }
+}
+
+function fail(message) {
+  failures.push(message);
+}

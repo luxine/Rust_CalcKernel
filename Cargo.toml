@@ -1,0 +1,22 @@
+[package]
+name = "calckernel"
+version = "0.8.0"
+edition = "2024"
+license = "MIT"
+description = "Rust rewrite of the CK / CalcKernel compiler."
+
+[lib]
+name = "calckernel"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ckc"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = "2.0"
+wat = "1.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"

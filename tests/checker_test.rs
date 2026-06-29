@@ -1,0 +1,251 @@
+use calckernel::{
+    CalcKernelType, DiagnosticCode, Expression, PrimitiveTypeName, Scope, SourceFile, Statement,
+    VariableSymbol, check, get_expr_type, get_field_info, get_function_info, get_let_type,
+    get_struct_info,
+};
+
+fn check_source(text: &str) -> calckernel::CheckResult {
+    check(&SourceFile::new("test.ck", text))
+}
+
+fn messages_of(text: &str) -> Vec<String> {
+    check_source(text)
+        .diagnostics
+        .into_iter()
+        .map(|diagnostic| diagnostic.message)
+        .collect()
+}
+
+#[test]
+fn check_should_accept_valid_pricing_style_program() {
+    let result = check_source(
+        r#"
+      struct Item {
+        price: i64;
+        qty: i64;
+        tax_rate_ppm: i64;
+      }
+
+      export fn tax(base: i64, ppm: i64) -> i64 {
+        return base * ppm / 1000000;
+      }
+
+      export fn calc(items: ptr<Item>, len: i32, out: ptr<i64>) -> i32 {
+        let i: i32 = 0;
+        while i < len {
+          let subtotal: i64 = items[i].price * items[i].qty;
+          if subtotal > 0 {
+            out[i] = subtotal + tax(subtotal, items[i].tax_rate_ppm);
+          } else {
+            out[i] = 0;
+          }
+          i = i + 1;
+        }
+        return 0;
+      }
+    "#,
+    );
+
+    assert_eq!(result.diagnostics, []);
+    assert!(result.checked_program.function_map.contains_key("calc"));
+    assert!(result.checked_program.struct_map.contains_key("Item"));
+    assert!(
+        result
+            .typed_ast
+            .expression_types
+            .values()
+            .any(|type_node| matches!(
+                type_node,
+                calckernel::CalcKernelType::Primitive(calckernel::PrimitiveTypeName::Bool)
+            ))
+    );
+}
+
+#[test]
+fn check_should_expose_typescript_compatible_symbol_lookup_helpers() {
+    let result = check_source(
+        r#"
+      struct Item {
+        price: i64;
+        qty: i32;
+      }
+
+      export fn total(items: ptr<Item>) -> i64 {
+        return items[0].price;
+      }
+    "#,
+    );
+
+    assert_eq!(result.diagnostics, []);
+    let program = &result.checked_program;
+    assert_eq!(
+        get_struct_info(program, "Item").expect("Item struct").name,
+        "Item"
+    );
+    assert_eq!(
+        get_field_info(program, "Item", "price")
+            .expect("price field")
+            .name,
+        "price"
+    );
+    assert_eq!(
+        get_function_info(program, "total")
+            .expect("total function")
+            .name,
+        "total"
+    );
+    assert!(get_struct_info(program, "Missing").is_none());
+    assert!(get_field_info(program, "Item", "missing").is_none());
+    assert!(get_function_info(program, "missing").is_none());
+}
+
+#[test]
+fn scope_should_expose_typescript_compatible_declare_and_lookup_behavior() {
+    let mut scope = Scope::default();
+    let outer = VariableSymbol {
+        name: "value".to_string(),
+        type_node: CalcKernelType::Primitive(PrimitiveTypeName::I64),
+    };
+
+    assert!(scope.declare(outer.clone()));
+    assert!(!scope.declare(outer.clone()));
+    assert_eq!(scope.lookup("value"), Some(&outer));
+    assert_eq!(scope.lookup("missing"), None);
+
+    let inner = VariableSymbol {
+        name: "value".to_string(),
+        type_node: CalcKernelType::Primitive(PrimitiveTypeName::I32),
+    };
+    scope.push();
+    assert!(scope.declare(inner.clone()));
+    assert_eq!(scope.lookup("value"), Some(&inner));
+    scope.pop();
+    assert_eq!(scope.lookup("value"), Some(&outer));
+}
+
+#[test]
+fn check_should_report_unknown_variable_with_ck2001() {
+    let result = check_source(
+        r#"
+      export fn bad() -> i32 {
+        return missing;
+      }
+    "#,
+    );
+
+    assert!(result.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == DiagnosticCode::Ck2001
+            && diagnostic.message == "Unknown variable 'missing'."
+            && diagnostic.file_name == "test.ck"
+            && diagnostic.line == 3
+            && diagnostic.column == 16
+    }));
+}
+
+#[test]
+fn check_should_report_return_type_mismatch() {
+    assert!(
+        messages_of(
+            r#"
+      export fn bad() -> i32 {
+        return true;
+      }
+    "#
+        )
+        .contains(&"Return type mismatch: expected i32 but got bool.".to_string())
+    );
+}
+
+#[test]
+fn check_should_accept_explicit_i32_and_u32_to_f64_builtins() {
+    let result = check_source(
+        r#"
+      export fn from_i32(n: i32) -> f64 {
+        let x: f64 = i32_to_f64(n);
+        return x + 1.0;
+      }
+
+      export fn from_u32(n: u32) -> f64 {
+        return u32_to_f64(n);
+      }
+    "#,
+    );
+
+    assert_eq!(result.diagnostics, []);
+}
+
+#[test]
+fn check_should_reject_strict_f64_violations() {
+    assert!(
+        messages_of("export fn bad() -> f64 { let x: f64 = 1; return 1.0; }")
+            .contains(&"Cannot initialize 'x': expected f64 but got i32.".to_string())
+    );
+    assert!(
+        messages_of("export fn bad(a: f64, b: i64) -> f64 { return a + b; }").contains(
+            &"Arithmetic operator '+' requires integer operands of the same type.".to_string()
+        )
+    );
+    assert!(
+        messages_of("export fn bad(a: f64, b: f64) -> f64 { return a % b; }")
+            .contains(&"Arithmetic operator '%' does not support f64 operands.".to_string())
+    );
+}
+
+#[test]
+fn check_should_expose_expression_and_let_types_for_mir_lowering() {
+    let result = check_source(
+        r#"
+      struct Item {
+        price: i64;
+        qty: i64;
+      }
+
+      export fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+      }
+
+      export fn calc(item: ptr<Item>) -> i64 {
+        let subtotal: i64 = item[0].price + add(1, 2);
+        return subtotal;
+      }
+    "#,
+    );
+
+    assert_eq!(result.diagnostics, []);
+    let calc = result
+        .checked_program
+        .function_map
+        .get("calc")
+        .expect("calc function info");
+    let Statement::Let(let_statement) = &calc.declaration.body.statements[0] else {
+        panic!("expected let statement");
+    };
+    let Expression::Binary { left, right, .. } = &let_statement.initializer else {
+        panic!("expected binary initializer");
+    };
+
+    assert_eq!(
+        get_let_type(&result.checked_program, let_statement),
+        Some(&calckernel::CalcKernelType::Primitive(
+            calckernel::PrimitiveTypeName::I64
+        ))
+    );
+    assert_eq!(
+        get_expr_type(&result.checked_program, &let_statement.initializer),
+        Some(&calckernel::CalcKernelType::Primitive(
+            calckernel::PrimitiveTypeName::I64
+        ))
+    );
+    assert_eq!(
+        get_expr_type(&result.checked_program, left),
+        Some(&calckernel::CalcKernelType::Primitive(
+            calckernel::PrimitiveTypeName::I64
+        ))
+    );
+    assert_eq!(
+        get_expr_type(&result.checked_program, right),
+        Some(&calckernel::CalcKernelType::Primitive(
+            calckernel::PrimitiveTypeName::I64
+        ))
+    );
+}

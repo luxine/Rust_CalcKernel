@@ -1,0 +1,405 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
+import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
+
+const tarballArg = process.argv[2];
+
+if (!tarballArg || tarballArg === "--help" || tarballArg === "-h") {
+  console.error("Usage: node scripts/verify-npm-release.mjs <calckernel-version.tgz>");
+  process.exit(tarballArg ? 0 : 1);
+}
+
+const tarballPath = resolve(tarballArg);
+if (!existsSync(tarballPath)) {
+  fail(`Release tarball does not exist: ${tarballPath}`);
+}
+
+const tarballDetails = listTarballDetails(tarballPath);
+const entries = tarballDetails.map((detail) => detail.entry);
+const entrySet = new Set(entries);
+const entryDetails = new Map(tarballDetails.map((detail) => [detail.entry, detail]));
+const requiredFiles = [
+  "package/package.json",
+  "package/npm/ckc.js",
+  "package/npm/platform.js",
+  "package/npm/index.js",
+  "package/npm/index.d.ts",
+  "package/docs/npm-release.md",
+  "package/docs/architecture-review.md",
+  "package/docs/zh-CN/architecture-review.md",
+  "package/README.md"
+];
+const expectedPackageJsonFiles = [
+  "npm",
+  "README.md",
+  "docs/npm-release.md",
+  "docs/architecture-review.md",
+  "docs/zh-CN/architecture-review.md"
+];
+
+for (const file of requiredFiles) {
+  requireEntry(entrySet, file);
+}
+
+const forbiddenPrefixes = [
+  "package/docs/superpowers/",
+  "package/src/",
+  "package/target/"
+];
+
+for (const entry of entries) {
+  for (const prefix of forbiddenPrefixes) {
+    if (entry.startsWith(prefix)) {
+      fail(`Release tarball must not include ${entry}`);
+    }
+  }
+}
+
+const packageJson = JSON.parse(extractTarballEntry(tarballPath, "package/package.json").toString("utf8"));
+if (packageJson.name !== "calckernel") {
+  fail(`Expected package name "calckernel", found "${packageJson.name}"`);
+}
+if (!packageJson.version) {
+  fail("package/package.json is missing version");
+}
+if (!sameStringArray(packageJson.files, expectedPackageJsonFiles)) {
+  fail(
+    `package/package.json files must be ${JSON.stringify(expectedPackageJsonFiles)}, found ${JSON.stringify(packageJson.files)}`
+  );
+}
+const packageMetadata = validatePackageMetadata(packageJson);
+
+const targets = SUPPORTED_CKC_BINARY_TARGETS.map((target) => {
+  const binaryPath = `package/npm/bin/${binaryNameForTarget(target.name)}`;
+  requireEntry(entrySet, binaryPath);
+  const fileMode = readTargetFileMode(entryDetails, target, binaryPath);
+  const binaryBytes = extractTarballEntry(tarballPath, binaryPath);
+  const binaryFormat = expectedBinaryFormat(target);
+  validateBinaryFormat(target, binaryPath, binaryBytes, binaryFormat);
+  const binaryArchitecture = readBinaryArchitecture(target, binaryPath, binaryBytes, binaryFormat);
+  return {
+    name: target.name,
+    rustTarget: target.rustTarget,
+    binaryPath,
+    fileMode,
+    binaryFormat,
+    binaryArchitecture,
+    sizeBytes: binaryBytes.length,
+    sha256: sha256(binaryBytes)
+  };
+});
+const allowedEntries = [
+  ...requiredFiles,
+  ...targets.map((target) => target.binaryPath)
+].sort();
+const allowedEntrySet = new Set(allowedEntries);
+for (const entry of entries) {
+  if (entry.endsWith("/")) {
+    continue;
+  }
+  if (!allowedEntrySet.has(entry)) {
+    fail(`Release tarball includes unexpected file ${entry}`);
+  }
+}
+
+const manifest = {
+  packageName: packageJson.name,
+  packageVersion: packageJson.version,
+  packageMetadata,
+  tarball: basename(tarballPath),
+  tarballSha256: sha256(readFileSync(tarballPath)),
+  requiredFiles,
+  fileSurface: {
+    packageJsonFiles: packageJson.files,
+    requiredFiles,
+    forbiddenPrefixes,
+    allowedEntries
+  },
+  targets
+};
+
+console.log(JSON.stringify(manifest, null, 2));
+
+function listTarballDetails(tarball) {
+  const output = runTar(["-tvzf", tarball], "list tarball details");
+  return output
+    .toString("utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(parseTarballDetail);
+}
+
+function extractTarballEntry(tarball, entry) {
+  return runTar(["-xOf", tarball, entry], `extract ${entry}`);
+}
+
+function requireEntry(entrySet, entry) {
+  if (!entrySet.has(entry)) {
+    fail(`Release tarball is missing ${entry}`);
+  }
+}
+
+function parseTarballDetail(line) {
+  const parts = line.split(/\s+/);
+  return {
+    mode: parts[0] ?? "",
+    entry: parts.at(-1) ?? ""
+  };
+}
+
+function readTargetFileMode(entryDetails, target, binaryPath) {
+  const detail = entryDetails.get(binaryPath);
+  if (!detail) {
+    fail(`${binaryPath} for ${target.name} is invalid: missing tar entry mode`);
+  }
+  if (target.platform !== "win32" && !hasOwnerExecuteBit(detail.mode)) {
+    fail(`${binaryPath} for ${target.name} is invalid: expected executable mode, found ${detail?.mode ?? "unknown"}`);
+  }
+  return detail.mode;
+}
+
+function hasOwnerExecuteBit(mode) {
+  return mode.length >= 4 && (mode[3] === "x" || mode[3] === "s");
+}
+
+function runTar(args, action) {
+  const output = spawnSync("tar", args);
+  if (output.error) {
+    fail(`Unable to ${action}: ${output.error.message}`);
+  }
+  if (output.status !== 0) {
+    const stderr = output.stderr.toString("utf8").trim();
+    const stdout = output.stdout.toString("utf8").trim();
+    fail(`Unable to ${action}${stderr || stdout ? `: ${stderr || stdout}` : ""}`);
+  }
+  return output.stdout;
+}
+
+function sha256(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function sameStringArray(actual, expected) {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((value, index) => value === expected[index]);
+}
+
+function validatePackageMetadata(packageJson) {
+  if (packageJson.type !== "module") {
+    fail(`package/package.json type must be "module", found ${JSON.stringify(packageJson.type)}`);
+  }
+  if (packageJson.main !== "./npm/index.js") {
+    fail(`package/package.json main must be "./npm/index.js", found ${JSON.stringify(packageJson.main)}`);
+  }
+  if (packageJson.types !== "./npm/index.d.ts") {
+    fail(`package/package.json types must be "./npm/index.d.ts", found ${JSON.stringify(packageJson.types)}`);
+  }
+
+  const expectedExports = {
+    ".": {
+      types: "./npm/index.d.ts",
+      import: "./npm/index.js"
+    }
+  };
+  if (!sameJson(packageJson.exports, expectedExports)) {
+    fail(`package/package.json exports must be ${JSON.stringify(expectedExports)}, found ${JSON.stringify(packageJson.exports)}`);
+  }
+
+  const expectedBin = { ckc: "./npm/ckc.js" };
+  if (!sameJson(packageJson.bin, expectedBin)) {
+    fail(`package/package.json bin must be ${JSON.stringify(expectedBin)}, found ${JSON.stringify(packageJson.bin)}`);
+  }
+
+  const dependencyFields = {};
+  for (const field of [
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+    "peerDependencies",
+    "bundledDependencies",
+    "bundleDependencies"
+  ]) {
+    if (isNonEmptyDependencyField(packageJson[field])) {
+      fail(`package/package.json must not declare ${field}`);
+    }
+  }
+
+  return {
+    type: packageJson.type,
+    main: packageJson.main,
+    types: packageJson.types,
+    exports: expectedExports,
+    bin: expectedBin,
+    dependencyFields
+  };
+}
+
+function sameJson(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected);
+}
+
+function isNonEmptyDependencyField(value) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value).length > 0;
+  }
+  return true;
+}
+
+function expectedBinaryFormat(target) {
+  if (target.platform === "darwin") {
+    return "Mach-O";
+  }
+  if (target.platform === "linux") {
+    return "ELF";
+  }
+  if (target.platform === "win32") {
+    return "PE";
+  }
+  fail(`Unsupported release binary platform for ${target.name}: ${target.platform}`);
+}
+
+function validateBinaryFormat(target, binaryPath, bytes, format) {
+  if (format === "Mach-O" && !isMachO(bytes)) {
+    fail(`${binaryPath} for ${target.name} is invalid: expected Mach-O executable`);
+  }
+  if (format === "ELF" && !hasPrefix(bytes, [0x7f, 0x45, 0x4c, 0x46])) {
+    fail(`${binaryPath} for ${target.name} is invalid: expected ELF executable`);
+  }
+  if (format === "PE" && !isPE(bytes)) {
+    fail(`${binaryPath} for ${target.name} is invalid: expected PE executable`);
+  }
+}
+
+function readBinaryArchitecture(target, binaryPath, bytes, format) {
+  const actual = detectBinaryArchitecture(bytes, format);
+  if (actual !== target.arch) {
+    fail(`${binaryPath} for ${target.name} is invalid: expected ${target.arch} architecture, found ${actual}`);
+  }
+  return actual;
+}
+
+function detectBinaryArchitecture(bytes, format) {
+  if (format === "Mach-O") {
+    return machOArchitecture(bytes);
+  }
+  if (format === "ELF") {
+    return elfArchitecture(bytes);
+  }
+  if (format === "PE") {
+    return peArchitecture(bytes);
+  }
+  return "unknown";
+}
+
+function machOArchitecture(bytes) {
+  if (bytes.length < 8) {
+    return "unknown";
+  }
+  let cpuType;
+  if (hasPrefix(bytes, [0xcf, 0xfa, 0xed, 0xfe]) || hasPrefix(bytes, [0xce, 0xfa, 0xed, 0xfe])) {
+    cpuType = bytes.readUInt32LE(4);
+  } else if (hasPrefix(bytes, [0xfe, 0xed, 0xfa, 0xcf]) || hasPrefix(bytes, [0xfe, 0xed, 0xfa, 0xce])) {
+    cpuType = bytes.readUInt32BE(4);
+  } else {
+    return "unknown";
+  }
+  return architectureFromMachOCpuType(cpuType);
+}
+
+function elfArchitecture(bytes) {
+  if (bytes.length < 20) {
+    return "unknown";
+  }
+  const dataEncoding = bytes[5];
+  let machine;
+  if (dataEncoding === 1) {
+    machine = bytes.readUInt16LE(18);
+  } else if (dataEncoding === 2) {
+    machine = bytes.readUInt16BE(18);
+  } else {
+    return "unknown";
+  }
+  return architectureFromElfMachine(machine);
+}
+
+function peArchitecture(bytes) {
+  if (bytes.length < 0x40) {
+    return "unknown";
+  }
+  const peOffset = bytes.readUInt32LE(0x3c);
+  if (bytes.length < peOffset + 6 || !hasPrefix(bytes.subarray(peOffset), [0x50, 0x45, 0x00, 0x00])) {
+    return "unknown";
+  }
+  return architectureFromPeMachine(bytes.readUInt16LE(peOffset + 4));
+}
+
+function architectureFromMachOCpuType(cpuType) {
+  if (cpuType === 0x0100000c) {
+    return "arm64";
+  }
+  if (cpuType === 0x01000007) {
+    return "x64";
+  }
+  return `unknown(${cpuType})`;
+}
+
+function architectureFromElfMachine(machine) {
+  if (machine === 183) {
+    return "arm64";
+  }
+  if (machine === 62) {
+    return "x64";
+  }
+  return `unknown(${machine})`;
+}
+
+function architectureFromPeMachine(machine) {
+  if (machine === 0xaa64) {
+    return "arm64";
+  }
+  if (machine === 0x8664) {
+    return "x64";
+  }
+  return `unknown(${machine})`;
+}
+
+function isMachO(bytes) {
+  return [
+    [0xfe, 0xed, 0xfa, 0xce],
+    [0xce, 0xfa, 0xed, 0xfe],
+    [0xfe, 0xed, 0xfa, 0xcf],
+    [0xcf, 0xfa, 0xed, 0xfe],
+    [0xca, 0xfe, 0xba, 0xbe],
+    [0xbe, 0xba, 0xfe, 0xca],
+    [0xca, 0xfe, 0xba, 0xbf],
+    [0xbf, 0xba, 0xfe, 0xca]
+  ].some((magic) => hasPrefix(bytes, magic));
+}
+
+function hasPrefix(bytes, prefix) {
+  return bytes.length >= prefix.length && prefix.every((byte, index) => bytes[index] === byte);
+}
+
+function isPE(bytes) {
+  if (!hasPrefix(bytes, [0x4d, 0x5a]) || bytes.length < 0x40) {
+    return false;
+  }
+  const peOffset = bytes.readUInt32LE(0x3c);
+  return bytes.length >= peOffset + 6 && hasPrefix(bytes.subarray(peOffset), [0x50, 0x45, 0x00, 0x00]);
+}
+
+function fail(message) {
+  console.error(`verify-npm-release: ${message}`);
+  process.exit(1);
+}

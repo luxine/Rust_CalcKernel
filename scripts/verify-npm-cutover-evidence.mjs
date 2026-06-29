@@ -110,8 +110,8 @@ function validatePublishResult(value, manifest) {
         `found ${JSON.stringify(value.registryTarball)}`
     );
   }
-  if (!value.integrity) {
-    fail("publish result integrity is missing");
+  if (!isSha512Integrity(value.integrity)) {
+    fail(`publish result integrity must be a sha512 npm integrity string, found ${JSON.stringify(value.integrity)}`);
   }
 }
 
@@ -140,6 +140,10 @@ function sameStringArray(actual, expected) {
 
 function isSha256(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isSha512Integrity(value) {
+  return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
 }
 
 function fail(message) {

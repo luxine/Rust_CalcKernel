@@ -29,11 +29,11 @@ expectEqual(registry.package, manifest.packageName, "registry package name");
 expectEqual(registry.version, manifest.packageVersion, "registry package version");
 expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
 
-if (!publish.integrity) {
-  fail("publish integrity is missing");
+if (!isSha512Integrity(publish.integrity)) {
+  fail(`publish integrity must be a sha512 npm integrity string, found ${JSON.stringify(publish.integrity)}`);
 }
-if (!registry.integrity) {
-  fail("registry integrity is missing");
+if (!isSha512Integrity(registry.integrity)) {
+  fail(`registry integrity must be a sha512 npm integrity string, found ${JSON.stringify(registry.integrity)}`);
 }
 if (publish.integrity && registry.integrity && publish.integrity !== registry.integrity) {
   fail(
@@ -91,6 +91,10 @@ function expectRegistryTarball(tarball, packageName, tarballFile) {
   if (typeof tarball !== "string" || !tarball.endsWith(expectedSuffix)) {
     fail(`registry tarball must end with ${expectedSuffix}, found ${JSON.stringify(tarball)}`);
   }
+}
+
+function isSha512Integrity(value) {
+  return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
 }
 
 function fail(message) {

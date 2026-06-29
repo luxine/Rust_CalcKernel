@@ -5,6 +5,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
 #[test]
 fn publish_result_verifier_should_be_registered_as_npm_script() {
     let package_json = fs::read_to_string("package.json").expect("read package.json");
@@ -30,12 +32,12 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
     fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
     fs::write(
         &publish,
-        npm_publish_json("calckernel-0.8.0.tgz", "sha512-test"),
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
     )
     .expect("write publish output");
     fs::write(
         &registry,
-        registry_replacement_json("calckernel-0.8.0.tgz", "sha512-test"),
+        registry_replacement_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
     )
     .expect("write registry output");
 
@@ -84,12 +86,15 @@ fn publish_result_verifier_should_reject_registry_integrity_mismatch() {
     fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
     fs::write(
         &publish,
-        npm_publish_json("calckernel-0.8.0.tgz", "sha512-published"),
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
     )
     .expect("write publish output");
     fs::write(
         &registry,
-        registry_replacement_json("calckernel-0.8.0.tgz", "sha512-registry"),
+        registry_replacement_json(
+            "calckernel-0.8.0.tgz",
+            "sha512-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB==",
+        ),
     )
     .expect("write registry output");
 
@@ -132,12 +137,12 @@ fn publish_result_verifier_should_reject_failed_registry_replacement_status() {
     fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
     fs::write(
         &publish,
-        npm_publish_json("calckernel-0.8.0.tgz", "sha512-test"),
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
     )
     .expect("write publish output");
     fs::write(
         &registry,
-        registry_replacement_json_with_status("failed", "calckernel-0.8.0.tgz", "sha512-test"),
+        registry_replacement_json_with_status("failed", "calckernel-0.8.0.tgz", VALID_INTEGRITY),
     )
     .expect("write registry output");
 
@@ -161,6 +166,54 @@ fn publish_result_verifier_should_reject_failed_registry_replacement_status() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("registry replacement status"),
         "failure should identify registry replacement status\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_result_verifier_should_reject_invalid_integrity_format() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-integrity-format");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", "sha512-not-a-real-digest"),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json("calckernel-0.8.0.tgz", "sha512-not-a-real-digest"),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "invalid npm integrity should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("integrity"),
+        "failure should identify integrity format\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );

@@ -6,6 +6,7 @@ use std::{
 };
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
 #[test]
 fn cutover_evidence_verifier_should_be_registered_as_npm_script() {
@@ -163,16 +164,18 @@ fn publish_artifact_json(tarball_sha256: &str) -> String {
     )
 }
 
-fn publish_result_json() -> &'static str {
-    r#"{
+fn publish_result_json() -> String {
+    format!(
+        r#"{{
   "status": "ok",
   "package": "calckernel",
   "version": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz",
   "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
-  "integrity": "sha512-test"
-}"#
+  "integrity": "{VALID_INTEGRITY}"
+}}"#
+    )
 }
 
 fn temp_dir(prefix: &str) -> PathBuf {

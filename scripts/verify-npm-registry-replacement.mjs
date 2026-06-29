@@ -22,8 +22,8 @@ expectJson(metadata.exports, { ".": { types: "./npm/index.d.ts", import: "./npm/
 expectJson(metadata.bin, { ckc: "./npm/ckc.js" }, "bin");
 expectNoDependencyFields(metadata);
 expectTarball(metadata.dist?.tarball, version);
-if (!metadata.dist?.integrity) {
-  fail("dist.integrity is missing");
+if (!isSha512Integrity(metadata.dist?.integrity)) {
+  fail(`dist.integrity must be a sha512 npm integrity string, found ${JSON.stringify(metadata.dist?.integrity)}`);
 }
 
 if (failures.length > 0) {
@@ -147,6 +147,10 @@ function expectTarball(tarball, version) {
   if (typeof tarball !== "string" || !tarball.endsWith(expectedSuffix)) {
     fail(`dist.tarball must end with ${expectedSuffix}, found ${JSON.stringify(tarball)}`);
   }
+}
+
+function isSha512Integrity(value) {
+  return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
 }
 
 function printUsage() {

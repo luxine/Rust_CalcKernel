@@ -75,7 +75,52 @@ fn registry_replacement_verifier_should_reject_typescript_package_metadata() {
     );
 }
 
-fn rust_metadata() -> &'static str {
+#[test]
+fn registry_replacement_verifier_should_reject_invalid_dist_integrity() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-registry-integrity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let metadata = temp.join("metadata.json");
+    fs::write(
+        &metadata,
+        rust_metadata_with_integrity("not-a-valid-npm-integrity"),
+    )
+    .expect("write metadata");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-registry-replacement.mjs")
+        .arg("--metadata-file")
+        .arg(&metadata)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm registry replacement verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "invalid registry integrity should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("dist.integrity"),
+        "failure should identify dist.integrity\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn rust_metadata() -> String {
+    rust_metadata_with_integrity(VALID_INTEGRITY)
+}
+
+const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+fn rust_metadata_with_integrity(integrity: &str) -> String {
     r#"{
   "name": "calckernel",
   "version": "0.8.0",
@@ -93,9 +138,10 @@ fn rust_metadata() -> &'static str {
   },
   "dist": {
     "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
-    "integrity": "sha512-test"
+    "integrity": "__INTEGRITY__"
   }
 }"#
+    .replace("__INTEGRITY__", integrity)
 }
 
 fn typescript_metadata() -> &'static str {

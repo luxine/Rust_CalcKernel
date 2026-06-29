@@ -127,7 +127,9 @@ these gates are true in the current checkout:
    `examples` and `bench/perf/fixtures` `.ck` input is present in MIR, C, WASM,
    and LLVM backend oracle tests.
 5. `npm run verify:host-npm-install` passes with `CKC_BIN` unset and
-   `typeSmoke: "passed"`.
+   `typeSmoke: "passed"`; the host verifier prepares `typescript@^5.8.0` in
+   the temporary consumer when no `tsc` is already available, so release
+   sign-offs do not depend on the developer-local TypeScript checkout.
 6. A formal release tarball is built with all binaries from `npm/platform.js`
    staged by `npm run build:npm-matrix`, checked with
    `build:npm-matrix --expect-complete`, and packed through
@@ -137,7 +139,7 @@ these gates are true in the current checkout:
    binary size, binary SHA256s, and strict file-surface manifest data.
 8. Each supported target platform fresh-installs the same tarball with scripts
    disabled and runs packaged `node_modules/.bin/ckc`, not a local checkout
-   fallback.
+   fallback, and its TypeScript declaration smoke passes.
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same tarball SHA256.

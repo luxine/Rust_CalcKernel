@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { currentTarget } from "../npm/platform.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const TYPESCRIPT_COMPILER_PACKAGE = "typescript@^5.8.0";
 const options = parseArgs(process.argv.slice(2));
 const keepTemp = options.keepTemp || process.env.CKC_KEEP_HOST_NPM_SMOKE === "1";
 
@@ -66,7 +67,8 @@ try {
 
   writeFileSync(join(consumer, "api-smoke.mjs"), apiSmokeScript());
   run(process.execPath, ["api-smoke.mjs"], { cwd: consumer, env: installedEnv });
-  const typeSmoke = runTypeSmoke(consumer, installedEnv);
+  const tsc = ensureTypeScriptCompiler(consumer, installedEnv);
+  const typeSmoke = runTypeSmoke(consumer, installedEnv, tsc);
 
   console.log(JSON.stringify({
     package: "calckernel",
@@ -149,12 +151,7 @@ function commandAvailable(command) {
   return output.status === 0;
 }
 
-function runTypeSmoke(consumer, env) {
-  const tsc = resolveTsc();
-  if (!tsc) {
-    return "skipped: tsc not found";
-  }
-
+function runTypeSmoke(consumer, env, tsc) {
   writeFileSync(join(consumer, "tsconfig.json"), JSON.stringify({
     compilerOptions: {
       target: "ES2022",
@@ -172,17 +169,39 @@ function runTypeSmoke(consumer, env) {
   return "passed";
 }
 
-function resolveTsc() {
+function ensureTypeScriptCompiler(consumer, env) {
+  const existing = resolveTsc(consumer);
+  if (existing) {
+    return existing;
+  }
+
+  run("npm", ["install", "--ignore-scripts", "--no-audit", "--fund=false", "--save-dev", TYPESCRIPT_COMPILER_PACKAGE], {
+    cwd: consumer,
+    env
+  });
+
+  const installed = consumerTscPath(consumer);
+  if (!existsSync(installed)) {
+    fail(`TypeScript compiler install did not create ${installed}`);
+  }
+  return installed;
+}
+
+function resolveTsc(consumer) {
   if (process.env.TSC_BIN && existsSync(process.env.TSC_BIN)) {
     return process.env.TSC_BIN;
   }
 
   const candidates = [
-    join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc"),
-    join("/Users/lynn/code/CalcKernel", "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc")
+    consumerTscPath(consumer),
+    join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc")
   ];
 
   return candidates.find((candidate) => existsSync(candidate));
+}
+
+function consumerTscPath(consumer) {
+  return join(consumer, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc");
 }
 
 function requireNonEmpty(path) {

@@ -77,6 +77,22 @@ fn rust_replacement_readiness_audit_should_require_declaration_parity_verifier()
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_host_signoff_type_smoke_compiler_setup() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_typescript_test_surface_audit() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

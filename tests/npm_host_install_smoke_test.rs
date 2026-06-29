@@ -70,6 +70,25 @@ fn host_npm_install_verifier_should_reject_missing_tarball_argument() {
     );
 }
 
+#[test]
+fn host_npm_install_verifier_should_prepare_typescript_for_ci_without_local_oracle_fallback() {
+    let script =
+        std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
+
+    assert!(
+        script.contains("ensureTypeScriptCompiler(consumer, installedEnv)"),
+        "host npm install verifier must prepare tsc inside the temporary consumer before type smoke"
+    );
+    assert!(
+        script.contains("typescript@^5.8.0"),
+        "host npm install verifier should install the TypeScript compiler range used by the oracle"
+    );
+    assert!(
+        !script.contains("join(\"/Users/lynn/code/CalcKernel\""),
+        "host npm install verifier must not depend on the developer-local TypeScript oracle path"
+    );
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

@@ -80,6 +80,8 @@ expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
 expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
+expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
+expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "audit:release-workflow", "npm release docs");
 expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs");
 expectIncludes(npmRelease, "publish=true", "npm release docs");

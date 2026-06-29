@@ -119,7 +119,9 @@ JavaScript compatibility surface。
    `bench/perf/fixtures` 的 `.ck` 输入都已经进入 MIR、C、WASM、LLVM
    backend oracle 测试。
 5. `npm run verify:host-npm-install` 在 `CKC_BIN` unset 且
-   `typeSmoke: "passed"` 的情况下通过。
+   `typeSmoke: "passed"` 的情况下通过；如果没有现成 `tsc`，host verifier 会在
+   临时 consumer 中准备 `typescript@^5.8.0`，因此 release sign-off 不依赖开发机
+   本地 TypeScript checkout。
 6. 正式 release tarball 使用 `npm run build:npm-matrix` staging
    `npm/platform.js` 里的全部二进制，通过
    `build:npm-matrix --expect-complete` 检查完整性，并通过
@@ -128,7 +130,8 @@ JavaScript compatibility surface。
    Rust package metadata、每个 binary 的 file mode、architecture、格式、大小、
    SHA256 和 strict file-surface manifest 数据。
 8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
-   `node_modules/.bin/ckc`，不能依赖本地 checkout fallback。
+   `node_modules/.bin/ckc`，不能依赖本地 checkout fallback，并且 TypeScript
+   declaration smoke 必须通过。
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
    tarball SHA256。

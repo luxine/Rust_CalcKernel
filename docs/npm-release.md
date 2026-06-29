@@ -58,10 +58,13 @@ npm run verify:host-npm-install
 `verify:host-npm-install` packs the current host binary, installs the tarball
 into a temporary consumer project with `CKC_BIN` unset, runs the installed `ckc`
 through the CLI backend commands, imports the package root API, and runs a
-TypeScript declaration smoke against `npm/index.d.ts` when `tsc` is available.
-Its JSON output includes the npm target name, platform, architecture, tarball
-filename, tarball SHA256, command list, API symbols, TypeScript smoke status,
-and `ckcBinOverride: "unset"` so it can be archived as a platform sign-off.
+TypeScript declaration smoke against `npm/index.d.ts`. If no compiler is
+already available through `TSC_BIN` or local `node_modules`, the verifier
+installs `typescript@^5.8.0` in that temporary consumer before running the
+smoke. Its JSON output includes the npm target name, platform, architecture,
+tarball filename, tarball SHA256, command list, API symbols, TypeScript smoke
+status, and `ckcBinOverride: "unset"` so it can be archived as a platform
+sign-off.
 To verify an already generated tarball instead of repacking, pass its path:
 
 ```sh
@@ -126,8 +129,9 @@ The workflow runs these stages:
    `CKC_NPM_BINARIES_DIR`, and write `release-manifest.json` with
    `verify:npm-release`.
 5. Download the same tarball on every target platform, run
-   `verify:host-npm-install` with `CKC_BIN` unset, and upload
-   `signoffs/<npm-target>.json`.
+   `verify:host-npm-install` with `CKC_BIN` unset; the verifier prepares
+   `typescript@^5.8.0` in the temporary consumer when needed so the TypeScript
+   declaration smoke must pass, then uploads `signoffs/<npm-target>.json`.
 6. Download all signoffs and run `verify:release-signoff` to prove that every
    supported platform installed the same tarball SHA256.
 7. When publication is intentionally approved, rerun or dispatch the workflow
@@ -199,7 +203,9 @@ Then run `npm run verify:release-signoff -- release-manifest.json signoffs`.
 The sign-off verifier rejects missing or duplicate targets, unsupported target
 names, mismatched tarball SHA256s, `CKC_BIN` overrides, missing backend smoke
 commands, missing `build-llvm --kind object` smoke evidence, missing public API
-symbols, and TypeScript declaration smoke failures.
+symbols, and TypeScript declaration smoke failures. `verify:host-npm-install`
+must report `typeSmoke: "passed"` on every sign-off target; skipped declaration
+smokes are not acceptable release evidence.
 Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
 it proves the signed tarball, platform sign-offs, pre-publish artifact check,

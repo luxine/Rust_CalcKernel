@@ -65,6 +65,21 @@ fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     );
 }
 
+#[test]
+fn npm_release_workflow_should_publish_the_manifest_tarball() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    assert!(
+        workflow.contains("JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball"),
+        "publish job must derive the npm publish tarball from release-manifest.json"
+    );
+    assert!(
+        !workflow.contains("TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish"),
+        "publish job must not choose the published tarball via ls dist/*.tgz"
+    );
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

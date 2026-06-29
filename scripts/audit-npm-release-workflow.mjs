@@ -31,6 +31,8 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "path: release-manifest", "publish release manifest path");
   expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
   expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");
+  expectIncludes(workflow, "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball", "manifest-derived publish tarball");
+  expectNotIncludes(workflow, "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish", "publish job ls tarball selection");
   expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
   expectIncludes(workflow, "npm run verify:registry-replacement", "post-publish registry verifier command");
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
@@ -87,6 +89,12 @@ console.log(JSON.stringify({
 function expectIncludes(text, expected, label) {
   if (!text.includes(expected)) {
     fail(`${label} must include ${expected}`);
+  }
+}
+
+function expectNotIncludes(text, expected, label) {
+  if (text.includes(expected)) {
+    fail(`${label} must not include ${expected}`);
   }
 }
 

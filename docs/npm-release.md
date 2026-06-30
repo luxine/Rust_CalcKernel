@@ -187,7 +187,7 @@ The workflow runs these stages:
    `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest and
    that the manifest carries the formal release verifier metadata, file surface,
-   and target matrix evidence. After publish, it runs `verify:registry-replacement`
+   target matrix, and binary format / architecture evidence. After publish, it runs `verify:registry-replacement`
    for the `packageVersion`
    recorded in `release-manifest.json` against npm registry metadata to confirm
    the published package exposes the Rust package `main`, `types`, `exports`,
@@ -448,7 +448,8 @@ TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-sid
 SHA256 和六个平台，并在摘要中显式保留 `packageVersion`；随后运行
 `verify:publish-artifact`，用 `release-manifest.json`
 校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest，并确认
-manifest 带有正式 release verifier 产生的 metadata、文件面和目标矩阵证据。
+manifest 带有正式 release verifier 产生的 metadata、文件面、目标矩阵和 binary
+format / architecture 证据。
 默认 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
 workflow 在发布前会先运行 registry replacement verifier 的测试，避免
 `publish=true` 之后才发现 registry metadata 检查脚本本身失效。

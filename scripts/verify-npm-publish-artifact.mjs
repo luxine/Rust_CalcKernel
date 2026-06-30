@@ -159,12 +159,8 @@ function validateReleaseManifestEvidence(manifest) {
       if (typeof target.fileMode !== "string" || target.fileMode.length === 0) {
         fail(`${label} fileMode is missing`);
       }
-      if (typeof target.binaryFormat !== "string" || target.binaryFormat.length === 0) {
-        fail(`${label} binaryFormat is missing`);
-      }
-      if (typeof target.binaryArchitecture !== "string" || target.binaryArchitecture.length === 0) {
-        fail(`${label} binaryArchitecture is missing`);
-      }
+      expectEqual(target.binaryFormat, expectedBinaryFormat(expectedTarget), `${label} binaryFormat`);
+      expectEqual(target.binaryArchitecture, expectedTarget.arch, `${label} binaryArchitecture`);
       if (!Number.isSafeInteger(target.sizeBytes) || target.sizeBytes <= 0) {
         fail(`${label} sizeBytes must be a positive integer`);
       }
@@ -190,6 +186,19 @@ function expectedAllowedEntries() {
     ...REQUIRED_FILES,
     ...SUPPORTED_CKC_BINARY_TARGETS.map((target) => `package/npm/bin/${binaryNameForTarget(target.name)}`)
   ].sort();
+}
+
+function expectedBinaryFormat(target) {
+  if (target.platform === "darwin") {
+    return "Mach-O";
+  }
+  if (target.platform === "linux") {
+    return "ELF";
+  }
+  if (target.platform === "win32") {
+    return "PE";
+  }
+  fail(`Unsupported release binary platform for ${target.name}: ${target.platform}`);
 }
 
 function expectEqual(actual, expected, label) {

@@ -135,6 +135,98 @@ fn publish_artifact_verifier_should_reject_incomplete_release_manifest() {
     );
 }
 
+#[test]
+fn publish_artifact_verifier_should_reject_wrong_target_binary_format() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-artifact-binary-format");
+    let dist = temp.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    let tarball = dist.join("calckernel-0.8.0.tgz");
+    fs::write(&tarball, b"release tarball bytes").expect("write tarball");
+    let manifest = temp.join("release-manifest.json");
+    fs::write(
+        &manifest,
+        release_manifest_json("calckernel-0.8.0.tgz", &sha256_file(&tarball)).replacen(
+            r#""binaryFormat": "ELF""#,
+            r#""binaryFormat": "Mach-O""#,
+            1,
+        ),
+    )
+    .expect("write release manifest");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-artifact.mjs")
+        .arg(&manifest)
+        .arg(&dist)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run publish artifact verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong target binary format evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("binaryFormat"),
+        "failure should identify binaryFormat evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_artifact_verifier_should_reject_wrong_target_binary_architecture() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-artifact-binary-arch");
+    let dist = temp.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    let tarball = dist.join("calckernel-0.8.0.tgz");
+    fs::write(&tarball, b"release tarball bytes").expect("write tarball");
+    let manifest = temp.join("release-manifest.json");
+    fs::write(
+        &manifest,
+        release_manifest_json("calckernel-0.8.0.tgz", &sha256_file(&tarball)).replacen(
+            r#""binaryArchitecture": "x64""#,
+            r#""binaryArchitecture": "arm64""#,
+            1,
+        ),
+    )
+    .expect("write release manifest");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-artifact.mjs")
+        .arg(&manifest)
+        .arg(&dist)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run publish artifact verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong target binary architecture evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("binaryArchitecture"),
+        "failure should identify binaryArchitecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
     format!(
         r#"{{
@@ -215,7 +307,7 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "aarch64-apple-darwin",
       "binaryPath": "package/npm/bin/ckc-darwin-arm64",
       "fileMode": "-rwxr-xr-x",
-      "binaryFormat": "mach-o",
+      "binaryFormat": "Mach-O",
       "binaryArchitecture": "arm64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -225,8 +317,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "x86_64-apple-darwin",
       "binaryPath": "package/npm/bin/ckc-darwin-x64",
       "fileMode": "-rwxr-xr-x",
-      "binaryFormat": "mach-o",
-      "binaryArchitecture": "x86_64",
+      "binaryFormat": "Mach-O",
+      "binaryArchitecture": "x64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }},
@@ -235,8 +327,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "aarch64-unknown-linux-gnu",
       "binaryPath": "package/npm/bin/ckc-linux-arm64",
       "fileMode": "-rwxr-xr-x",
-      "binaryFormat": "elf",
-      "binaryArchitecture": "aarch64",
+      "binaryFormat": "ELF",
+      "binaryArchitecture": "arm64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }},
@@ -245,8 +337,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "x86_64-unknown-linux-gnu",
       "binaryPath": "package/npm/bin/ckc-linux-x64",
       "fileMode": "-rwxr-xr-x",
-      "binaryFormat": "elf",
-      "binaryArchitecture": "x86_64",
+      "binaryFormat": "ELF",
+      "binaryArchitecture": "x64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }},
@@ -255,7 +347,7 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "aarch64-pc-windows-msvc",
       "binaryPath": "package/npm/bin/ckc-win32-arm64.exe",
       "fileMode": "-rw-r--r--",
-      "binaryFormat": "pe",
+      "binaryFormat": "PE",
       "binaryArchitecture": "arm64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -265,8 +357,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "rustTarget": "x86_64-pc-windows-msvc",
       "binaryPath": "package/npm/bin/ckc-win32-x64.exe",
       "fileMode": "-rw-r--r--",
-      "binaryFormat": "pe",
-      "binaryArchitecture": "x86_64",
+      "binaryFormat": "PE",
+      "binaryArchitecture": "x64",
       "sizeBytes": 1,
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }}

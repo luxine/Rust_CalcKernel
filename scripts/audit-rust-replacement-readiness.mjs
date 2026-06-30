@@ -91,6 +91,7 @@ expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
 expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");
+expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");
 expectIncludes(npmRelease, "audit:release-workflow", "npm release docs");
 expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs");
 expectIncludes(npmRelease, "publish=true", "npm release docs");

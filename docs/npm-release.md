@@ -165,9 +165,9 @@ The workflow runs these stages:
    and registry integrity values must both be sha512 npm integrity strings and
    must match; the publish and registry shasum values must both be sha1 shasum
    strings and must match. Finally, it runs `verify:cutover-evidence` to bind
-   the release manifest, six-platform sign-off summary, pre-publish artifact
-   verifier output, and post-publish result verifier output into one final
-   evidence JSON.
+   the release manifest, six-platform sign-off summary including signed target
+   binary SHA256 values, pre-publish artifact verifier output, and post-publish
+   result verifier output into one final evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -230,8 +230,9 @@ symbols, missing installed/package binary path evidence, mismatched
 not acceptable release evidence.
 Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
-it proves the signed tarball, platform sign-offs, pre-publish artifact check,
-and registry publish result all refer to the same replacement package version.
+it proves the signed tarball, signed target binary SHA256 values, platform
+sign-offs, pre-publish artifact check, and registry publish result all refer to
+the same replacement package version.
 Before `npm publish`, run
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
 so the publish step is gated by the same release manifest and six-platform
@@ -328,7 +329,8 @@ architecture、格式、大小和 SHA256，并会拒绝文件面之外的额外�
 该 verifier 会拒绝缺失或重复平台、tarball SHA256 不匹配、`CKC_BIN` override、
 backend smoke 命令缺失、`build-llvm --kind object` smoke evidence 缺失、公开
 API symbol 缺失、`packagedBinarySha256` 与 release manifest target SHA256
-不一致，以及 TypeScript declaration smoke 未通过的签核文件。
+不一致，以及 TypeScript declaration smoke 未通过的签核文件。最终
+cutover evidence 必须归档 signed target binary SHA256 值。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的

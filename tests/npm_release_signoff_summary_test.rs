@@ -6,6 +6,7 @@ use std::{
 };
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 
 #[test]
 fn release_signoff_summary_verifier_should_be_registered_as_npm_script() {
@@ -54,6 +55,19 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"signedTargets\": ["),
+        "release signoff summary verifier should report signed target binary hashes\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sha256\": \"{BINARY_SHA256}\"")),
+        "release signoff summary verifier should report each signed target SHA256\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -97,18 +111,77 @@ fn release_signoff_summary_verifier_should_reject_sha256_mismatch() {
     );
 }
 
+#[test]
+fn release_signoff_summary_verifier_should_reject_signed_target_sha256_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-target-mismatch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_with_signed_target_sha256(
+            TARBALL_SHA256,
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        ),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched signed target SHA256 should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("signedTargets"),
+        "failure should identify signed target SHA256 mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     format!(
         r#"{{
   "packageName": "calckernel",
   "packageVersion": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz",
-  "tarballSha256": "{tarball_sha256}"
+  "tarballSha256": "{tarball_sha256}",
+  "targets": [
+    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-x64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
+  ]
 }}"#
     )
 }
 
 fn release_signoff_json(tarball_sha256: &str) -> String {
+    release_signoff_json_with_signed_target_sha256(tarball_sha256, BINARY_SHA256)
+}
+
+fn release_signoff_json_with_signed_target_sha256(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+) -> String {
     format!(
         r#"{{
   "status": "ok",
@@ -124,6 +197,14 @@ fn release_signoff_json(tarball_sha256: &str) -> String {
     "linux-x64",
     "win32-arm64",
     "win32-x64"
+  ],
+  "signedTargets": [
+    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
+    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
   ]
 }}"#
     )

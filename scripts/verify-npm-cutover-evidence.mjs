@@ -51,6 +51,7 @@ console.log(JSON.stringify({
   tarballSha256: manifest.tarballSha256,
   targetCount: signoff.targetCount,
   targets: signoff.targets,
+  signedTargets: signoff.signedTargets,
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
   shasum: publishResult.shasum,
@@ -75,6 +76,7 @@ function validateManifest(value) {
   if (!isSha256(value.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(value.tarballSha256)}`);
   }
+  validateSignedTargets(value.targets, "release manifest targets");
 }
 
 function validateReleaseSignoff(value, manifest) {
@@ -90,6 +92,16 @@ function validateReleaseSignoff(value, manifest) {
   }
   if (!sameStringArray(value.targets, expectedTargets)) {
     fail(`release sign-off targets must be ${JSON.stringify(expectedTargets)}, found ${JSON.stringify(value.targets)}`);
+  }
+  validateSignedTargets(value.signedTargets, "release sign-off signedTargets");
+
+  const manifestTargetShaByName = new Map(manifest.targets.map((target) => [target.name, target.sha256]));
+  for (const target of value.signedTargets ?? []) {
+    if (target.sha256 !== manifestTargetShaByName.get(target.name)) {
+      fail(
+        `release sign-off signedTargets ${target.name} sha256 must match release manifest target sha256`
+      );
+    }
   }
 }
 
@@ -148,6 +160,23 @@ function sameStringArray(actual, expected) {
 function expectEmptyArray(actual, label) {
   if (!Array.isArray(actual) || actual.length !== 0) {
     fail(`${label} must be an empty array, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function validateSignedTargets(actual, label) {
+  const expectedTargets = supportedTargetNames();
+  if (!Array.isArray(actual)) {
+    fail(`${label} must be an array`);
+    return;
+  }
+  const actualNames = actual.map((target) => target?.name);
+  if (!sameStringArray(actualNames, expectedTargets)) {
+    fail(`${label} names must be ${JSON.stringify(expectedTargets)}, found ${JSON.stringify(actualNames)}`);
+  }
+  for (const target of actual) {
+    if (!isSha256(target?.sha256)) {
+      fail(`${label} ${target?.name ?? "unknown"} sha256 is invalid`);
+    }
   }
 }
 

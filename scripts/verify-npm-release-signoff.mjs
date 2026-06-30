@@ -39,6 +39,7 @@ for (const signoff of signoffs) {
 }
 
 const verifiedTargets = [];
+const signedTargets = [];
 for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
   if (!manifestTargetNames.has(target.name)) {
     fail(`release manifest is missing target ${target.name}`);
@@ -47,8 +48,10 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
   if (!signoff) {
     fail(`missing platform sign-off for ${target.name}`);
   }
-  validateSignoff(signoff, target, manifest, manifestTargetsByName.get(target.name));
+  const manifestTarget = manifestTargetsByName.get(target.name);
+  validateSignoff(signoff, target, manifest, manifestTarget);
   verifiedTargets.push(target.name);
+  signedTargets.push({ name: target.name, sha256: manifestTarget.sha256 });
 }
 
 console.log(JSON.stringify({
@@ -58,7 +61,8 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   tarballSha256: manifest.tarballSha256,
   targetCount: verifiedTargets.length,
-  targets: verifiedTargets
+  targets: verifiedTargets,
+  signedTargets
 }, null, 2));
 
 function validateManifest(manifest) {

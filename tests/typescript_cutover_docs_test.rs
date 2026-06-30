@@ -123,6 +123,23 @@ fn rust_replacement_readiness_audit_should_require_final_manifest_evidence_surfa
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_source_git_sha_evidence() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(npmRelease, "sourceGitSha", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "release-manifest.json.sourceGitSha", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "GITHUB_SHA", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_public_api_parity_verifier() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

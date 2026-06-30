@@ -55,6 +55,29 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_final_manifest_evidence_surface() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(npmRelease, "fileSurface", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "required/forbidden/allowed file lists", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "target Rust triples", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "binary paths", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "file modes", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "binary formats", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "architectures", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "sizes", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "SHA256 values", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_public_api_parity_verifier() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

@@ -102,6 +102,8 @@ fn rust_replacement_readiness_audit_should_require_host_signoff_type_smoke_compi
         r#"expectIncludes(npmRelease, "packagedBinary", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "platform / arch", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "nodeVersion", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npmVersion", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "ckcBinOverride", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "commands", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "apiSymbols", "npm release docs")"#,

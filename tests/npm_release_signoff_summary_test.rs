@@ -7,6 +7,8 @@ use std::{
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
+const NODE_VERSION: &str = "v20.10.0";
+const NPM_VERSION: &str = "10.2.0";
 
 #[test]
 fn release_signoff_summary_verifier_should_be_registered_as_npm_script() {
@@ -78,6 +80,15 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stdout).contains("\"platform\": \"linux\"")
             && String::from_utf8_lossy(&output.stdout).contains("\"arch\": \"x64\""),
         "release signoff summary verifier should preserve target platform and architecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"nodeVersion\": \"{NODE_VERSION}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"npmVersion\": \"{NPM_VERSION}\"")),
+        "release signoff summary verifier should preserve signed target Node/npm environment evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -559,6 +570,48 @@ fn release_signoff_summary_verifier_should_reject_missing_signed_target_binary_p
     );
 }
 
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_signed_target_runtime_environment() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-target-runtime-env");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_signed_target_runtime_environment(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing signed target runtime environment evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("nodeVersion")
+            || String::from_utf8_lossy(&output.stderr).contains("npmVersion"),
+        "failure should identify signed target Node/npm runtime environment evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     format!(
         r#"{{
@@ -604,6 +657,22 @@ fn release_signoff_json_without_signed_target_binary_paths(tarball_sha256: &str)
     )
 }
 
+fn release_signoff_json_without_signed_target_runtime_environment(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        Some("passed"),
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+    )
+}
+
 fn release_signoff_json_without_backend_runtime_smokes(tarball_sha256: &str) -> String {
     release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_smokes(
         tarball_sha256,
@@ -634,6 +703,7 @@ fn release_signoff_json_without_ckc_bin_override(tarball_sha256: &str) -> String
         Some("passed"),
         true,
         true,
+        true,
         false,
         true,
         true,
@@ -650,6 +720,7 @@ fn release_signoff_json_without_commands(tarball_sha256: &str) -> String {
         true,
         true,
         true,
+        true,
         false,
         true,
     )
@@ -662,6 +733,7 @@ fn release_signoff_json_without_api_symbols(tarball_sha256: &str) -> String {
         Some("disabled"),
         true,
         Some("passed"),
+        true,
         true,
         true,
         true,
@@ -764,6 +836,7 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
         true,
         true,
         true,
+        true,
     )
 }
 
@@ -777,6 +850,7 @@ fn release_signoff_json_with_evidence(
     type_smoke: Option<&str>,
     include_platform_arch: bool,
     include_binary_paths: bool,
+    include_runtime_environment: bool,
     include_ckc_bin_override: bool,
     include_commands: bool,
     include_api_symbols: bool,
@@ -853,6 +927,7 @@ fn release_signoff_json_with_evidence(
         signed_target_sha256,
         include_platform_arch,
         include_binary_paths,
+        include_runtime_environment,
     );
     format!(
         r#"{{
@@ -881,6 +956,7 @@ fn signed_targets_json(
     linux_x64_sha256: &str,
     include_platform_arch: bool,
     include_binary_paths: bool,
+    include_runtime_environment: bool,
 ) -> String {
     [
         ("darwin-arm64", "darwin", "arm64", BINARY_SHA256),
@@ -906,7 +982,12 @@ fn signed_targets_json(
         } else {
             String::new()
         };
-        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{binary_paths}}}"#)
+        let runtime_environment = if include_runtime_environment {
+            format!(r#", "nodeVersion": "{NODE_VERSION}", "npmVersion": "{NPM_VERSION}""#)
+        } else {
+            String::new()
+        };
+        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{runtime_environment}{binary_paths}}}"#)
     })
     .collect::<Vec<_>>()
     .join(",\n")

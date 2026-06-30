@@ -21,6 +21,7 @@ const tmpRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-host-install-"));
 try {
   const tarball = options.tarballPath ?? npmPack(tmpRoot);
   const target = currentTarget();
+  const npmVersion = readNpmVersion();
   const consumer = join(tmpRoot, "consumer");
   mkdirSync(consumer);
 
@@ -110,6 +111,8 @@ try {
     targetName: target.name,
     platform: target.platform,
     arch: target.arch,
+    nodeVersion: process.version,
+    npmVersion,
     installedBin,
     packageRoot,
     packagedBinary,
@@ -187,6 +190,10 @@ function npmPack(packDestination) {
 function commandAvailable(command) {
   const output = spawnSync(command, ["--version"], { encoding: "utf8" });
   return output.status === 0;
+}
+
+function readNpmVersion() {
+  return run("npm", ["--version"], { cwd: root }).stdout.trim();
 }
 
 function requireClangForRuntimeSmokes() {

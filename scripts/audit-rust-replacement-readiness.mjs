@@ -117,6 +117,8 @@ expectIncludes(npmRelease, "installedBin", "npm release docs");
 expectIncludes(npmRelease, "packagedBinary", "npm release docs");
 expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");
 expectIncludes(npmRelease, "platform / arch", "npm release docs");
+expectIncludes(npmRelease, "nodeVersion", "npm release docs");
+expectIncludes(npmRelease, "npmVersion", "npm release docs");
 expectIncludes(npmRelease, "ckcBinOverride", "npm release docs");
 expectIncludes(npmRelease, "commands", "npm release docs");
 expectIncludes(npmRelease, "apiSymbols", "npm release docs");

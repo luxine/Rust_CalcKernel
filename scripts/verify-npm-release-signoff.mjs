@@ -56,6 +56,8 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
     platform: target.platform,
     arch: target.arch,
     sha256: manifestTarget.sha256,
+    nodeVersion: signoff.nodeVersion,
+    npmVersion: signoff.npmVersion,
     installedBin: signoff.installedBin,
     packagedBinary: signoff.packagedBinary,
     packagedBinarySha256: signoff.packagedBinarySha256
@@ -130,12 +132,18 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.sourceFallback !== "disabled") {
     fail(`${target.name} source fallback must be disabled`);
   }
+  validateRuntimeEnvironmentEvidence(signoff, target);
   validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
   }
   requireIncludes(signoff.commands, requiredCommands(), `${target.name} commands`);
   requireIncludes(signoff.apiSymbols, requiredApiSymbols(), `${target.name} apiSymbols`);
+}
+
+function validateRuntimeEnvironmentEvidence(signoff, target) {
+  requireNonEmptyString(signoff.nodeVersion, `${target.name} nodeVersion`);
+  requireNonEmptyString(signoff.npmVersion, `${target.name} npmVersion`);
 }
 
 function validateBinaryEvidence(signoff, target, manifestTarget) {
@@ -183,6 +191,12 @@ function requireIncludes(actual, expected, label) {
     if (!actual.includes(value)) {
       fail(`${label} is missing ${value}`);
     }
+  }
+}
+
+function requireNonEmptyString(actual, label) {
+  if (typeof actual !== "string" || actual.length === 0) {
+    fail(`${label} is missing`);
   }
 }
 

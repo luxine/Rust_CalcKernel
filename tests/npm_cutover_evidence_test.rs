@@ -7,6 +7,8 @@ use std::{
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
+const NODE_VERSION: &str = "v20.10.0";
+const NPM_VERSION: &str = "10.2.0";
 const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
@@ -94,6 +96,15 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout).contains("\"platform\": \"linux\"")
             && String::from_utf8_lossy(&output.stdout).contains("\"arch\": \"x64\""),
         "cutover evidence verifier should preserve target platform and architecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"nodeVersion\": \"{NODE_VERSION}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"npmVersion\": \"{NPM_VERSION}\"")),
+        "cutover evidence verifier should preserve signed target Node/npm environment evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1318,6 +1329,114 @@ fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_binary_
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_missing_signoff_signed_target_runtime_environment() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-signoff-target-runtime-env");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_signed_target_runtime_environment(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing signoff signed target runtime environment evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("nodeVersion")
+            || String::from_utf8_lossy(&output.stderr).contains("npmVersion"),
+        "failure should identify signoff signed target Node/npm environment evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_runtime_environment() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-target-runtime-env");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_without_signed_target_runtime_environment(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing summary signed target runtime environment evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("nodeVersion")
+            || String::from_utf8_lossy(&output.stderr).contains("npmVersion"),
+        "failure should identify summary signed target Node/npm environment evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_missing_publish_side_result_evidence() {
     if !node_available() {
         return;
@@ -1453,6 +1572,7 @@ fn release_signoff_json_without_commands(tarball_sha256: &str) -> String {
         Some("passed"),
         true,
         true,
+        true,
         false,
         true,
     )
@@ -1463,6 +1583,20 @@ fn release_signoff_json_without_signed_target_binary_paths(tarball_sha256: &str)
         tarball_sha256,
         BINARY_SHA256,
         Some("passed"),
+        false,
+        true,
+        true,
+        true,
+        true,
+    )
+}
+
+fn release_signoff_json_without_signed_target_runtime_environment(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("passed"),
+        true,
         false,
         true,
         true,
@@ -1483,19 +1617,28 @@ fn release_signoff_json_with_signed_target_sha256_and_type_smoke(
         true,
         true,
         true,
+        true,
     )
 }
 
+// Test fixture builder keeps each release sign-off evidence toggle explicit at call sites.
+#[expect(clippy::too_many_arguments)]
 fn release_signoff_json_with_evidence(
     tarball_sha256: &str,
     signed_target_sha256: &str,
     type_smoke: Option<&str>,
     include_binary_paths: bool,
+    include_runtime_environment: bool,
     include_ckc_bin_override: bool,
     include_commands: bool,
     include_api_symbols: bool,
 ) -> String {
-    let signed_targets = signed_targets_json(signed_target_sha256, true, include_binary_paths);
+    let signed_targets = signed_targets_json(
+        signed_target_sha256,
+        true,
+        include_binary_paths,
+        include_runtime_environment,
+    );
     let type_smoke = type_smoke
         .map(|value| {
             format!(
@@ -1603,6 +1746,24 @@ fn release_signoff_summary_json_without_signed_target_binary_paths(tarball_sha25
     )
 }
 
+fn release_signoff_summary_json_without_signed_target_runtime_environment(
+    tarball_sha256: &str,
+) -> String {
+    release_signoff_summary_json_with_evidence(
+        true,
+        tarball_sha256,
+        "disabled",
+        true,
+        "passed",
+        true,
+        true,
+        false,
+        Some("unset"),
+        true,
+        true,
+    )
+}
+
 fn release_signoff_summary_json_with_source_fallback(
     tarball_sha256: &str,
     source_fallback: &str,
@@ -1657,6 +1818,7 @@ fn release_signoff_summary_json_with_ckc_bin_override(
         "passed",
         true,
         true,
+        true,
         Some(ckc_bin_override),
         true,
         true,
@@ -1670,6 +1832,7 @@ fn release_signoff_summary_json_without_api_symbols(tarball_sha256: &str) -> Str
         "disabled",
         true,
         "passed",
+        true,
         true,
         true,
         Some("unset"),
@@ -1730,6 +1893,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
         type_smoke,
         include_platform_arch,
         include_binary_paths,
+        true,
         Some("unset"),
         true,
         true,
@@ -1746,6 +1910,7 @@ fn release_signoff_summary_json_with_evidence(
     type_smoke: &str,
     include_platform_arch: bool,
     include_binary_paths: bool,
+    include_runtime_environment: bool,
     ckc_bin_override: Option<&str>,
     include_commands: bool,
     include_api_symbols: bool,
@@ -1810,8 +1975,12 @@ fn release_signoff_summary_json_with_evidence(
     } else {
         ""
     };
-    let signed_targets =
-        signed_targets_json(BINARY_SHA256, include_platform_arch, include_binary_paths);
+    let signed_targets = signed_targets_json(
+        BINARY_SHA256,
+        include_platform_arch,
+        include_binary_paths,
+        include_runtime_environment,
+    );
     format!(
         r#"{{
   "status": "ok",
@@ -1841,6 +2010,7 @@ fn signed_targets_json(
     linux_x64_sha256: &str,
     include_platform_arch: bool,
     include_binary_paths: bool,
+    include_runtime_environment: bool,
 ) -> String {
     [
         ("darwin-arm64", "darwin", "arm64", BINARY_SHA256),
@@ -1866,7 +2036,12 @@ fn signed_targets_json(
         } else {
             String::new()
         };
-        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{binary_paths}}}"#)
+        let runtime_environment = if include_runtime_environment {
+            format!(r#", "nodeVersion": "{NODE_VERSION}", "npmVersion": "{NPM_VERSION}""#)
+        } else {
+            String::new()
+        };
+        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{runtime_environment}{binary_paths}}}"#)
     })
     .collect::<Vec<_>>()
     .join(",\n")

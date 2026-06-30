@@ -16,6 +16,8 @@ const TARGETS: [&str; 6] = [
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
+const NODE_VERSION: &str = "v20.10.0";
+const NPM_VERSION: &str = "10.2.0";
 const REQUIRED_COMMANDS: [&str; 8] = [
     "ckc --help",
     "ckc check smoke.ck",
@@ -350,6 +352,50 @@ fn release_signoff_verifier_should_reject_missing_platform_arch_evidence() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_missing_runtime_environment_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-runtime-environment");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_without_runtime_environment(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing runtime environment evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("nodeVersion")
+            || String::from_utf8_lossy(&output.stderr).contains("npmVersion"),
+        "missing runtime environment failure should identify Node/npm version evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_source_checkout_fallback_smokes() {
     if !node_available() {
         return;
@@ -501,6 +547,15 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"nodeVersion\": \"{NODE_VERSION}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"npmVersion\": \"{NPM_VERSION}\"")),
+        "complete target signoff should preserve Node/npm runtime environment evidence per target\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":")
             && String::from_utf8_lossy(&output.stdout).contains("node_modules/.bin/ckc"),
         "complete target signoff should preserve installed CLI path evidence per target\nstdout:\n{}\nstderr:\n{}",
@@ -634,6 +689,27 @@ fn signoff_json_without_package_version(target: &str) -> String {
     )
 }
 
+fn signoff_json_without_runtime_environment(target: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
+    let source_fallback = source_fallback_evidence("disabled");
+    signoff_json_with_commands_and_binary_evidence_inner(
+        target,
+        &REQUIRED_COMMANDS
+            .iter()
+            .chain(REQUIRED_RUNTIME_COMMANDS.iter())
+            .copied()
+            .collect::<Vec<_>>(),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
+        true,
+        false,
+    )
+}
+
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
     let platform_arch = platform_arch_evidence(target);
     let installed_bin = installed_bin_evidence(target);
@@ -727,7 +803,13 @@ fn signoff_json_with_commands_and_binary_evidence(
     commands: &[&str],
     binary_evidence: &str,
 ) -> String {
-    signoff_json_with_commands_and_binary_evidence_inner(target, commands, binary_evidence, true)
+    signoff_json_with_commands_and_binary_evidence_inner(
+        target,
+        commands,
+        binary_evidence,
+        true,
+        true,
+    )
 }
 
 fn signoff_json_with_commands_and_binary_evidence_without_package_version(
@@ -735,7 +817,13 @@ fn signoff_json_with_commands_and_binary_evidence_without_package_version(
     commands: &[&str],
     binary_evidence: &str,
 ) -> String {
-    signoff_json_with_commands_and_binary_evidence_inner(target, commands, binary_evidence, false)
+    signoff_json_with_commands_and_binary_evidence_inner(
+        target,
+        commands,
+        binary_evidence,
+        false,
+        true,
+    )
 }
 
 fn signoff_json_with_commands_and_binary_evidence_inner(
@@ -743,6 +831,7 @@ fn signoff_json_with_commands_and_binary_evidence_inner(
     commands: &[&str],
     binary_evidence: &str,
     include_package_version: bool,
+    include_runtime_environment: bool,
 ) -> String {
     let commands_json = commands
         .iter()
@@ -755,10 +844,15 @@ fn signoff_json_with_commands_and_binary_evidence_inner(
     } else {
         ""
     };
+    let runtime_environment = if include_runtime_environment {
+        runtime_environment_evidence()
+    } else {
+        String::new()
+    };
     format!(
         r#"{{
   "package": "calckernel",
-  "targetName": "{target}"{package_version},
+  "targetName": "{target}"{package_version}{runtime_environment},
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{TARBALL_SHA256}",
   "commands": [
@@ -779,6 +873,14 @@ fn signoff_json_with_commands_and_binary_evidence_inner(
   "typeSmoke": "passed",
   "ckcBinOverride": "unset"{binary_evidence}
 }}"#
+    )
+}
+
+fn runtime_environment_evidence() -> String {
+    format!(
+        r#",
+  "nodeVersion": "{NODE_VERSION}",
+  "npmVersion": "{NPM_VERSION}""#
     )
 }
 

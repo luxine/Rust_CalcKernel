@@ -210,8 +210,14 @@ function validateSignedTargets(actual, label) {
     if (target?.arch !== expectedTarget.arch) {
       fail(`${label} ${expectedTarget.name} arch must be ${expectedTarget.arch}`);
     }
+    validateSignedTargetRuntimeEnvironment(target, expectedTarget, label);
     validateSignedTargetBinaryEvidence(target, expectedTarget, label);
   }
+}
+
+function validateSignedTargetRuntimeEnvironment(actual, expectedTarget, label) {
+  requireNonEmptyString(actual?.nodeVersion, `${label} ${expectedTarget.name} nodeVersion`);
+  requireNonEmptyString(actual?.npmVersion, `${label} ${expectedTarget.name} npmVersion`);
 }
 
 function validateSignedTargetBinaryEvidence(actual, expectedTarget, label) {
@@ -228,6 +234,12 @@ function validateSignedTargetBinaryEvidence(actual, expectedTarget, label) {
   );
   if (actual?.packagedBinarySha256 !== actual?.sha256) {
     fail(`${label} ${expectedTarget.name} packagedBinarySha256 must match sha256`);
+  }
+}
+
+function requireNonEmptyString(actual, label) {
+  if (typeof actual !== "string" || actual.length === 0) {
+    fail(`${label} is missing`);
   }
 }
 

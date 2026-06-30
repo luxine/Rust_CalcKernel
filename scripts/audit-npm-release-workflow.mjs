@@ -20,6 +20,11 @@ if (!existsSync(workflowPath)) {
   const finalizeSignoffJob = workflowSection(workflow, "finalize-signoff:", "publish-npm:");
   const publishJob = workflowSection(workflow, "publish-npm:", "");
   const npmPublishArtifact = workflowSection(publishJob, "name: npm-publish", "if-no-files-found: error");
+  const npmPublishStep = workflowSection(
+    publishJob,
+    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "npm run verify:registry-replacement"
+  );
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
   expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
   expectIncludes(workflow, "build-binary:", "binary matrix job");
@@ -53,7 +58,9 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");
   expectIncludes(publishJob, "id-token: write", "npm provenance token permission");
   expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
+  expectIncludes(publishJob, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
   expectIncludes(workflow, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm token secret");
+  expectIncludes(npmPublishStep, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm publish token secret");
   expectIncludes(publishJob, "test -n \"${NODE_AUTH_TOKEN}\"", "NPM_TOKEN preflight");
   expectOrder(
     publishJob,

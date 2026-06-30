@@ -575,6 +575,88 @@ fn npm_release_workflow_audit_should_reject_provenance_permission_outside_publis
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_registry_url_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_registry_url = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "registry-url: \"https://registry.npmjs.org\"",
+        "registry-url: \"https://registry.example.invalid\"",
+    );
+    let tampered = publish_without_registry_url.replacen(
+        "node-version: ${{ env.NODE_VERSION }}\n",
+        "node-version: ${{ env.NODE_VERSION }}\n          registry-url: \"https://registry.npmjs.org\"\n",
+        1,
+    );
+    let workflow_path = write_temp_workflow("registry-url-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced registry URL workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when npm registry URL is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("npm registry URL"),
+        "misplaced registry URL failure should identify the npm registry URL\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_step_without_npm_token_secret() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = workflow.replace(
+        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n",
+        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.WRONG_NPM_TOKEN }}\n",
+    );
+    let workflow_path = write_temp_workflow("publish-step-without-npm-token-secret", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against wrong publish token workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject npm publish when the publish step lacks the NPM_TOKEN secret\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("npm publish token secret"),
+        "wrong publish token failure should identify the npm publish token secret\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
     if !node_available() {
         return;

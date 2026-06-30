@@ -91,6 +91,46 @@ fn public_api_parity_verifier_should_reject_extra_or_missing_runtime_exports() {
     );
 }
 
+#[test]
+fn public_api_parity_verifier_should_reject_runtime_export_kind_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-public-api-kind-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_index = temp.join("rust-index.mjs");
+    let typescript_index = temp.join("typescript-index.mjs");
+    fs::write(&rust_index, "export const shared = 1;\n").expect("write Rust mock index");
+    fs::write(&typescript_index, "export function shared() {}\n")
+        .expect("write TypeScript mock index");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-public-api-parity.mjs")
+        .arg("--rust-index")
+        .arg(&rust_index)
+        .arg("--typescript-index")
+        .arg(&typescript_index)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run public API parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched public API export kinds should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("export kind mismatch for shared"),
+        "failure should identify the mismatched export kind\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn temp_dir(prefix: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

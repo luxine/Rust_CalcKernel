@@ -11,16 +11,27 @@ const typescriptRoot = process.env.CALCKERNEL_TS_ROOT ?? "/Users/lynn/code/CalcK
 const typescriptIndex = options.typescriptIndex ?? join(typescriptRoot, "dist", "src", "index.js");
 const failures = [];
 
-const rustExports = await readRuntimeExports(rustIndex, "Rust package root");
-const typescriptExports = await readRuntimeExports(typescriptIndex, "TypeScript oracle package root");
+const rustSurface = await readRuntimeExportSurface(rustIndex, "Rust package root");
+const typescriptSurface = await readRuntimeExportSurface(typescriptIndex, "TypeScript oracle package root");
+const rustExports = rustSurface.map((entry) => entry.name);
+const typescriptExports = typescriptSurface.map((entry) => entry.name);
 const extraRustExports = rustExports.filter((name) => !typescriptExports.includes(name));
 const missingRustExports = typescriptExports.filter((name) => !rustExports.includes(name));
+const rustExportKinds = new Map(rustSurface.map((entry) => [entry.name, entry.kind]));
+const typescriptExportKinds = new Map(typescriptSurface.map((entry) => [entry.name, entry.kind]));
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust exports: ${extraRustExports.join(", ")}`);
 }
 if (missingRustExports.length > 0) {
   fail(`missing Rust exports: ${missingRustExports.join(", ")}`);
+}
+for (const name of rustExports.filter((exportName) => typescriptExports.includes(exportName))) {
+  const rustKind = rustExportKinds.get(name);
+  const typescriptKind = typescriptExportKinds.get(name);
+  if (rustKind !== typescriptKind) {
+    fail(`export kind mismatch for ${name}: Rust ${rustKind}, TypeScript ${typescriptKind}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -35,7 +46,8 @@ console.log(JSON.stringify({
   rustIndex,
   typescriptIndex,
   exportCount: rustExports.length,
-  exports: rustExports
+  exports: rustExports,
+  exportKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind]))
 }, null, 2));
 
 function parseArgs(args) {
@@ -72,16 +84,28 @@ function requireValue(args, index, flag) {
   return value;
 }
 
-async function readRuntimeExports(path, label) {
+async function readRuntimeExportSurface(path, label) {
   if (!existsSync(path)) {
     failImmediate(`${label} does not exist: ${path}`);
   }
   try {
     const module = await import(pathToFileURL(path));
-    return Object.keys(module).sort();
+    return Object.keys(module)
+      .sort()
+      .map((name) => ({
+        name,
+        kind: runtimeExportKind(module[name])
+      }));
   } catch (error) {
     failImmediate(`Unable to import ${label}: ${error.message}`);
   }
+}
+
+function runtimeExportKind(value) {
+  if (typeof value === "function" && /^class\s/.test(Function.prototype.toString.call(value))) {
+    return "class";
+  }
+  return typeof value;
 }
 
 function printUsage() {

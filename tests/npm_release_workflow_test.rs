@@ -181,6 +181,22 @@ fn npm_release_workflow_should_archive_cutover_source_evidence_after_publish() {
 }
 
 #[test]
+fn npm_release_workflow_audit_should_require_publish_and_registry_source_evidence_archival() {
+    let audit =
+        fs::read_to_string("scripts/audit-npm-release-workflow.mjs").expect("read workflow audit");
+
+    for expected in [
+        r#"expectIncludes(npmPublishArtifact, "npm-publish.json", "npm publish artifact npm publish source evidence")"#,
+        r#"expectIncludes(npmPublishArtifact, "npm-registry-replacement.json", "npm publish artifact registry replacement source evidence")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "workflow audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

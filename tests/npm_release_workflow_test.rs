@@ -215,6 +215,51 @@ fn npm_release_workflow_audit_should_require_final_verifier_output_archival() {
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_release_verifier_without_source_sha_contract() {
+    if !node_available() {
+        return;
+    }
+
+    let release_root = write_temp_release_root("release-verifier-without-source-sha");
+    let release_verifier_path = release_root.join("scripts/verify-npm-release.mjs");
+    let release_verifier =
+        fs::read_to_string(&release_verifier_path).expect("read temp release verifier");
+    fs::write(
+        &release_verifier_path,
+        release_verifier.replace(
+            "  sourceGitSha: readSourceGitSha(),",
+            "  sourceGitSha: \"0000000000000000000000000000000000000000\",",
+        ),
+    )
+    .expect("tamper release verifier source SHA contract");
+    let workflow_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/npm-release.yml");
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_ROOT", &release_root)
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against tampered release verifier");
+
+    let _ = fs::remove_dir_all(&release_root);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject verifier scripts that drop the release manifest source SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("release manifest sourceGitSha emission"),
+        "source SHA verifier failure should identify the release manifest sourceGitSha contract\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
@@ -1110,6 +1155,26 @@ fn write_temp_workflow(name: &str, contents: &str) -> std::path::PathBuf {
     fs::write(&path, contents).expect("write temp workflow");
     path
 }
+
+fn write_temp_release_root(name: &str) -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!("rust-calckernel-{name}-{}", std::process::id()));
+    for script in SOURCE_SHA_VERIFIER_SCRIPTS {
+        let destination = root.join(script);
+        fs::create_dir_all(destination.parent().expect("script parent"))
+            .expect("create temp release root script directory");
+        fs::copy(script, &destination).expect("copy verifier script into temp release root");
+    }
+    root
+}
+
+const SOURCE_SHA_VERIFIER_SCRIPTS: &[&str] = &[
+    "scripts/verify-npm-release.mjs",
+    "scripts/verify-host-npm-install.mjs",
+    "scripts/verify-npm-release-signoff.mjs",
+    "scripts/verify-npm-release-signoff-summary.mjs",
+    "scripts/verify-npm-publish-result.mjs",
+    "scripts/verify-npm-cutover-evidence.mjs",
+];
 
 fn node_available() -> bool {
     Command::new("node")

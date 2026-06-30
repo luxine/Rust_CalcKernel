@@ -4,7 +4,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = process.env.CKC_NPM_RELEASE_ROOT
+  ? resolve(process.env.CKC_NPM_RELEASE_ROOT)
+  : defaultRoot;
 const workflowPath = process.env.CKC_NPM_RELEASE_WORKFLOW
   ? resolve(process.env.CKC_NPM_RELEASE_WORKFLOW)
   : join(root, ".github", "workflows", "npm-release.yml");
@@ -25,6 +28,12 @@ if (!existsSync(workflowPath)) {
     "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
     "npm run verify:registry-replacement"
   );
+  const releaseVerifier = readRepoFile("scripts/verify-npm-release.mjs");
+  const hostInstallVerifier = readRepoFile("scripts/verify-host-npm-install.mjs");
+  const signoffVerifier = readRepoFile("scripts/verify-npm-release-signoff.mjs");
+  const signoffSummaryVerifier = readRepoFile("scripts/verify-npm-release-signoff-summary.mjs");
+  const publishResultVerifier = readRepoFile("scripts/verify-npm-publish-result.mjs");
+  const cutoverVerifier = readRepoFile("scripts/verify-npm-cutover-evidence.mjs");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
   expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
   expectIncludes(workflow, "build-binary:", "binary matrix job");
@@ -150,6 +159,56 @@ if (!existsSync(workflowPath)) {
   expectIncludes(npmPublishArtifact, "npm-publish-artifact.json", "npm publish artifact pre-publish artifact verifier output");
   expectIncludes(npmPublishArtifact, "npm-publish-result.json", "npm publish artifact publish result verifier output");
   expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output");
+  expectIncludes(releaseVerifier, "sourceGitSha: readSourceGitSha()", "release manifest sourceGitSha emission");
+  expectIncludes(releaseVerifier, "const githubSha = process.env.GITHUB_SHA;", "release manifest GITHUB_SHA input");
+  expectIncludes(
+    releaseVerifier,
+    "spawnSync(\"git\", [\"rev-parse\", \"HEAD\"]",
+    "release manifest local git source SHA fallback"
+  );
+  expectIncludes(
+    hostInstallVerifier,
+    "const githubSha = requireGithubEnv(\"GITHUB_SHA\", \"githubSha\");",
+    "host install signoff GITHUB_SHA input"
+  );
+  expectIncludes(signoffVerifier, "sourceGitSha: manifest.sourceGitSha", "release signoff sourceGitSha propagation");
+  expectIncludes(
+    signoffVerifier,
+    "signoff.githubSha !== manifest.sourceGitSha",
+    "platform signoff githubSha manifest binding"
+  );
+  expectIncludes(
+    signoffSummaryVerifier,
+    "expectEqual(value.sourceGitSha, manifest.sourceGitSha, \"release sign-off sourceGitSha\")",
+    "release signoff summary sourceGitSha binding"
+  );
+  expectIncludes(
+    signoffSummaryVerifier,
+    "target.githubSha !== manifest.sourceGitSha",
+    "release signoff summary signed target source binding"
+  );
+  expectIncludes(
+    publishResultVerifier,
+    "const githubSha = requireGithubEnv(\"GITHUB_SHA\", \"githubSha\");",
+    "publish result GITHUB_SHA provenance input"
+  );
+  expectIncludes(
+    publishResultVerifier,
+    "publish provenance githubSha from release manifest sourceGitSha",
+    "publish result sourceGitSha provenance binding"
+  );
+  expectIncludes(publishResultVerifier, "sourceGitSha: manifest.sourceGitSha", "publish result sourceGitSha output");
+  expectIncludes(cutoverVerifier, "sourceGitSha: manifest.sourceGitSha", "cutover sourceGitSha output");
+  expectIncludes(
+    cutoverVerifier,
+    "validatePublishProvenance(value.publishProvenance, \"publish result publishProvenance\", manifest.sourceGitSha)",
+    "cutover publish provenance source binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "actual.githubSha !== sourceGitSha",
+    "cutover provenance githubSha source binding"
+  );
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
   expectIncludes(workflow, "- run: cargo test\n", "full Rust test suite gate");
@@ -226,8 +285,18 @@ console.log(JSON.stringify({
   status: "ok",
   workflow: workflowPath,
   publishJob: true,
+  releaseVerifierContracts: true,
   targets: SUPPORTED_CKC_BINARY_TARGETS.map((target) => target.name)
 }, null, 2));
+
+function readRepoFile(relativePath) {
+  const filePath = join(root, relativePath);
+  if (!existsSync(filePath)) {
+    fail(`${relativePath} is missing`);
+    return "";
+  }
+  return readFileSync(filePath, "utf8");
+}
 
 function expectIncludes(text, expected, label) {
   if (!text.includes(expected)) {

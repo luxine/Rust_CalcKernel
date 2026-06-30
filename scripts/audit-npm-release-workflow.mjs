@@ -161,6 +161,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output");
   expectIncludes(releaseVerifier, "sourceGitSha: readSourceGitSha()", "release manifest sourceGitSha emission");
   expectIncludes(releaseVerifier, "const githubSha = process.env.GITHUB_SHA;", "release manifest GITHUB_SHA input");
+  expectIncludes(releaseVerifier, "requireCleanGitWorktree();", "release manifest clean source worktree check");
   expectIncludes(
     releaseVerifier,
     "spawnSync(\"git\", [\"rev-parse\", \"HEAD\"]",

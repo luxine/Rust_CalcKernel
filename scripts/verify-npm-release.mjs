@@ -226,6 +226,8 @@ function readSourceGitSha() {
     return githubSha;
   }
 
+  requireCleanGitWorktree();
+
   const output = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" });
   if (output.error) {
     fail(`Unable to read source git SHA: ${output.error.message}`);
@@ -240,6 +242,21 @@ function readSourceGitSha() {
     fail(`git rev-parse HEAD returned invalid source git SHA: ${JSON.stringify(sourceGitSha)}`);
   }
   return sourceGitSha;
+}
+
+function requireCleanGitWorktree() {
+  const output = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+  if (output.error) {
+    fail(`Unable to verify clean source git worktree: ${output.error.message}`);
+  }
+  if (output.status !== 0) {
+    const stderr = output.stderr.trim();
+    const stdout = output.stdout.trim();
+    fail(`Unable to verify clean source git worktree${stderr || stdout ? `: ${stderr || stdout}` : ""}`);
+  }
+  if (output.stdout.trim().length > 0) {
+    fail("source git worktree must be clean before creating release manifest");
+  }
 }
 
 function isGitSha(value) {

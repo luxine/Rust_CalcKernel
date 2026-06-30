@@ -73,6 +73,10 @@ const root = process.cwd();
 const tsRoot = process.env.CALCKERNEL_TS_ROOT ?? "/Users/lynn/code/CalcKernel";
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const cargoToml = readFileSync(join(root, "Cargo.toml"), "utf8");
+const releaseVerifierEnv = {
+  ...process.env,
+  GITHUB_SHA: "abcdef0123456789abcdef0123456789abcdef01"
+};
 
 assert.equal(pkg.name, "calckernel");
 assert.equal(pkg.version, "0.8.0");
@@ -579,6 +583,7 @@ try {
 
     const verifyRelease = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", matrixTarball], {
       cwd: root,
+      env: releaseVerifierEnv,
       encoding: "utf8"
     });
     assert.equal(verifyRelease.status, 0, verifyRelease.stderr || verifyRelease.stdout);
@@ -673,6 +678,43 @@ try {
       assert.equal(target.fileMode[3], expectedTarget.platform === "win32" ? "-" : "x");
     }
 
+    const dirtyGitRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-dirty-release-git-"));
+    try {
+      writeFileSync(join(dirtyGitRoot, "tracked.txt"), "committed\n");
+      const init = spawnSync("git", ["init"], { cwd: dirtyGitRoot, encoding: "utf8" });
+      assert.equal(init.status, 0, init.stderr || init.stdout);
+      const add = spawnSync("git", ["add", "tracked.txt"], { cwd: dirtyGitRoot, encoding: "utf8" });
+      assert.equal(add.status, 0, add.stderr || add.stdout);
+      const commit = spawnSync("git", [
+        "-c",
+        "user.name=CalcKernel Test",
+        "-c",
+        "user.email=calckernel@example.invalid",
+        "commit",
+        "-m",
+        "initial"
+      ], {
+        cwd: dirtyGitRoot,
+        encoding: "utf8"
+      });
+      assert.equal(commit.status, 0, commit.stderr || commit.stdout);
+      writeFileSync(join(dirtyGitRoot, "tracked.txt"), "dirty\n");
+      const dirtyReleaseEnv = { ...process.env };
+      delete dirtyReleaseEnv.GITHUB_SHA;
+      const verifyDirtySource = spawnSync(process.execPath, [
+        join(root, "scripts/verify-npm-release.mjs"),
+        matrixTarball
+      ], {
+        cwd: dirtyGitRoot,
+        env: dirtyReleaseEnv,
+        encoding: "utf8"
+      });
+      assert.notEqual(verifyDirtySource.status, 0, verifyDirtySource.stdout);
+      assert.match(verifyDirtySource.stderr, /source git worktree must be clean/);
+    } finally {
+      rmSync(dirtyGitRoot, { recursive: true, force: true });
+    }
+
     const mutatedBinaryRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-mutated-binary-pack-"));
     try {
       const unpack = spawnSync("tar", ["-xzf", matrixTarball, "-C", mutatedBinaryRoot], {
@@ -692,6 +734,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -719,6 +762,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -743,6 +787,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -767,6 +812,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -794,6 +840,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -824,6 +871,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -854,6 +902,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
@@ -881,6 +930,7 @@ try {
       assert.equal(repack.status, 0, repack.stderr || repack.stdout);
       const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
         cwd: root,
+        env: releaseVerifierEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);

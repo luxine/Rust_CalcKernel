@@ -13,14 +13,31 @@ const typescriptDts = options.typescriptDts ?? join(tsRoot, "dist", "src", "inde
 const ts = loadTypescript(options.typescriptModule);
 const failures = [];
 
-const rustSurface = readDeclarationExportSurface(rustDts, "Rust declaration file");
-const typescriptSurface = readDeclarationExportSurface(typescriptDts, "TypeScript oracle declaration file");
+const declarationProgram = createDeclarationProgram([rustDts, typescriptDts]);
+const checker = declarationProgram.getTypeChecker();
+const rustSurface = readDeclarationExportSurface(declarationProgram, checker, rustDts, "Rust declaration file");
+const typescriptSurface = readDeclarationExportSurface(
+  declarationProgram,
+  checker,
+  typescriptDts,
+  "TypeScript oracle declaration file"
+);
 const rustExports = rustSurface.map((entry) => entry.name);
 const typescriptExports = typescriptSurface.map((entry) => entry.name);
 const extraRustExports = rustExports.filter((name) => !typescriptExports.includes(name));
 const missingRustExports = typescriptExports.filter((name) => !rustExports.includes(name));
 const rustDeclarationKinds = new Map(rustSurface.map((entry) => [entry.name, entry.kind]));
 const typescriptDeclarationKinds = new Map(typescriptSurface.map((entry) => [entry.name, entry.kind]));
+const rustFunctionSignatures = new Map(
+  rustSurface
+    .filter((entry) => entry.functionInfo)
+    .map((entry) => [entry.name, entry.functionInfo])
+);
+const typescriptFunctionSignatures = new Map(
+  typescriptSurface
+    .filter((entry) => entry.functionInfo)
+    .map((entry) => [entry.name, entry.functionInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
@@ -33,6 +50,18 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   const typescriptKind = typescriptDeclarationKinds.get(name);
   if (rustKind !== typescriptKind) {
     fail(`declaration kind mismatch for ${name}: Rust ${rustKind}, TypeScript ${typescriptKind}`);
+  }
+  const rustFunction = rustFunctionSignatures.get(name);
+  const typescriptFunction = typescriptFunctionSignatures.get(name);
+  if (
+    rustFunction
+    && typescriptFunction
+    && !functionSignaturesAreCompatible(rustFunction, typescriptFunction, checker)
+  ) {
+    fail(
+      `function signature mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustFunction.signatures)}, TypeScript ${JSON.stringify(typescriptFunction.signatures)}`
+    );
   }
 }
 
@@ -49,7 +78,10 @@ console.log(JSON.stringify({
   typescriptDts,
   exportCount: rustExports.length,
   exports: rustExports,
-  declarationKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind]))
+  declarationKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind])),
+  functionSignatures: Object.fromEntries(
+    [...rustFunctionSignatures.entries()].map(([name, info]) => [name, info.signatures])
+  )
 }, null, 2));
 
 function parseArgs(args) {
@@ -113,12 +145,8 @@ function loadTypescript(explicitPath) {
   }
 }
 
-function readDeclarationExportSurface(path, label) {
-  if (!existsSync(path)) {
-    failImmediate(`${label} does not exist: ${path}`);
-  }
-
-  const program = ts.createProgram([path], {
+function createDeclarationProgram(paths) {
+  const program = ts.createProgram(paths, {
     allowJs: false,
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
@@ -129,14 +157,20 @@ function readDeclarationExportSurface(path, label) {
   });
   const diagnostics = ts.getPreEmitDiagnostics(program);
   if (diagnostics.length > 0) {
-    failImmediate(`${label} has TypeScript diagnostics:\n${formatDiagnostics(diagnostics)}`);
+    failImmediate(`declaration parity inputs have TypeScript diagnostics:\n${formatDiagnostics(diagnostics)}`);
+  }
+  return program;
+}
+
+function readDeclarationExportSurface(program, checker, path, label) {
+  if (!existsSync(path)) {
+    failImmediate(`${label} does not exist: ${path}`);
   }
 
   const sourceFile = program.getSourceFile(path);
   if (!sourceFile) {
     failImmediate(`${label} was not loaded by TypeScript: ${path}`);
   }
-  const checker = program.getTypeChecker();
   const moduleSymbol = checker.getSymbolAtLocation(sourceFile) ?? sourceFile.symbol;
   if (!moduleSymbol) {
     failImmediate(`${label} is not an external module: ${path}`);
@@ -146,7 +180,8 @@ function readDeclarationExportSurface(path, label) {
     .getExportsOfModule(moduleSymbol)
     .map((symbol) => ({
       name: symbol.getName(),
-      kind: declarationExportKind(symbol, checker, label)
+      kind: declarationExportKind(symbol, checker, label),
+      functionInfo: declarationFunctionInfo(symbol, checker)
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -163,6 +198,39 @@ function declarationExportKind(symbol, checker, label) {
     .map((declaration) => ts.SyntaxKind[declaration.kind])
     .sort()
     .join("+");
+}
+
+function declarationFunctionInfo(symbol, checker) {
+  const resolvedSymbol = resolveAliasedSymbol(symbol, checker);
+  const declarations = resolvedSymbol.getDeclarations() ?? [];
+  if (!declarations.some((declaration) => declaration.kind === ts.SyntaxKind.FunctionDeclaration)) {
+    return null;
+  }
+  const signatureAnchor = declarations[0];
+  const type = checker.getTypeOfSymbolAtLocation(resolvedSymbol, signatureAnchor);
+  const signatures = checker
+    .getSignaturesOfType(type, ts.SignatureKind.Call)
+    .map((signature) => checker.signatureToString(signature, signatureAnchor, ts.TypeFormatFlags.NoTruncation))
+    .sort();
+  return { type, signatures };
+}
+
+function functionSignaturesAreCompatible(rustFunction, typescriptFunction, checker) {
+  if (sameJson(rustFunction.signatures, typescriptFunction.signatures)) {
+    return true;
+  }
+  return checker.isTypeAssignableTo(rustFunction.type, typescriptFunction.type)
+    && checker.isTypeAssignableTo(typescriptFunction.type, rustFunction.type);
+}
+
+function resolveAliasedSymbol(symbol, checker) {
+  return symbol.flags & ts.SymbolFlags.Alias
+    ? checker.getAliasedSymbol(symbol)
+    : symbol;
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function formatDiagnostics(diagnostics) {

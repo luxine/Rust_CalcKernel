@@ -36,10 +36,22 @@ if (!isSha512Integrity(publish.integrity)) {
 if (!isSha512Integrity(registry.integrity)) {
   fail(`registry integrity must be a sha512 npm integrity string, found ${JSON.stringify(registry.integrity)}`);
 }
+if (!isSha1(publish.shasum)) {
+  fail(`publish shasum must be a sha1 hex string, found ${JSON.stringify(publish.shasum)}`);
+}
+if (!isSha1(registry.shasum)) {
+  fail(`registry shasum must be a sha1 hex string, found ${JSON.stringify(registry.shasum)}`);
+}
 if (publish.integrity && registry.integrity && publish.integrity !== registry.integrity) {
   fail(
     `registry integrity must match npm publish integrity: ` +
       `expected ${publish.integrity}, found ${registry.integrity}`
+  );
+}
+if (publish.shasum && registry.shasum && publish.shasum !== registry.shasum) {
+  fail(
+    `registry shasum must match npm publish shasum: ` +
+      `expected ${publish.shasum}, found ${registry.shasum}`
   );
 }
 
@@ -57,6 +69,7 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   registryStatus: registry.status,
   registryTarball: registry.tarball,
+  shasum: registry.shasum,
   consumerInstallScripts: registry.consumerInstallScripts,
   integrity: registry.integrity
 }, null, 2));
@@ -103,6 +116,10 @@ function expectEmptyArray(actual, label) {
 
 function isSha512Integrity(value) {
   return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
+}
+
+function isSha1(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

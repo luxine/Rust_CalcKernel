@@ -23,6 +23,9 @@ expectJson(metadata.bin, { ckc: "./npm/ckc.js" }, "bin");
 expectNoDependencyFields(metadata);
 expectNoConsumerInstallScripts(metadata);
 expectTarball(metadata.dist?.tarball, version);
+if (!isSha1(metadata.dist?.shasum)) {
+  fail(`dist.shasum must be a sha1 hex string, found ${JSON.stringify(metadata.dist?.shasum)}`);
+}
 if (!isSha512Integrity(metadata.dist?.integrity)) {
   fail(`dist.integrity must be a sha512 npm integrity string, found ${JSON.stringify(metadata.dist?.integrity)}`);
 }
@@ -39,6 +42,7 @@ console.log(JSON.stringify({
   package: metadata.name,
   version,
   tarball: metadata.dist.tarball,
+  shasum: metadata.dist.shasum,
   integrity: metadata.dist.integrity,
   consumerInstallScripts: [],
   bin: metadata.bin,
@@ -169,6 +173,10 @@ function expectTarball(tarball, version) {
 
 function isSha512Integrity(value) {
   return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
+}
+
+function isSha1(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function printUsage() {

@@ -6,6 +6,7 @@ use std::{
 };
 
 const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
 #[test]
@@ -82,6 +83,13 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"shasum\": \"{VALID_SHASUM}\"")),
+        "cutover evidence verifier should report the registry shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -127,6 +135,54 @@ fn cutover_evidence_verifier_should_reject_signoff_sha256_mismatch() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("release sign-off tarballSha256"),
         "failure should identify release sign-off SHA256 mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-shasum");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json_with_shasum("not-a-sha1"),
+    )
+    .expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "invalid publish result shasum should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish result shasum"),
+        "failure should identify publish result shasum\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -179,6 +235,10 @@ fn publish_artifact_json(tarball_sha256: &str) -> String {
 }
 
 fn publish_result_json() -> String {
+    publish_result_json_with_shasum(VALID_SHASUM)
+}
+
+fn publish_result_json_with_shasum(shasum: &str) -> String {
     format!(
         r#"{{
   "status": "ok",
@@ -187,6 +247,7 @@ fn publish_result_json() -> String {
   "tarball": "calckernel-0.8.0.tgz",
   "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+  "shasum": "{shasum}",
   "consumerInstallScripts": [],
   "integrity": "{VALID_INTEGRITY}"
 }}"#

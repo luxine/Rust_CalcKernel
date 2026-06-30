@@ -53,6 +53,7 @@ console.log(JSON.stringify({
   targets: signoff.targets,
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
+  shasum: publishResult.shasum,
   consumerInstallScripts: publishResult.consumerInstallScripts,
   integrity: publishResult.integrity,
   evidence: {
@@ -115,6 +116,9 @@ function validatePublishResult(value, manifest) {
   if (!isSha512Integrity(value.integrity)) {
     fail(`publish result integrity must be a sha512 npm integrity string, found ${JSON.stringify(value.integrity)}`);
   }
+  if (!isSha1(value.shasum)) {
+    fail(`publish result shasum must be a sha1 hex string, found ${JSON.stringify(value.shasum)}`);
+  }
   expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
 }
 
@@ -153,6 +157,10 @@ function isSha256(value) {
 
 function isSha512Integrity(value) {
   return typeof value === "string" && /^sha512-[A-Za-z0-9+/]{86}==$/.test(value);
+}
+
+function isSha1(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

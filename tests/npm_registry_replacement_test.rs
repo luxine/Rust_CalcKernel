@@ -5,6 +5,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
+const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
 #[test]
 fn registry_replacement_verifier_should_accept_rust_package_metadata() {
     if !node_available() {
@@ -35,6 +38,13 @@ fn registry_replacement_verifier_should_accept_rust_package_metadata() {
     assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"status\": \"ok\""),
         "success output should be a JSON status\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"shasum\": \"{VALID_SHASUM}\"")),
+        "success output should report the registry dist.shasum\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -115,6 +125,41 @@ fn registry_replacement_verifier_should_reject_invalid_dist_integrity() {
 }
 
 #[test]
+fn registry_replacement_verifier_should_reject_invalid_dist_shasum() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-registry-shasum");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let metadata = temp.join("metadata.json");
+    fs::write(&metadata, rust_metadata_with_shasum("not-a-sha1")).expect("write metadata");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-registry-replacement.mjs")
+        .arg("--metadata-file")
+        .arg(&metadata)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm registry replacement verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "invalid registry shasum should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("dist.shasum"),
+        "failure should identify dist.shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn registry_replacement_verifier_should_reject_consumer_install_lifecycle_scripts() {
     if !node_available() {
         return;
@@ -158,9 +203,15 @@ fn rust_metadata() -> String {
     rust_metadata_with_integrity(VALID_INTEGRITY)
 }
 
-const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
-
 fn rust_metadata_with_integrity(integrity: &str) -> String {
+    rust_metadata_with_integrity_and_shasum(integrity, VALID_SHASUM)
+}
+
+fn rust_metadata_with_shasum(shasum: &str) -> String {
+    rust_metadata_with_integrity_and_shasum(VALID_INTEGRITY, shasum)
+}
+
+fn rust_metadata_with_integrity_and_shasum(integrity: &str, shasum: &str) -> String {
     r#"{
   "name": "calckernel",
   "version": "0.8.0",
@@ -178,9 +229,11 @@ fn rust_metadata_with_integrity(integrity: &str) -> String {
   },
   "dist": {
     "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+    "shasum": "__SHASUM__",
     "integrity": "__INTEGRITY__"
   }
 }"#
+    .replace("__SHASUM__", shasum)
     .replace("__INTEGRITY__", integrity)
 }
 
@@ -206,6 +259,7 @@ fn rust_metadata_with_scripts(scripts: &str) -> String {
   }},
   "dist": {{
     "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+    "shasum": "{VALID_SHASUM}",
     "integrity": "{VALID_INTEGRITY}"
   }}
 }}"#

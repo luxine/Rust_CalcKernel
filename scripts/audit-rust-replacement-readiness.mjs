@@ -82,6 +82,7 @@ expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "registry replacement status", "npm release docs");
 expectIncludes(npmRelease, "registry tarball URL", "npm release docs");
 expectIncludes(npmRelease, "sha512 npm integrity", "npm release docs");
+expectIncludes(npmRelease, "sha1 shasum", "npm release docs");
 expectIncludes(npmRelease, "consumer install lifecycle scripts", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");

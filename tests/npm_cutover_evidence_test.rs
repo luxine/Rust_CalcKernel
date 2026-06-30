@@ -1128,6 +1128,120 @@ fn cutover_evidence_verifier_should_reject_manifest_public_identity_mismatch() {
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_missing_manifest_file_surface() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-manifest-file-surface");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(
+        &manifest,
+        release_manifest_json_without_file_surface(TARBALL_SHA256),
+    )
+    .expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing release manifest fileSurface should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("release manifest fileSurface"),
+        "failure should identify release manifest fileSurface\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_wrong_manifest_target_binary_format() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-manifest-binary-format");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(
+        &manifest,
+        release_manifest_json(TARBALL_SHA256).replacen(
+            r#""binaryFormat": "ELF""#,
+            r#""binaryFormat": "Mach-O""#,
+            1,
+        ),
+    )
+    .expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong release manifest target binary format should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("binaryFormat"),
+        "failure should identify release manifest target binaryFormat\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
     if !node_available() {
         return;
@@ -1747,6 +1861,146 @@ fn release_manifest_json_with_description(tarball_sha256: &str, description: &st
   "packageVersion": "0.8.0",
   "packageMetadata": {{
     "description": "{description}",
+    "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+    "license": "MIT",
+    "engines": {{
+      "node": ">=20"
+    }},
+    "type": "module",
+    "main": "./npm/index.js",
+    "types": "./npm/index.d.ts",
+    "exports": {{
+      ".": {{
+        "types": "./npm/index.d.ts",
+        "import": "./npm/index.js"
+      }}
+    }},
+    "bin": {{
+      "ckc": "./npm/ckc.js"
+    }},
+    "dependencyFields": {{}},
+    "consumerInstallScripts": []
+  }},
+  "tarball": "calckernel-0.8.0.tgz",
+  "tarballSha256": "{tarball_sha256}",
+  "fileSurface": {{
+    "packageJsonFiles": [
+      "npm",
+      "README.md",
+      "README.zh-CN.md",
+      "docs/npm-release.md",
+      "docs/architecture-review.md",
+      "docs/zh-CN/architecture-review.md"
+    ],
+    "requiredFiles": [
+      "package/package.json",
+      "package/npm/ckc.js",
+      "package/npm/platform.js",
+      "package/npm/index.js",
+      "package/npm/index.d.ts",
+      "package/docs/npm-release.md",
+      "package/docs/architecture-review.md",
+      "package/docs/zh-CN/architecture-review.md",
+      "package/README.md",
+      "package/README.zh-CN.md"
+    ],
+    "forbiddenPrefixes": [
+      "package/docs/superpowers/",
+      "package/src/",
+      "package/target/"
+    ],
+    "allowedEntries": [
+      "package/README.md",
+      "package/README.zh-CN.md",
+      "package/docs/architecture-review.md",
+      "package/docs/npm-release.md",
+      "package/docs/zh-CN/architecture-review.md",
+      "package/npm/bin/ckc-darwin-arm64",
+      "package/npm/bin/ckc-darwin-x64",
+      "package/npm/bin/ckc-linux-arm64",
+      "package/npm/bin/ckc-linux-x64",
+      "package/npm/bin/ckc-win32-arm64.exe",
+      "package/npm/bin/ckc-win32-x64.exe",
+      "package/npm/ckc.js",
+      "package/npm/index.d.ts",
+      "package/npm/index.js",
+      "package/npm/platform.js",
+      "package/package.json"
+    ]
+  }},
+  "targets": [
+    {{
+      "name": "darwin-arm64",
+      "rustTarget": "aarch64-apple-darwin",
+      "binaryPath": "package/npm/bin/ckc-darwin-arm64",
+      "fileMode": "-rwxr-xr-x",
+      "binaryFormat": "Mach-O",
+      "binaryArchitecture": "arm64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }},
+    {{
+      "name": "darwin-x64",
+      "rustTarget": "x86_64-apple-darwin",
+      "binaryPath": "package/npm/bin/ckc-darwin-x64",
+      "fileMode": "-rwxr-xr-x",
+      "binaryFormat": "Mach-O",
+      "binaryArchitecture": "x64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }},
+    {{
+      "name": "linux-arm64",
+      "rustTarget": "aarch64-unknown-linux-gnu",
+      "binaryPath": "package/npm/bin/ckc-linux-arm64",
+      "fileMode": "-rwxr-xr-x",
+      "binaryFormat": "ELF",
+      "binaryArchitecture": "arm64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }},
+    {{
+      "name": "linux-x64",
+      "rustTarget": "x86_64-unknown-linux-gnu",
+      "binaryPath": "package/npm/bin/ckc-linux-x64",
+      "fileMode": "-rwxr-xr-x",
+      "binaryFormat": "ELF",
+      "binaryArchitecture": "x64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }},
+    {{
+      "name": "win32-arm64",
+      "rustTarget": "aarch64-pc-windows-msvc",
+      "binaryPath": "package/npm/bin/ckc-win32-arm64.exe",
+      "fileMode": "-rw-r--r--",
+      "binaryFormat": "PE",
+      "binaryArchitecture": "arm64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }},
+    {{
+      "name": "win32-x64",
+      "rustTarget": "x86_64-pc-windows-msvc",
+      "binaryPath": "package/npm/bin/ckc-win32-x64.exe",
+      "fileMode": "-rw-r--r--",
+      "binaryFormat": "PE",
+      "binaryArchitecture": "x64",
+      "sizeBytes": 1,
+      "sha256": "{BINARY_SHA256}"
+    }}
+  ]
+}}"#
+    )
+}
+
+fn release_manifest_json_without_file_surface(tarball_sha256: &str) -> String {
+    format!(
+        r#"{{
+  "packageName": "calckernel",
+  "packageVersion": "0.8.0",
+  "packageMetadata": {{
+    "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
     "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
     "license": "MIT",
     "engines": {{

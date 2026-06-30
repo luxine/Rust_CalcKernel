@@ -204,6 +204,8 @@ The workflow runs these stages:
    strings and must match; the publish and registry shasum values must both be
    sha1 shasum strings and must match. Finally, it runs `verify:cutover-evidence`
    to bind the release manifest, `release-signoff-summary.json`,
+   release manifest `fileSurface` / package metadata / target binary file mode,
+   format, architecture, size, Rust target, packaged path, and SHA256 evidence,
    six-platform sign-off summary including `packageVersion`, signed target
    binary SHA256 values, signed target `nodeVersion` / `npmVersion`, signed
    target GitHub Actions provenance (`ciProvider`, `githubRunId`, `runnerOs`,
@@ -299,6 +301,11 @@ CLI smoke `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `backendRuntimeSmokes` list to match `release-signoff.json`; they also enforce
 the same canonical `npm release artifact` / `platform-signoff` provenance on
 every signed target.
+The final cutover verifier also rejects a simplified or tampered release
+manifest: `fileSurface.packageJsonFiles`, required files, forbidden prefixes,
+allowed tarball entries, target Rust triples, packaged binary paths, file modes,
+binary formats, architectures, sizes, and SHA256 values must match the formal
+release manifest contract.
 `verify:host-npm-install` must report
 `typeSmoke: "passed"` on every sign-off target; skipped declaration smokes are
 not acceptable release evidence.
@@ -368,7 +375,10 @@ package identity.
 The publish, registry, and final cutover evidence must carry the same
 sha512 npm integrity value and sha1 shasum, and final cutover evidence must
 report the registry tarball URL, `publishArtifactTarballPath`, and public
-package identity.
+package identity. It must also validate the formal release manifest
+`fileSurface`, required/forbidden/allowed file lists, target Rust triples,
+binary paths, file modes, binary formats, architectures, sizes, and SHA256
+values before accepting the final bundle.
 The final downloaded evidence set
 should also pass `npm run verify:cutover-evidence -- release-manifest.json
 release-signoff.json release-signoff-summary.json npm-publish-artifact.json
@@ -468,7 +478,9 @@ sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串
 最终 `verify:cutover-evidence` 必须同时传入 `release-manifest.json`、
 `release-signoff.json`、`release-signoff-summary.json`、
 `npm-publish-artifact.json` 和 `npm-publish-result.json`，把发布前签核摘要、
-显式 `packageVersion`、禁用 source checkout fallback 的证据、发布前 tarball
+显式 `packageVersion`、release manifest 的 `fileSurface`、metadata、target
+Rust triple、包内二进制路径、file mode、format、architecture、size 和 SHA256、
+禁用 source checkout fallback 的证据、发布前 tarball
 校验和 `publishArtifactTarballPath`、来自 `release-manifest.json.packageMetadata` 的 public package identity
 和发布后 registry 结果绑定成同一份最终证据。
 最终 `npm-publish` artifact 必须同时归档源证据

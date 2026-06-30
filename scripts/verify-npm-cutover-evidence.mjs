@@ -27,6 +27,31 @@ const EXPECTED_PACKAGE_METADATA = Object.freeze({
   dependencyFields: {},
   consumerInstallScripts: []
 });
+const EXPECTED_PACKAGE_JSON_FILES = Object.freeze([
+  "npm",
+  "README.md",
+  "README.zh-CN.md",
+  "docs/npm-release.md",
+  "docs/architecture-review.md",
+  "docs/zh-CN/architecture-review.md"
+]);
+const REQUIRED_FILES = Object.freeze([
+  "package/package.json",
+  "package/npm/ckc.js",
+  "package/npm/platform.js",
+  "package/npm/index.js",
+  "package/npm/index.d.ts",
+  "package/docs/npm-release.md",
+  "package/docs/architecture-review.md",
+  "package/docs/zh-CN/architecture-review.md",
+  "package/README.md",
+  "package/README.zh-CN.md"
+]);
+const FORBIDDEN_PREFIXES = Object.freeze([
+  "package/docs/superpowers/",
+  "package/src/",
+  "package/target/"
+]);
 const [manifestArg, signoffArg, signoffSummaryArg, publishArtifactArg, publishResultArg] = process.argv.slice(2);
 
 if (
@@ -133,7 +158,8 @@ function validateManifest(value) {
   } else {
     expectJson(value.packageMetadata, EXPECTED_PACKAGE_METADATA, "release manifest packageMetadata");
   }
-  validateManifestTargets(value.targets, "release manifest targets");
+  validateReleaseManifestFileSurface(value.fileSurface);
+  validateReleaseManifestTargets(value.targets, "release manifest targets");
 }
 
 function validateReleaseSignoff(value, manifest) {
@@ -158,7 +184,11 @@ function validateReleaseSignoff(value, manifest) {
   validateSignedTargets(value.signedTargets, "release sign-off signedTargets");
   validateBackendRuntimeSmokes(value.backendRuntimeSmokes, "release sign-off backendRuntimeSmokes");
 
-  const manifestTargetShaByName = new Map(manifest.targets.map((target) => [target.name, target.sha256]));
+  const manifestTargetShaByName = new Map(
+    Array.isArray(manifest.targets)
+      ? manifest.targets.map((target) => [target.name, target.sha256])
+      : []
+  );
   for (const target of value.signedTargets ?? []) {
     if (target.sha256 !== manifestTargetShaByName.get(target.name)) {
       fail(
@@ -350,6 +380,69 @@ function expectEmptyArray(actual, label) {
   }
 }
 
+function validateReleaseManifestFileSurface(actual) {
+  if (!actual || typeof actual !== "object" || Array.isArray(actual)) {
+    fail("release manifest fileSurface is missing");
+    return;
+  }
+  expectJson(
+    actual.packageJsonFiles,
+    EXPECTED_PACKAGE_JSON_FILES,
+    "release manifest fileSurface.packageJsonFiles"
+  );
+  expectJson(actual.requiredFiles, REQUIRED_FILES, "release manifest fileSurface.requiredFiles");
+  expectJson(
+    actual.forbiddenPrefixes,
+    FORBIDDEN_PREFIXES,
+    "release manifest fileSurface.forbiddenPrefixes"
+  );
+  expectJson(
+    actual.allowedEntries,
+    expectedAllowedEntries(),
+    "release manifest fileSurface.allowedEntries"
+  );
+}
+
+function validateReleaseManifestTargets(actual, label) {
+  const expectedTargets = supportedTargetNames();
+  if (!Array.isArray(actual)) {
+    fail(`${label} must be an array`);
+    return;
+  }
+  const actualNames = actual.map((target) => target?.name);
+  if (!sameStringArray(actualNames, expectedTargets)) {
+    fail(`${label} names must be ${JSON.stringify(expectedTargets)}, found ${JSON.stringify(actualNames)}`);
+  }
+  for (const [index, target] of actual.entries()) {
+    const expectedTarget = SUPPORTED_CKC_BINARY_TARGETS[index];
+    if (!expectedTarget) {
+      fail(`${label} unexpected target at index ${index}`);
+      continue;
+    }
+    const targetName = target?.name ?? "unknown";
+    const targetLabel = `${label} ${targetName}`;
+    expectEqual(target?.rustTarget, expectedTarget.rustTarget, `${targetLabel} rustTarget`);
+    expectEqual(
+      target?.binaryPath,
+      `package/npm/bin/${binaryNameForTarget(expectedTarget.name)}`,
+      `${targetLabel} binaryPath`
+    );
+    if (typeof target?.fileMode !== "string" || target.fileMode.length === 0) {
+      fail(`${targetLabel} fileMode is missing`);
+    } else if (expectedTarget.platform !== "win32" && !hasOwnerExecuteBit(target.fileMode)) {
+      fail(`${targetLabel} fileMode must be executable, found ${JSON.stringify(target.fileMode)}`);
+    }
+    expectEqual(target?.binaryFormat, expectedBinaryFormat(expectedTarget), `${targetLabel} binaryFormat`);
+    expectEqual(target?.binaryArchitecture, expectedTarget.arch, `${targetLabel} binaryArchitecture`);
+    if (!Number.isSafeInteger(target?.sizeBytes) || target.sizeBytes <= 0) {
+      fail(`${targetLabel} sizeBytes must be a positive integer`);
+    }
+    if (!isSha256(target?.sha256)) {
+      fail(`${targetLabel} sha256 is invalid`);
+    }
+  }
+}
+
 function validateManifestTargets(actual, label) {
   const expectedTargets = supportedTargetNames();
   if (!Array.isArray(actual)) {
@@ -365,6 +458,31 @@ function validateManifestTargets(actual, label) {
       fail(`${label} ${target?.name ?? "unknown"} sha256 is invalid`);
     }
   }
+}
+
+function expectedAllowedEntries() {
+  return [
+    ...REQUIRED_FILES,
+    ...SUPPORTED_CKC_BINARY_TARGETS.map((target) => `package/npm/bin/${binaryNameForTarget(target.name)}`)
+  ].sort();
+}
+
+function expectedBinaryFormat(target) {
+  if (target.platform === "darwin") {
+    return "Mach-O";
+  }
+  if (target.platform === "linux") {
+    return "ELF";
+  }
+  if (target.platform === "win32") {
+    return "PE";
+  }
+  fail(`Unsupported release binary platform for ${target.name}: ${target.platform}`);
+  return undefined;
+}
+
+function hasOwnerExecuteBit(mode) {
+  return mode.length >= 4 && (mode[3] === "x" || mode[3] === "s");
 }
 
 function validateSignedTargets(actual, label) {

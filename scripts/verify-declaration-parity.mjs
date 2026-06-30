@@ -48,6 +48,16 @@ const typescriptClassMembers = new Map(
     .filter((entry) => entry.classMemberInfo)
     .map((entry) => [entry.name, entry.classMemberInfo])
 );
+const rustInterfaceMembers = new Map(
+  rustSurface
+    .filter((entry) => entry.interfaceMemberInfo)
+    .map((entry) => [entry.name, entry.interfaceMemberInfo])
+);
+const typescriptInterfaceMembers = new Map(
+  typescriptSurface
+    .filter((entry) => entry.interfaceMemberInfo)
+    .map((entry) => [entry.name, entry.interfaceMemberInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
@@ -81,6 +91,18 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
         `Rust ${JSON.stringify(rustClass.members)}, TypeScript ${JSON.stringify(typescriptClass.members)}`
     );
   }
+  const rustInterface = rustInterfaceMembers.get(name);
+  const typescriptInterface = typescriptInterfaceMembers.get(name);
+  if (
+    rustInterface
+    && typescriptInterface
+    && !interfaceMembersAreCompatible(rustInterface, typescriptInterface, checker)
+  ) {
+    fail(
+      `declaration interface member mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustInterface.members)}, TypeScript ${JSON.stringify(typescriptInterface.members)}`
+    );
+  }
 }
 
 if (failures.length > 0) {
@@ -102,6 +124,9 @@ console.log(JSON.stringify({
   ),
   classMembers: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
+  ),
+  interfaceMembers: Object.fromEntries(
+    [...rustInterfaceMembers.entries()].map(([name, info]) => [name, info.members])
   )
 }, null, 2));
 
@@ -203,7 +228,8 @@ function readDeclarationExportSurface(program, checker, path, label) {
       name: symbol.getName(),
       kind: declarationExportKind(symbol, checker, label),
       functionInfo: declarationFunctionInfo(symbol, checker),
-      classMemberInfo: declarationClassMemberInfo(symbol, checker)
+      classMemberInfo: declarationClassMemberInfo(symbol, checker),
+      interfaceMemberInfo: declarationInterfaceMemberInfo(symbol, checker)
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -250,6 +276,36 @@ function declarationClassMemberInfo(symbol, checker) {
   return { members };
 }
 
+function declarationInterfaceMemberInfo(symbol, checker) {
+  const resolvedSymbol = resolveAliasedSymbol(symbol, checker);
+  const interfaceDeclarations = (resolvedSymbol.getDeclarations() ?? []).filter(ts.isInterfaceDeclaration);
+  if (interfaceDeclarations.length === 0) {
+    return null;
+  }
+  const anchor = interfaceDeclarations[0];
+  const type = checker.getDeclaredTypeOfSymbol(resolvedSymbol);
+  const memberEntries = checker
+    .getPropertiesOfType(type)
+    .map((property) => interfacePropertyInfo(property, anchor, checker));
+  const members = memberEntries.map((property) => property.text).sort();
+  const memberMap = new Map(memberEntries.map((property) => [property.name, property]));
+  return { members, memberMap };
+}
+
+function interfacePropertyInfo(property, anchor, checker) {
+  const declarations = property.getDeclarations() ?? [];
+  const readonly = declarations.some((declaration) =>
+    declaration.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ReadonlyKeyword)
+  );
+  const optional = Boolean(property.flags & ts.SymbolFlags.Optional);
+  const valueDeclaration = property.valueDeclaration ?? declarations[0] ?? anchor;
+  const type = checker.getTypeOfSymbolAtLocation(property, valueDeclaration);
+  const typeText = checker.typeToString(type, anchor, ts.TypeFormatFlags.NoTruncation);
+  const name = property.getName();
+  const text = `${readonly ? "readonly " : ""}${name}${optional ? "?" : ""}: ${typeText}`;
+  return { name, optional, readonly, text, type, typeText };
+}
+
 function classMemberText(member, declaration, printer) {
   return printer
     .printNode(ts.EmitHint.Unspecified, member, declaration.getSourceFile())
@@ -263,6 +319,29 @@ function functionSignaturesAreCompatible(rustFunction, typescriptFunction, check
   }
   return checker.isTypeAssignableTo(rustFunction.type, typescriptFunction.type)
     && checker.isTypeAssignableTo(typescriptFunction.type, rustFunction.type);
+}
+
+function interfaceMembersAreCompatible(rustInterface, typescriptInterface, checker) {
+  const rustMemberNames = [...rustInterface.memberMap.keys()].sort();
+  const typescriptMemberNames = [...typescriptInterface.memberMap.keys()].sort();
+  if (!sameJson(rustMemberNames, typescriptMemberNames)) {
+    return false;
+  }
+  return rustMemberNames.every((name) => {
+    const rustMember = rustInterface.memberMap.get(name);
+    const typescriptMember = typescriptInterface.memberMap.get(name);
+    return rustMember.optional === typescriptMember.optional
+      && rustMember.readonly === typescriptMember.readonly
+      && interfaceMemberTypesAreCompatible(rustMember, typescriptMember, checker);
+  });
+}
+
+function interfaceMemberTypesAreCompatible(rustMember, typescriptMember, checker) {
+  if (rustMember.typeText === typescriptMember.typeText) {
+    return true;
+  }
+  return checker.isTypeAssignableTo(rustMember.type, typescriptMember.type)
+    && checker.isTypeAssignableTo(typescriptMember.type, rustMember.type);
 }
 
 function resolveAliasedSymbol(symbol, checker) {

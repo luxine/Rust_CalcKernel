@@ -207,6 +207,7 @@ function validateReleaseSignoff(value, manifest) {
   expectEqual(value.tarball, manifest.tarball, "release sign-off tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off tarballSha256");
   expectEqual(value.sourceGitSha, manifest.sourceGitSha, "release sign-off sourceGitSha");
+  expectEqual(value.sourceRepository, manifest.sourceRepository, "release sign-off sourceRepository");
   expectEqual(value.sourceFallback, "disabled", "release sign-off sourceFallback");
   expectEqual(value.ckcBinOverride, "unset", "release sign-off ckcBinOverride");
   expectEqual(value.typeSmoke, "passed", "release sign-off typeSmoke");
@@ -237,6 +238,9 @@ function validateReleaseSignoff(value, manifest) {
     if (target.githubSha !== manifest.sourceGitSha) {
       fail(`release sign-off signedTargets ${target.name} githubSha must match release manifest sourceGitSha`);
     }
+    if (target.githubRepository !== manifest.sourceRepository) {
+      fail(`release sign-off signedTargets ${target.name} githubRepository must match release manifest sourceRepository`);
+    }
   }
 }
 
@@ -249,6 +253,8 @@ function validateReleaseSignoffSummary(value, manifest, signoff) {
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off summary tarballSha256");
   expectEqual(value.sourceGitSha, manifest.sourceGitSha, "release sign-off summary sourceGitSha");
   expectEqual(value.sourceGitSha, signoff.sourceGitSha, "release sign-off summary sourceGitSha");
+  expectEqual(value.sourceRepository, manifest.sourceRepository, "release sign-off summary sourceRepository");
+  expectEqual(value.sourceRepository, signoff.sourceRepository, "release sign-off summary sourceRepository");
   expectEqual(value.sourceFallback, "disabled", "release sign-off summary sourceFallback");
   expectEqual(value.sourceFallback, signoff.sourceFallback, "release sign-off summary sourceFallback");
   expectEqual(value.ckcBinOverride, "unset", "release sign-off summary ckcBinOverride");
@@ -273,6 +279,11 @@ function validateReleaseSignoffSummary(value, manifest, signoff) {
 
   if (!sameSignedTargets(value.signedTargets, signoff.signedTargets)) {
     fail("release sign-off summary signedTargets must match release sign-off signedTargets");
+  }
+  for (const target of value.signedTargets ?? []) {
+    if (target.githubRepository !== manifest.sourceRepository) {
+      fail(`release sign-off summary signedTargets ${target.name} githubRepository must match release manifest sourceRepository`);
+    }
   }
   if (!sameStringArray(value.backendRuntimeSmokes, signoff.backendRuntimeSmokes)) {
     fail("release sign-off summary backendRuntimeSmokes must match release sign-off backendRuntimeSmokes");
@@ -418,6 +429,7 @@ function sameSignedTargets(actual, expected) {
       && target?.githubRunId === expected[index]?.githubRunId
       && target?.githubRunAttempt === expected[index]?.githubRunAttempt
       && target?.githubSha === expected[index]?.githubSha
+      && target?.githubRepository === expected[index]?.githubRepository
       && target?.githubWorkflow === expected[index]?.githubWorkflow
       && target?.githubJob === expected[index]?.githubJob
       && target?.runnerOs === expected[index]?.runnerOs
@@ -571,6 +583,9 @@ function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
   requireDigits(actual?.githubRunAttempt, `${label} ${expectedTarget.name} githubRunAttempt`);
   if (typeof actual?.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(actual.githubSha)) {
     fail(`${label} ${expectedTarget.name} githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  if (!isGitHubRepository(actual?.githubRepository)) {
+    fail(`${label} ${expectedTarget.name} githubRepository must be a GitHub owner/repository value`);
   }
   if (actual?.githubWorkflow !== RELEASE_WORKFLOW) {
     fail(`${label} ${expectedTarget.name} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);

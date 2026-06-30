@@ -13,6 +13,7 @@ const CI_PROVIDER: &str = "github-actions";
 const GITHUB_RUN_ID: &str = "1234567890";
 const GITHUB_RUN_ATTEMPT: &str = "2";
 const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_REPOSITORY: &str = "luxine/Rust_CalcKernel";
 const GITHUB_WORKFLOW: &str = "npm release artifact";
 const GITHUB_JOB: &str = "platform-signoff";
 
@@ -103,6 +104,8 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
             .contains(&format!("\"ciProvider\": \"{CI_PROVIDER}\""))
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""))
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\": \"Linux\"")
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\": \"X64\""),
         "release signoff summary verifier should preserve GitHub Actions provenance and runner evidence\nstdout:\n{}\nstderr:\n{}",
@@ -764,6 +767,50 @@ fn release_signoff_summary_verifier_should_reject_wrong_signed_target_github_job
 }
 
 #[test]
+fn release_signoff_summary_verifier_should_reject_signed_target_repository_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-source-repository");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json(TARBALL_SHA256).replace(
+            &format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""),
+            "\"githubRepository\": \"luxine/OtherCalcKernel\"",
+        ),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "signed target repository mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify source repository mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_summary_verifier_should_reject_signed_target_source_sha_mismatch() {
     if !node_available() {
         return;
@@ -815,6 +862,7 @@ fn release_manifest_json(tarball_sha256: &str) -> String {
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
   "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}",
   "targets": [
     {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
@@ -1148,6 +1196,7 @@ fn release_signoff_json_with_evidence(
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
   "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}",
   "targetCount": 6,
   "targets": [
     "darwin-arm64",
@@ -1209,7 +1258,7 @@ fn signed_targets_json(
 fn ci_provenance_fields(target: &str) -> String {
     let (runner_os, runner_arch) = runner_os_arch_for_target(target);
     format!(
-        r#", "ciProvider": "{CI_PROVIDER}", "githubRunId": "{GITHUB_RUN_ID}", "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}", "githubSha": "{GITHUB_SHA}", "githubWorkflow": "{GITHUB_WORKFLOW}", "githubJob": "{GITHUB_JOB}", "runnerOs": "{runner_os}", "runnerArch": "{runner_arch}""#
+        r#", "ciProvider": "{CI_PROVIDER}", "githubRunId": "{GITHUB_RUN_ID}", "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}", "githubSha": "{GITHUB_SHA}", "githubRepository": "{GITHUB_REPOSITORY}", "githubWorkflow": "{GITHUB_WORKFLOW}", "githubJob": "{GITHUB_JOB}", "runnerOs": "{runner_os}", "runnerArch": "{runner_arch}""#
     )
 }
 

@@ -57,6 +57,7 @@ fn host_npm_install_verifier_should_pass_without_ckc_bin_override() {
     );
     assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"ciProvider\":")
+            && String::from_utf8_lossy(&output.stdout).contains("\"githubRepository\":")
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\":")
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\":"),
         "host npm install verifier should report CI/runner provenance for release sign-off\nstdout:\n{}\nstderr:\n{}",
@@ -133,6 +134,7 @@ fn host_npm_install_verifier_should_reject_incomplete_github_actions_provenance(
         .env_remove("GITHUB_RUN_ID")
         .env("GITHUB_RUN_ATTEMPT", "1")
         .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_REPOSITORY", "luxine/Rust_CalcKernel")
         .env("GITHUB_WORKFLOW", "npm release artifact")
         .env("GITHUB_JOB", "platform-signoff")
         .env("RUNNER_OS", expected_runner_os())
@@ -156,6 +158,42 @@ fn host_npm_install_verifier_should_reject_incomplete_github_actions_provenance(
 }
 
 #[test]
+fn host_npm_install_verifier_should_reject_missing_github_repository_in_github_actions() {
+    if !node_available() || !npm_available() {
+        return;
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-host-npm-install.mjs")
+        .env_remove("CKC_BIN")
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", "1234567890")
+        .env("GITHUB_RUN_ATTEMPT", "1")
+        .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env_remove("GITHUB_REPOSITORY")
+        .env("GITHUB_WORKFLOW", "npm release artifact")
+        .env("GITHUB_JOB", "platform-signoff")
+        .env("RUNNER_OS", expected_runner_os())
+        .env("RUNNER_ARCH", expected_runner_arch())
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run host npm install verifier with missing GitHub repository");
+
+    assert!(
+        !output.status.success(),
+        "missing GitHub repository should fail before writing release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubRepository"),
+        "failure should identify the missing GitHub repository\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn host_npm_install_verifier_should_reject_runner_target_mismatch_in_github_actions() {
     if !node_available() || !npm_available() {
         return;
@@ -168,6 +206,7 @@ fn host_npm_install_verifier_should_reject_runner_target_mismatch_in_github_acti
         .env("GITHUB_RUN_ID", "1234567890")
         .env("GITHUB_RUN_ATTEMPT", "1")
         .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_REPOSITORY", "luxine/Rust_CalcKernel")
         .env("GITHUB_WORKFLOW", "npm release artifact")
         .env("GITHUB_JOB", "platform-signoff")
         .env("RUNNER_OS", "Plan9")
@@ -203,6 +242,7 @@ fn host_npm_install_verifier_should_reject_wrong_release_workflow_job_in_github_
         .env("GITHUB_RUN_ID", "1234567890")
         .env("GITHUB_RUN_ATTEMPT", "1")
         .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_REPOSITORY", "luxine/Rust_CalcKernel")
         .env("GITHUB_WORKFLOW", "unit test workflow")
         .env("GITHUB_JOB", "verify-release-scripts")
         .env("RUNNER_OS", expected_runner_os())

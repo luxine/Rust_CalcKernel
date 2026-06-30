@@ -22,6 +22,7 @@ const CI_PROVIDER: &str = "github-actions";
 const GITHUB_RUN_ID: &str = "1234567890";
 const GITHUB_RUN_ATTEMPT: &str = "2";
 const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_REPOSITORY: &str = "luxine/Rust_CalcKernel";
 const GITHUB_WORKFLOW: &str = "npm release artifact";
 const GITHUB_JOB: &str = "platform-signoff";
 const REQUIRED_COMMANDS: [&str; 8] = [
@@ -623,6 +624,52 @@ fn release_signoff_verifier_should_reject_runner_platform_mismatch() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_signoff_repository_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-source-repository");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        let mut json = signoff_json(target);
+        if target == "linux-x64" {
+            json = json.replace(
+                &format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""),
+                "\"githubRepository\": \"luxine/OtherCalcKernel\"",
+            );
+        }
+        fs::write(signoffs.join(format!("{target}.json")), json).expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier with mismatched repository");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "signoff repository mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify source repository mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_signoff_sha_that_differs_from_manifest_source_sha() {
     if !node_available() {
         return;
@@ -837,6 +884,8 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
             .contains(&format!("\"ciProvider\": \"{CI_PROVIDER}\""))
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""))
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\": \"Linux\"")
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\": \"X64\""),
         "complete target signoff should preserve CI run and runner provenance per target\nstdout:\n{}\nstderr:\n{}",
@@ -926,7 +975,7 @@ fn release_manifest_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"targets\":[{targets}]}}"
+        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"sourceRepository\":\"{GITHUB_REPOSITORY}\",\"targets\":[{targets}]}}"
     )
 }
 
@@ -939,7 +988,7 @@ fn release_manifest_json_with_extra_target() -> String {
         "{{\"name\":\"freebsd-x64\",\"sha256\":\"{BINARY_SHA256}\"}}"
     ));
     format!(
-        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"targets\":[{}]}}",
+        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"sourceRepository\":\"{GITHUB_REPOSITORY}\",\"targets\":[{}]}}",
         targets.join(",")
     )
 }
@@ -1279,6 +1328,7 @@ fn ci_provenance_evidence_with(
   "githubRunId": "{GITHUB_RUN_ID}",
   "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}",
   "githubSha": "{GITHUB_SHA}",
+  "githubRepository": "{GITHUB_REPOSITORY}",
   "githubWorkflow": "{GITHUB_WORKFLOW}",
   "githubJob": "{GITHUB_JOB}",
   "runnerOs": "{runner_os}",

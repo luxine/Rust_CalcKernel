@@ -143,13 +143,15 @@ these gates are true in the current checkout:
 8. Each supported target platform fresh-installs the same tarball with scripts
    disabled and runs packaged `node_modules/.bin/ckc`, not a local checkout
    fallback, records `ciProvider: "github-actions"` with target-matching
-   `runnerOs` / `runnerArch`, and its TypeScript declaration smoke passes.
+   `runnerOs` / `runnerArch`, records `githubRepository`, and its TypeScript
+   declaration smoke passes.
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same package version and
    tarball SHA256 with `sourceFallback: "disabled"`, GitHub Actions run
    provenance whose `githubSha` matches `release-manifest.json.sourceGitSha`,
-   and runner OS/arch matching the signed target.
+   `githubRepository` matches `release-manifest.json.sourceRepository`, and
+   runner OS/arch matching the signed target.
 10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow checks out and builds the read-only
    TypeScript oracle through `typescript_oracle_repository` /
@@ -165,8 +167,8 @@ these gates are true in the current checkout:
    proving the npm registry metadata points at Rust `npm/` entrypoints and not
    stale TypeScript `dist/` entrypoints.
 14. `verify:publish-result` and `verify:cutover-evidence` bind the publish job
-   `githubSha` / `githubRepository` to `release-manifest.json.sourceGitSha` /
-   `sourceRepository`.
+   `githubSha` / `githubRepository` and every `signedTargets[].githubRepository`
+   to `release-manifest.json.sourceGitSha` / `sourceRepository`.
 15. The Rust replacement package carries its own release checklist and
    verification scripts without requiring edits to the TypeScript checkout.
 

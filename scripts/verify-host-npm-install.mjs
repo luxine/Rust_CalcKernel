@@ -207,6 +207,7 @@ function collectCiProvenance(target) {
       githubRunId: "",
       githubRunAttempt: "",
       githubSha: "",
+      githubRepository: "",
       githubWorkflow: "",
       githubJob: "",
       runnerOs: localRunnerOs(),
@@ -229,6 +230,7 @@ function collectCiProvenance(target) {
   const githubRunId = requireGithubEnv("GITHUB_RUN_ID", "githubRunId");
   const githubRunAttempt = requireGithubEnv("GITHUB_RUN_ATTEMPT", "githubRunAttempt");
   const githubSha = requireGithubEnv("GITHUB_SHA", "githubSha");
+  const githubRepository = requireGithubEnv("GITHUB_REPOSITORY", "githubRepository");
   const githubWorkflow = requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow");
   const githubJob = requireGithubEnv("GITHUB_JOB", "githubJob");
   if (!/^\d+$/.test(githubRunId)) {
@@ -239,6 +241,9 @@ function collectCiProvenance(target) {
   }
   if (!/^[0-9a-f]{40}$/.test(githubSha)) {
     fail(`githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  if (!isGitHubRepository(githubRepository)) {
+    fail(`githubRepository must be a GitHub owner/repository value, found ${JSON.stringify(githubRepository)}`);
   }
   if (githubWorkflow !== RELEASE_WORKFLOW) {
     fail(`githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}, found ${JSON.stringify(githubWorkflow)}`);
@@ -252,6 +257,7 @@ function collectCiProvenance(target) {
     githubRunId,
     githubRunAttempt,
     githubSha,
+    githubRepository,
     githubWorkflow,
     githubJob,
     runnerOs,
@@ -265,6 +271,10 @@ function requireGithubEnv(envName, evidenceName) {
     fail(`${evidenceName} is required when GITHUB_ACTIONS=true`);
   }
   return value;
+}
+
+function isGitHubRepository(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
 function localRunnerOs() {

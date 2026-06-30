@@ -65,6 +65,7 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
     githubRunId: signoff.githubRunId,
     githubRunAttempt: signoff.githubRunAttempt,
     githubSha: signoff.githubSha,
+    githubRepository: signoff.githubRepository,
     githubWorkflow: signoff.githubWorkflow,
     githubJob: signoff.githubJob,
     runnerOs: signoff.runnerOs,
@@ -82,6 +83,7 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   tarballSha256: manifest.tarballSha256,
   sourceGitSha: manifest.sourceGitSha,
+  sourceRepository: manifest.sourceRepository,
   targetCount: verifiedTargets.length,
   targets: verifiedTargets,
   signedTargets,
@@ -108,6 +110,12 @@ function validateManifest(manifest) {
   }
   if (!isGitSha(manifest.sourceGitSha)) {
     fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
+  }
+  if (!isSourceRepository(manifest.sourceRepository)) {
+    fail(
+      `release manifest sourceRepository must be "local" or a GitHub owner/repository value, ` +
+        `found ${JSON.stringify(manifest.sourceRepository)}`
+    );
   }
   if (!Array.isArray(manifest.targets)) {
     fail("release manifest targets must be an array");
@@ -152,6 +160,9 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.githubSha !== manifest.sourceGitSha) {
     fail(`${target.name} githubSha must match release manifest sourceGitSha`);
   }
+  if (signoff.githubRepository !== manifest.sourceRepository) {
+    fail(`${target.name} githubRepository must match release manifest sourceRepository`);
+  }
   validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
@@ -173,6 +184,9 @@ function validateCiProvenance(signoff, target) {
   requireDigits(signoff.githubRunAttempt, `${target.name} githubRunAttempt`);
   if (typeof signoff.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(signoff.githubSha)) {
     fail(`${target.name} githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  if (!isGitHubRepository(signoff.githubRepository)) {
+    fail(`${target.name} githubRepository must be a GitHub owner/repository value`);
   }
   if (signoff.githubWorkflow !== RELEASE_WORKFLOW) {
     fail(`${target.name} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
@@ -332,6 +346,14 @@ function isSha256(value) {
 
 function isGitSha(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function isSourceRepository(value) {
+  return value === "local" || isGitHubRepository(value);
+}
+
+function isGitHubRepository(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
 function fail(message) {

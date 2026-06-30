@@ -182,11 +182,22 @@ if (!existsSync(workflowPath)) {
     "const githubSha = requireGithubEnv(\"GITHUB_SHA\", \"githubSha\");",
     "host install signoff GITHUB_SHA input"
   );
+  expectIncludes(
+    hostInstallVerifier,
+    "const githubRepository = requireGithubEnv(\"GITHUB_REPOSITORY\", \"githubRepository\");",
+    "host install signoff GITHUB_REPOSITORY input"
+  );
   expectIncludes(signoffVerifier, "sourceGitSha: manifest.sourceGitSha", "release signoff sourceGitSha propagation");
+  expectIncludes(signoffVerifier, "sourceRepository: manifest.sourceRepository", "release signoff sourceRepository propagation");
   expectIncludes(
     signoffVerifier,
     "signoff.githubSha !== manifest.sourceGitSha",
     "platform signoff githubSha manifest binding"
+  );
+  expectIncludes(
+    signoffVerifier,
+    "signoff.githubRepository !== manifest.sourceRepository",
+    "platform signoff githubRepository manifest binding"
   );
   expectIncludes(
     signoffSummaryVerifier,
@@ -195,8 +206,18 @@ if (!existsSync(workflowPath)) {
   );
   expectIncludes(
     signoffSummaryVerifier,
+    "expectEqual(value.sourceRepository, manifest.sourceRepository, \"release sign-off sourceRepository\")",
+    "release signoff summary sourceRepository binding"
+  );
+  expectIncludes(
+    signoffSummaryVerifier,
     "target.githubSha !== manifest.sourceGitSha",
     "release signoff summary signed target source binding"
+  );
+  expectIncludes(
+    signoffSummaryVerifier,
+    "target.githubRepository !== manifest.sourceRepository",
+    "release signoff summary signed target sourceRepository binding"
   );
   expectIncludes(
     publishResultVerifier,
@@ -236,6 +257,21 @@ if (!existsSync(workflowPath)) {
     cutoverVerifier,
     "expectEqual(value.sourceRepository, manifest.sourceRepository, \"publish result sourceRepository\")",
     "cutover publish result sourceRepository binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "expectEqual(value.sourceRepository, manifest.sourceRepository, \"release sign-off sourceRepository\")",
+    "cutover release signoff sourceRepository binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "expectEqual(value.sourceRepository, signoff.sourceRepository, \"release sign-off summary sourceRepository\")",
+    "cutover release signoff summary sourceRepository binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "target?.githubRepository === expected[index]?.githubRepository",
+    "cutover signed target githubRepository equality"
   );
   expectIncludes(
     cutoverVerifier,

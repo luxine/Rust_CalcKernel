@@ -134,12 +134,13 @@ JavaScript compatibility surface。
 8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
    `node_modules/.bin/ckc`，不能依赖本地 checkout fallback，并且 TypeScript
    declaration smoke 必须通过；签核还必须记录 `ciProvider: "github-actions"`，
-   且 `runnerOs` / `runnerArch` 与目标平台匹配。
+   `githubRepository`，且 `runnerOs` / `runnerArch` 与目标平台匹配。
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
    package version 和 tarball SHA256，且 `sourceFallback: "disabled"`，同时保留
    `githubSha` 匹配 `release-manifest.json.sourceGitSha` 的 GitHub Actions run
-   provenance，并证明 runner OS/arch 与 signed target 匹配。
+   provenance，`githubRepository` 匹配 `release-manifest.json.sourceRepository`，
+   并证明 runner OS/arch 与 signed target 匹配。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 会通过 `typescript_oracle_repository` /
    `typescript_oracle_ref` checkout 并构建只读 TypeScript oracle，为 parity
@@ -155,8 +156,8 @@ JavaScript compatibility surface。
    registry metadata 指向 Rust `npm/` entrypoints，而不是旧 TypeScript `dist/`
    entrypoints。
 14. `verify:publish-result` 和 `verify:cutover-evidence` 会把 publish job 的
-   `githubSha` / `githubRepository` 绑定到 `release-manifest.json.sourceGitSha` /
-   `sourceRepository`。
+   `githubSha` / `githubRepository` 以及每个 `signedTargets[].githubRepository`
+   绑定到 `release-manifest.json.sourceGitSha` / `sourceRepository`。
 15. Rust replacement package 自带 release checklist 和 verification scripts，
    不要求修改 TypeScript checkout。
 

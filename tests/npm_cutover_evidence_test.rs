@@ -32,10 +32,16 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
     fs::create_dir_all(&temp).expect("create temp dir");
     let manifest = temp.join("release-manifest.json");
     let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
     let publish_artifact = temp.join("npm-publish-artifact.json");
     let publish_result = temp.join("npm-publish-result.json");
     fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
     fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
     fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
         .expect("write publish artifact");
     fs::write(&publish_result, publish_result_json()).expect("write publish result");
@@ -44,6 +50,7 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         .arg("scripts/verify-npm-cutover-evidence.mjs")
         .arg(&manifest)
         .arg(&signoff)
+        .arg(&release_signoff_summary)
         .arg(&publish_artifact)
         .arg(&publish_result)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -74,6 +81,12 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout)
             .contains(&format!("\"sha256\": \"{BINARY_SHA256}\"")),
         "cutover evidence verifier should report signed target SHA256 values\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"releaseSignoffSummary\":"),
+        "cutover evidence verifier should report the release signoff summary evidence path\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -116,6 +129,7 @@ fn cutover_evidence_verifier_should_reject_signoff_sha256_mismatch() {
     fs::create_dir_all(&temp).expect("create temp dir");
     let manifest = temp.join("release-manifest.json");
     let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
     let publish_artifact = temp.join("npm-publish-artifact.json");
     let publish_result = temp.join("npm-publish-result.json");
     fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
@@ -124,6 +138,11 @@ fn cutover_evidence_verifier_should_reject_signoff_sha256_mismatch() {
         release_signoff_json("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"),
     )
     .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
     fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
         .expect("write publish artifact");
     fs::write(&publish_result, publish_result_json()).expect("write publish result");
@@ -132,6 +151,7 @@ fn cutover_evidence_verifier_should_reject_signoff_sha256_mismatch() {
         .arg("scripts/verify-npm-cutover-evidence.mjs")
         .arg(&manifest)
         .arg(&signoff)
+        .arg(&release_signoff_summary)
         .arg(&publish_artifact)
         .arg(&publish_result)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -155,6 +175,59 @@ fn cutover_evidence_verifier_should_reject_signoff_sha256_mismatch() {
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_release_signoff_summary_sha256_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-mismatch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        ),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched release signoff summary SHA256 should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("release sign-off summary tarballSha256"),
+        "failure should identify release signoff summary SHA256 mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
     if !node_available() {
         return;
@@ -164,10 +237,16 @@ fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
     fs::create_dir_all(&temp).expect("create temp dir");
     let manifest = temp.join("release-manifest.json");
     let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
     let publish_artifact = temp.join("npm-publish-artifact.json");
     let publish_result = temp.join("npm-publish-result.json");
     fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
     fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
     fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
         .expect("write publish artifact");
     fs::write(
@@ -180,6 +259,7 @@ fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
         .arg("scripts/verify-npm-cutover-evidence.mjs")
         .arg(&manifest)
         .arg(&signoff)
+        .arg(&release_signoff_summary)
         .arg(&publish_artifact)
         .arg(&publish_result)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -212,6 +292,7 @@ fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
     fs::create_dir_all(&temp).expect("create temp dir");
     let manifest = temp.join("release-manifest.json");
     let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
     let publish_artifact = temp.join("npm-publish-artifact.json");
     let publish_result = temp.join("npm-publish-result.json");
     fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
@@ -223,6 +304,11 @@ fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
         ),
     )
     .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
     fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
         .expect("write publish artifact");
     fs::write(&publish_result, publish_result_json()).expect("write publish result");
@@ -231,6 +317,7 @@ fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
         .arg("scripts/verify-npm-cutover-evidence.mjs")
         .arg(&manifest)
         .arg(&signoff)
+        .arg(&release_signoff_summary)
         .arg(&publish_artifact)
         .arg(&publish_result)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -301,6 +388,35 @@ fn release_signoff_json_with_signed_target_sha256(
     {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
+    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
+  ]
+}}"#
+    )
+}
+
+fn release_signoff_summary_json(tarball_sha256: &str) -> String {
+    format!(
+        r#"{{
+  "status": "ok",
+  "package": "calckernel",
+  "version": "0.8.0",
+  "tarball": "calckernel-0.8.0.tgz",
+  "tarballSha256": "{tarball_sha256}",
+  "targetCount": 6,
+  "targets": [
+    "darwin-arm64",
+    "darwin-x64",
+    "linux-arm64",
+    "linux-x64",
+    "win32-arm64",
+    "win32-x64"
+  ],
+  "signedTargets": [
+    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
+    {{"name": "linux-x64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
   ]

@@ -81,6 +81,7 @@ expectIncludes(npmRelease, "verify:cutover-evidence", "npm release docs");
 expectIncludes(npmRelease, "verify:registry-replacement", "npm release docs");
 expectIncludes(npmRelease, "registry replacement status", "npm release docs");
 expectIncludes(npmRelease, "registry tarball URL", "npm release docs");
+expectIncludes(npmRelease, "release-signoff-summary.json", "npm release docs");
 expectIncludes(npmRelease, "sha512 npm integrity", "npm release docs");
 expectIncludes(npmRelease, "sha1 shasum", "npm release docs");
 expectIncludes(npmRelease, "consumer install lifecycle scripts", "npm release docs");

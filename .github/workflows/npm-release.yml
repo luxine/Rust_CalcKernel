@@ -254,7 +254,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
       - run: npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
-      - run: npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
+      - run: npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
       - uses: actions/upload-artifact@v4
         with:
           name: npm-publish

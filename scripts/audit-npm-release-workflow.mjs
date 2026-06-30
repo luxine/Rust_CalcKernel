@@ -81,7 +81,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "npm-publish-result.json", "post-publish result verifier artifact");
   expectIncludes(
     workflow,
-    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
+    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
     "final cutover evidence verifier command"
   );
   expectIncludes(workflow, "npm-cutover-evidence.json", "final cutover evidence verifier artifact");

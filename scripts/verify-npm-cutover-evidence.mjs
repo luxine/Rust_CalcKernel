@@ -3,11 +3,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { supportedTargetNames } from "../npm/platform.js";
 
-const [manifestArg, signoffArg, publishArtifactArg, publishResultArg] = process.argv.slice(2);
+const [manifestArg, signoffArg, signoffSummaryArg, publishArtifactArg, publishResultArg] = process.argv.slice(2);
 
 if (
   !manifestArg
   || !signoffArg
+  || !signoffSummaryArg
   || !publishArtifactArg
   || !publishResultArg
   || manifestArg === "--help"
@@ -16,6 +17,7 @@ if (
   console.error(
     "Usage: node scripts/verify-npm-cutover-evidence.mjs " +
       "<release-manifest.json> <release-signoff.json> " +
+      "<release-signoff-summary.json> " +
       "<npm-publish-artifact.json> <npm-publish-result.json>"
   );
   process.exit(manifestArg ? 0 : 1);
@@ -23,16 +25,19 @@ if (
 
 const manifestPath = resolve(manifestArg);
 const signoffPath = resolve(signoffArg);
+const signoffSummaryPath = resolve(signoffSummaryArg);
 const publishArtifactPath = resolve(publishArtifactArg);
 const publishResultPath = resolve(publishResultArg);
 const manifest = readJsonFile(manifestPath, "release manifest");
 const signoff = readJsonFile(signoffPath, "release sign-off");
+const signoffSummary = readJsonFile(signoffSummaryPath, "release sign-off summary");
 const publishArtifact = readJsonFile(publishArtifactPath, "npm publish artifact verifier output");
 const publishResult = readJsonFile(publishResultPath, "npm publish result verifier output");
 const failures = [];
 
 validateManifest(manifest);
 validateReleaseSignoff(signoff, manifest);
+validateReleaseSignoffSummary(signoffSummary, manifest, signoff);
 validatePublishArtifact(publishArtifact, manifest);
 validatePublishResult(publishResult, manifest);
 
@@ -60,6 +65,7 @@ console.log(JSON.stringify({
   evidence: {
     manifest: manifestPath,
     releaseSignoff: signoffPath,
+    releaseSignoffSummary: signoffSummaryPath,
     publishArtifact: publishArtifactPath,
     publishResult: publishResultPath
   }
@@ -102,6 +108,27 @@ function validateReleaseSignoff(value, manifest) {
         `release sign-off signedTargets ${target.name} sha256 must match release manifest target sha256`
       );
     }
+  }
+}
+
+function validateReleaseSignoffSummary(value, manifest, signoff) {
+  expectEqual(value.status, "ok", "release sign-off summary status");
+  expectEqual(value.package, manifest.packageName, "release sign-off summary package");
+  expectEqual(value.version, manifest.packageVersion, "release sign-off summary version");
+  expectEqual(value.tarball, manifest.tarball, "release sign-off summary tarball");
+  expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off summary tarballSha256");
+
+  const expectedTargets = supportedTargetNames();
+  if (value.targetCount !== expectedTargets.length) {
+    fail(`release sign-off summary targetCount must be ${expectedTargets.length}, found ${JSON.stringify(value.targetCount)}`);
+  }
+  if (!sameStringArray(value.targets, expectedTargets)) {
+    fail(`release sign-off summary targets must be ${JSON.stringify(expectedTargets)}, found ${JSON.stringify(value.targets)}`);
+  }
+  validateSignedTargets(value.signedTargets, "release sign-off summary signedTargets");
+
+  if (!sameSignedTargets(value.signedTargets, signoff.signedTargets)) {
+    fail("release sign-off summary signedTargets must match release sign-off signedTargets");
   }
 }
 
@@ -155,6 +182,16 @@ function sameStringArray(actual, expected) {
   return Array.isArray(actual)
     && actual.length === expected.length
     && actual.every((value, index) => value === expected[index]);
+}
+
+function sameSignedTargets(actual, expected) {
+  return Array.isArray(actual)
+    && Array.isArray(expected)
+    && actual.length === expected.length
+    && actual.every((target, index) => (
+      target?.name === expected[index]?.name
+      && target?.sha256 === expected[index]?.sha256
+    ));
 }
 
 function expectEmptyArray(actual, label) {

@@ -153,9 +153,9 @@ fn npm_release_workflow_should_verify_final_cutover_evidence_after_publish() {
     );
     assert!(
         workflow.contains(
-            "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json"
+            "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json"
         ),
-        "publish job must verify the final cutover evidence bundle"
+        "publish job must verify the final cutover evidence bundle including release-signoff-summary.json"
     );
     assert!(
         workflow.contains("npm-cutover-evidence.json"),

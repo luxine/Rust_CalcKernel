@@ -147,8 +147,9 @@ The workflow runs these stages:
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
    (`npm publish --provenance --access public`). Before publishing, it runs
    `verify:release-signoff-summary` against `release-manifest.json` and
-   `release-signoff.json` so publication cannot start from a missing or
-   mismatched six-platform sign-off summary. It also runs
+   `release-signoff.json` and writes `release-signoff-summary.json` so
+   publication cannot start from a missing or mismatched six-platform sign-off
+   summary. It also runs
    `verify:publish-artifact` against `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest and
    that the manifest carries the formal release verifier metadata, file surface,
@@ -165,9 +166,10 @@ The workflow runs these stages:
    and registry integrity values must both be sha512 npm integrity strings and
    must match; the publish and registry shasum values must both be sha1 shasum
    strings and must match. Finally, it runs `verify:cutover-evidence` to bind
-   the release manifest, six-platform sign-off summary including signed target
-   binary SHA256 values, pre-publish artifact verifier output, and post-publish
-   result verifier output into one final evidence JSON.
+   the release manifest, `release-signoff-summary.json`, six-platform sign-off
+   summary including signed target binary SHA256 values, pre-publish artifact
+   verifier output, and post-publish result verifier output into one final
+   evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -290,7 +292,8 @@ sha512 npm integrity value and sha1 shasum, and final cutover evidence must
 report the registry tarball URL.
 The final downloaded evidence set
 should also pass `npm run verify:cutover-evidence -- release-manifest.json
-release-signoff.json npm-publish-artifact.json npm-publish-result.json`.
+release-signoff.json release-signoff-summary.json npm-publish-artifact.json
+npm-publish-result.json`.
 The TypeScript checkout remains read-only source material during the rewrite;
 this package does not require changes to the original TypeScript repository.
 
@@ -334,7 +337,8 @@ cutover evidence 必须归档 signed target binary SHA256 值。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
-同一个 tarball。发布前必须先运行 `verify:release-signoff-summary`，确认
+同一个 tarball。发布前必须先运行 `verify:release-signoff-summary` 并输出
+`release-signoff-summary.json`，确认
 `release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
 SHA256 和六个平台；随后运行 `verify:publish-artifact`，用 `release-manifest.json`
 校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest，并确认
@@ -352,3 +356,7 @@ registry metadata 不含 consumer install lifecycle scripts。
 package、version、tarball、registry tarball URL、integrity 和 shasum。
 publish、registry 和最终 cutover evidence 中的 integrity 必须是同一个
 sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串。
+最终 `verify:cutover-evidence` 必须同时传入 `release-manifest.json`、
+`release-signoff.json`、`release-signoff-summary.json`、
+`npm-publish-artifact.json` 和 `npm-publish-result.json`，把发布前签核摘要、
+发布前 tarball 校验和发布后 registry 结果绑定成同一份最终证据。

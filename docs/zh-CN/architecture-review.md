@@ -133,10 +133,12 @@ JavaScript compatibility surface。
    architecture、格式、大小、SHA256 和 strict file-surface manifest 数据。
 8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
    `node_modules/.bin/ckc`，不能依赖本地 checkout fallback，并且 TypeScript
-   declaration smoke 必须通过。
+   declaration smoke 必须通过；签核还必须记录 `ciProvider: "github-actions"`，
+   且 `runnerOs` / `runnerArch` 与目标平台匹配。
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
-   package version 和 tarball SHA256，且 `sourceFallback: "disabled"`。
+   package version 和 tarball SHA256，且 `sourceFallback: "disabled"`，同时保留
+   GitHub Actions run provenance，并证明 runner OS/arch 与 signed target 匹配。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 会通过 `typescript_oracle_repository` /
    `typescript_oracle_ref` checkout 并构建只读 TypeScript oracle，为 parity

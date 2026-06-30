@@ -142,11 +142,13 @@ these gates are true in the current checkout:
    file-surface manifest data.
 8. Each supported target platform fresh-installs the same tarball with scripts
    disabled and runs packaged `node_modules/.bin/ckc`, not a local checkout
-   fallback, and its TypeScript declaration smoke passes.
+   fallback, records `ciProvider: "github-actions"` with target-matching
+   `runnerOs` / `runnerArch`, and its TypeScript declaration smoke passes.
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same package version and
-   tarball SHA256 with `sourceFallback: "disabled"`.
+   tarball SHA256 with `sourceFallback: "disabled"`, GitHub Actions run
+   provenance, and runner OS/arch matching the signed target.
 10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow checks out and builds the read-only
    TypeScript oracle through `typescript_oracle_repository` /

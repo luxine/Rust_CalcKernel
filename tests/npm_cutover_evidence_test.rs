@@ -9,6 +9,12 @@ const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef01
 const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 const NODE_VERSION: &str = "v20.10.0";
 const NPM_VERSION: &str = "10.2.0";
+const CI_PROVIDER: &str = "github-actions";
+const GITHUB_RUN_ID: &str = "1234567890";
+const GITHUB_RUN_ATTEMPT: &str = "2";
+const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_WORKFLOW: &str = "npm release artifact";
+const GITHUB_JOB: &str = "platform-signoff";
 const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
@@ -105,6 +111,17 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"npmVersion\": \"{NPM_VERSION}\"")),
         "cutover evidence verifier should preserve signed target Node/npm environment evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"ciProvider\": \"{CI_PROVIDER}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\": \"Linux\"")
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\": \"X64\""),
+        "cutover evidence verifier should preserve GitHub Actions provenance and runner evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1437,6 +1454,116 @@ fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_runtime
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_missing_signoff_signed_target_ci_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-signoff-target-ci-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_signed_target_ci_provenance(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing signoff signed target CI provenance evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ciProvider")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerOs")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerArch"),
+        "failure should identify signoff signed target CI provenance evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_ci_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-target-ci-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_without_signed_target_ci_provenance(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing summary signed target CI provenance evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ciProvider")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerOs")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerArch"),
+        "failure should identify summary signed target CI provenance evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_missing_publish_side_result_evidence() {
     if !node_available() {
         return;
@@ -1604,6 +1731,21 @@ fn release_signoff_json_without_signed_target_runtime_environment(tarball_sha256
     )
 }
 
+fn release_signoff_json_without_signed_target_ci_provenance(tarball_sha256: &str) -> String {
+    let mut json = release_signoff_json(tarball_sha256);
+    for target in [
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64",
+        "linux-x64",
+        "win32-arm64",
+        "win32-x64",
+    ] {
+        json = json.replace(&ci_provenance_fields(target), "");
+    }
+    json
+}
+
 fn release_signoff_json_with_signed_target_sha256_and_type_smoke(
     tarball_sha256: &str,
     signed_target_sha256: &str,
@@ -1762,6 +1904,23 @@ fn release_signoff_summary_json_without_signed_target_runtime_environment(
         true,
         true,
     )
+}
+
+fn release_signoff_summary_json_without_signed_target_ci_provenance(
+    tarball_sha256: &str,
+) -> String {
+    let mut json = release_signoff_summary_json(tarball_sha256);
+    for target in [
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-arm64",
+        "linux-x64",
+        "win32-arm64",
+        "win32-x64",
+    ] {
+        json = json.replace(&ci_provenance_fields(target), "");
+    }
+    json
 }
 
 fn release_signoff_summary_json_with_source_fallback(
@@ -2041,10 +2200,36 @@ fn signed_targets_json(
         } else {
             String::new()
         };
-        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{runtime_environment}{binary_paths}}}"#)
+        let ci_provenance = ci_provenance_fields(name);
+        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{runtime_environment}{ci_provenance}{binary_paths}}}"#)
     })
     .collect::<Vec<_>>()
     .join(",\n")
+}
+
+fn ci_provenance_fields(target: &str) -> String {
+    let (runner_os, runner_arch) = runner_os_arch_for_target(target);
+    format!(
+        r#", "ciProvider": "{CI_PROVIDER}", "githubRunId": "{GITHUB_RUN_ID}", "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}", "githubSha": "{GITHUB_SHA}", "githubWorkflow": "{GITHUB_WORKFLOW}", "githubJob": "{GITHUB_JOB}", "runnerOs": "{runner_os}", "runnerArch": "{runner_arch}""#
+    )
+}
+
+fn runner_os_arch_for_target(target: &str) -> (&'static str, &'static str) {
+    let (platform, arch) = target
+        .split_once('-')
+        .expect("target includes platform and arch");
+    let runner_os = match platform {
+        "darwin" => "macOS",
+        "linux" => "Linux",
+        "win32" => "Windows",
+        _ => panic!("unsupported target platform: {platform}"),
+    };
+    let runner_arch = match arch {
+        "arm64" => "ARM64",
+        "x64" => "X64",
+        _ => panic!("unsupported target arch: {arch}"),
+    };
+    (runner_os, runner_arch)
 }
 
 fn installed_bin_value(target: &str) -> String {

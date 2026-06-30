@@ -79,7 +79,10 @@ cannot be satisfied by a local source checkout fallback. The aggregate
 `npm-cutover-evidence.json` also carry each signed target's platform / arch
 (`platform` / `arch`), installed CLI path (`installedBin`), packaged Rust
 binary path (`packagedBinary`), packaged Rust binary hash
-(`packagedBinarySha256`), `ckcBinOverride: "unset"`, the CLI smoke
+(`packagedBinarySha256`), Node/npm runtime (`nodeVersion` / `npmVersion`),
+GitHub Actions provenance (`ciProvider`, `githubRunId`, `githubRunAttempt`,
+`githubSha`, `githubWorkflow`, `githubJob`) and target-matching runner evidence
+(`runnerOs` / `runnerArch`), `ckcBinOverride: "unset"`, the CLI smoke
 `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `backendRuntimeSmokes` so the final cutover bundle preserves the per-runner
 platform evidence, installed-CLI path smoke, package binary path smoke, root API
@@ -159,7 +162,10 @@ The workflow runs these stages:
    supported platform installed the same tarball SHA256 and that each platform's
    packaged Rust binary SHA256 matches the corresponding target entry in
    `release-manifest.json`; each sign-off also records `nodeVersion` and
-   `npmVersion` for the Node/npm environment that executed the installed CLI.
+   `npmVersion` for the Node/npm environment that executed the installed CLI,
+   plus `ciProvider: "github-actions"`, `githubRunId`, `githubRunAttempt`,
+   `githubSha`, `githubWorkflow`, `githubJob`, `runnerOs`, and `runnerArch` so
+   sign-off evidence is tied to the intended target-platform runner.
 7. When publication is intentionally approved, rerun or dispatch the workflow
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
@@ -190,8 +196,10 @@ The workflow runs these stages:
    sha1 shasum strings and must match. Finally, it runs `verify:cutover-evidence`
    to bind the release manifest, `release-signoff-summary.json`,
    six-platform sign-off summary including `packageVersion`, signed target
-   binary SHA256 values, signed target `nodeVersion` / `npmVersion`, and
-   `sourceFallback: "disabled"`, pre-publish artifact verifier output including
+   binary SHA256 values, signed target `nodeVersion` / `npmVersion`, signed
+   target GitHub Actions provenance (`ciProvider`, `githubRunId`, `runnerOs`,
+   `runnerArch`), and `sourceFallback: "disabled"`, pre-publish artifact
+   verifier output including
    `publishArtifactTarballPath`, public
    package identity from `release-manifest.json.packageMetadata`, and
    post-publish result verifier output into one final evidence JSON.
@@ -260,11 +268,16 @@ evidence, missing backend runtime smoke commands (`node smoke-c-runtime.mjs`,
 `node smoke-wasm-runtime.mjs`, and `node smoke-llvm-object-runtime.mjs`),
 missing public API symbols, missing installed/package binary path evidence,
 missing target platform / arch (`platform` / `arch`) evidence, missing
-Node/npm runtime environment evidence (`nodeVersion` / `npmVersion`), enabled source checkout fallbacks, mismatched
+Node/npm runtime environment evidence (`nodeVersion` / `npmVersion`), missing
+GitHub Actions provenance (`ciProvider`, `githubRunId`, `githubRunAttempt`,
+`githubSha`, `githubWorkflow`, `githubJob`) or target-matching runner evidence
+(`runnerOs` / `runnerArch`), enabled source checkout fallbacks, mismatched
 `packagedBinarySha256` values, and TypeScript declaration smoke failures.
 The release sign-off summary and final cutover verifier require the same
 signed target `platform` / `arch`, `installedBin`, `packagedBinary`,
-`packagedBinarySha256`, `nodeVersion`, and `npmVersion` entries,
+`packagedBinarySha256`, `nodeVersion`, `npmVersion`, `ciProvider`,
+`githubRunId`, `githubRunAttempt`, `githubSha`, `githubWorkflow`, `githubJob`,
+`runnerOs`, and `runnerArch` entries,
 `ckcBinOverride: "unset"`,
 CLI smoke `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `backendRuntimeSmokes` list to match `release-signoff.json`.
@@ -275,7 +288,8 @@ Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
 it proves the signed tarball, signed target binary SHA256 values, disabled
 source checkout fallback, CKC_BIN unset execution, signed target installed and
-packaged binary paths, signed target Node/npm runtime environment, CLI smoke commands, root API smoke, TypeScript
+packaged binary paths, signed target Node/npm runtime environment, signed target
+GitHub Actions provenance and runner evidence, CLI smoke commands, root API smoke, TypeScript
 declaration smoke, platform sign-offs, pre-publish artifact check, publish-side
 `publishId`, `publishFilename`, `publishShasum`, and `publishIntegrity`, and
 registry publish result all refer to the same replacement package version.
@@ -384,15 +398,21 @@ smoke evidence 缺失、backend runtime smoke 命令
 `node smoke-c-runtime.mjs`、`node smoke-wasm-runtime.mjs`、
 `node smoke-llvm-object-runtime.mjs` 缺失、公开 API symbol 缺失、
 Node/npm runtime environment evidence（`nodeVersion` / `npmVersion`）缺失、
+GitHub Actions provenance（`ciProvider`、`githubRunId`、`githubRunAttempt`、
+`githubSha`、`githubWorkflow`、`githubJob`）缺失、runner evidence
+（`runnerOs` / `runnerArch`）与目标平台不匹配、
 `packagedBinarySha256` 与 release manifest target SHA256 不一致，以及
 TypeScript declaration smoke 未通过的签核文件。`release-signoff-summary.json`
 和最终 cutover verifier 还会要求 `ckcBinOverride: "unset"`、CLI smoke
 `commands`、root API `apiSymbols`、`typeSmoke: "passed"`、
 `backendRuntimeSmokes` 与 `release-signoff.json` 一致，并保留 signed target
 的 `platform` / `arch`、`installedBin`、`packagedBinary` 和
-`packagedBinarySha256`、`nodeVersion`、`npmVersion` 证据。最终 cutover evidence 必须归档 signed target
+`packagedBinarySha256`、`nodeVersion`、`npmVersion`、`ciProvider`、
+`githubRunId`、`githubRunAttempt`、`githubSha`、`githubWorkflow`、
+`githubJob`、`runnerOs`、`runnerArch` 证据。最终 cutover evidence 必须归档 signed target
 binary SHA256 值、安装入口路径、包内二进制路径、CKC_BIN unset、CLI/API smoke、
-Node/npm runtime environment、TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-side
+Node/npm runtime environment、GitHub Actions provenance、runner evidence、
+TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-side
 `publishId`、`publishFilename`、`publishShasum` 和 `publishIntegrity`。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、

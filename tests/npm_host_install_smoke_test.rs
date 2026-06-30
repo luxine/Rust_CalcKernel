@@ -56,6 +56,14 @@ fn host_npm_install_verifier_should_pass_without_ckc_bin_override() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"ciProvider\":")
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\":")
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\":"),
+        "host npm install verifier should report CI/runner provenance for release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":"),
         "host npm install verifier should report the installed node_modules/.bin/ckc path\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

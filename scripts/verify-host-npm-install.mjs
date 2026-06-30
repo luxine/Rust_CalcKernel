@@ -113,6 +113,14 @@ try {
     arch: target.arch,
     nodeVersion: process.version,
     npmVersion,
+    ciProvider: ciProvider(),
+    githubRunId: process.env.GITHUB_RUN_ID ?? "",
+    githubRunAttempt: process.env.GITHUB_RUN_ATTEMPT ?? "",
+    githubSha: process.env.GITHUB_SHA ?? "",
+    githubWorkflow: process.env.GITHUB_WORKFLOW ?? "",
+    githubJob: process.env.GITHUB_JOB ?? "",
+    runnerOs: process.env.RUNNER_OS ?? localRunnerOs(),
+    runnerArch: process.env.RUNNER_ARCH ?? localRunnerArch(),
     installedBin,
     packageRoot,
     packagedBinary,
@@ -194,6 +202,34 @@ function commandAvailable(command) {
 
 function readNpmVersion() {
   return run("npm", ["--version"], { cwd: root }).stdout.trim();
+}
+
+function ciProvider() {
+  return process.env.GITHUB_ACTIONS === "true" ? "github-actions" : "local";
+}
+
+function localRunnerOs() {
+  switch (process.platform) {
+    case "darwin":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    case "win32":
+      return "Windows";
+    default:
+      return process.platform;
+  }
+}
+
+function localRunnerArch() {
+  switch (process.arch) {
+    case "arm64":
+      return "ARM64";
+    case "x64":
+      return "X64";
+    default:
+      return process.arch;
+  }
 }
 
 function requireClangForRuntimeSmokes() {

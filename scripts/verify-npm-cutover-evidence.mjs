@@ -328,6 +328,14 @@ function sameSignedTargets(actual, expected) {
       && target?.sha256 === expected[index]?.sha256
       && target?.nodeVersion === expected[index]?.nodeVersion
       && target?.npmVersion === expected[index]?.npmVersion
+      && target?.ciProvider === expected[index]?.ciProvider
+      && target?.githubRunId === expected[index]?.githubRunId
+      && target?.githubRunAttempt === expected[index]?.githubRunAttempt
+      && target?.githubSha === expected[index]?.githubSha
+      && target?.githubWorkflow === expected[index]?.githubWorkflow
+      && target?.githubJob === expected[index]?.githubJob
+      && target?.runnerOs === expected[index]?.runnerOs
+      && target?.runnerArch === expected[index]?.runnerArch
       && target?.installedBin === expected[index]?.installedBin
       && target?.packagedBinary === expected[index]?.packagedBinary
       && target?.packagedBinarySha256 === expected[index]?.packagedBinarySha256
@@ -371,6 +379,7 @@ function validateSignedTargets(actual, label) {
       fail(`${label} ${expectedTarget.name} arch must be ${expectedTarget.arch}`);
     }
     validateSignedTargetRuntimeEnvironment(target, expectedTarget, label);
+    validateSignedTargetCiProvenance(target, expectedTarget, label);
     validateSignedTargetBinaryEvidence(target, expectedTarget, label);
   }
 }
@@ -378,6 +387,28 @@ function validateSignedTargets(actual, label) {
 function validateSignedTargetRuntimeEnvironment(actual, expectedTarget, label) {
   requireNonEmptyString(actual?.nodeVersion, `${label} ${expectedTarget.name} nodeVersion`);
   requireNonEmptyString(actual?.npmVersion, `${label} ${expectedTarget.name} npmVersion`);
+}
+
+function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
+  if (actual?.ciProvider !== "github-actions") {
+    fail(`${label} ${expectedTarget.name} ciProvider must be "github-actions"`);
+  }
+  requireDigits(actual?.githubRunId, `${label} ${expectedTarget.name} githubRunId`);
+  requireDigits(actual?.githubRunAttempt, `${label} ${expectedTarget.name} githubRunAttempt`);
+  if (typeof actual?.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(actual.githubSha)) {
+    fail(`${label} ${expectedTarget.name} githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  requireNonEmptyString(actual?.githubWorkflow, `${label} ${expectedTarget.name} githubWorkflow`);
+  requireNonEmptyString(actual?.githubJob, `${label} ${expectedTarget.name} githubJob`);
+
+  const expectedRunnerOs = runnerOsForTarget(expectedTarget);
+  const expectedRunnerArch = runnerArchForTarget(expectedTarget);
+  if (actual?.runnerOs !== expectedRunnerOs) {
+    fail(`${label} ${expectedTarget.name} runnerOs must be ${expectedRunnerOs}`);
+  }
+  if (actual?.runnerArch !== expectedRunnerArch) {
+    fail(`${label} ${expectedTarget.name} runnerArch must be ${expectedRunnerArch}`);
+  }
 }
 
 function validateSignedTargetBinaryEvidence(actual, expectedTarget, label) {
@@ -400,6 +431,38 @@ function validateSignedTargetBinaryEvidence(actual, expectedTarget, label) {
 function requireNonEmptyString(actual, label) {
   if (typeof actual !== "string" || actual.length === 0) {
     fail(`${label} is missing`);
+  }
+}
+
+function requireDigits(actual, label) {
+  if (typeof actual !== "string" || !/^\d+$/.test(actual)) {
+    fail(`${label} must be a non-empty decimal string`);
+  }
+}
+
+function runnerOsForTarget(target) {
+  switch (target.platform) {
+    case "darwin":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    case "win32":
+      return "Windows";
+    default:
+      fail(`${target.name} runnerOs cannot be inferred for platform ${target.platform}`);
+      return undefined;
+  }
+}
+
+function runnerArchForTarget(target) {
+  switch (target.arch) {
+    case "arm64":
+      return "ARM64";
+    case "x64":
+      return "X64";
+    default:
+      fail(`${target.name} runnerArch cannot be inferred for arch ${target.arch}`);
+      return undefined;
   }
 }
 

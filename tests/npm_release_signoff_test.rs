@@ -18,6 +18,12 @@ const TARBALL_SHA256: &str = "0123456789abcdef0123456789abcdef0123456789abcdef01
 const BINARY_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 const NODE_VERSION: &str = "v20.10.0";
 const NPM_VERSION: &str = "10.2.0";
+const CI_PROVIDER: &str = "github-actions";
+const GITHUB_RUN_ID: &str = "1234567890";
+const GITHUB_RUN_ATTEMPT: &str = "2";
+const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_WORKFLOW: &str = "npm release artifact";
+const GITHUB_JOB: &str = "platform-signoff";
 const REQUIRED_COMMANDS: [&str; 8] = [
     "ckc --help",
     "ckc check smoke.ck",
@@ -396,6 +402,139 @@ fn release_signoff_verifier_should_reject_missing_runtime_environment_evidence()
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_missing_ci_provenance_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-ci-provenance");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_without_ci_provenance(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing CI provenance evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ciProvider")
+            || String::from_utf8_lossy(&output.stderr).contains("githubRunId")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerOs"),
+        "missing CI provenance failure should identify CI/runner evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_verifier_should_reject_non_github_actions_signoff() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-local-ci-provider");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_with_ci_provider(target, "local"),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "local signoff provenance should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ciProvider"),
+        "local provenance failure should identify ciProvider\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_verifier_should_reject_runner_platform_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-runner-mismatch");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        let signoff = if target == "darwin-arm64" {
+            signoff_json_with_runner(target, "Linux", "ARM64")
+        } else {
+            signoff_json(target)
+        };
+        fs::write(signoffs.join(format!("{target}.json")), signoff).expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "runner platform mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("runnerOs")
+            || String::from_utf8_lossy(&output.stderr).contains("runnerArch"),
+        "runner mismatch failure should identify runner OS/arch evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_source_checkout_fallback_smokes() {
     if !node_available() {
         return;
@@ -556,6 +695,17 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"ciProvider\": \"{CI_PROVIDER}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\": \"Linux\"")
+            && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\": \"X64\""),
+        "complete target signoff should preserve CI run and runner provenance per target\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":")
             && String::from_utf8_lossy(&output.stdout).contains("node_modules/.bin/ckc"),
         "complete target signoff should preserve installed CLI path evidence per target\nstdout:\n{}\nstderr:\n{}",
@@ -707,7 +857,66 @@ fn signoff_json_without_runtime_environment(target: &str) -> String {
         ),
         true,
         false,
+        true,
     )
+}
+
+fn signoff_json_without_ci_provenance(target: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
+    let source_fallback = source_fallback_evidence("disabled");
+    signoff_json_with_commands_and_binary_evidence_inner(
+        target,
+        &REQUIRED_COMMANDS
+            .iter()
+            .chain(REQUIRED_RUNTIME_COMMANDS.iter())
+            .copied()
+            .collect::<Vec<_>>(),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
+        true,
+        true,
+        false,
+    )
+}
+
+fn signoff_json_with_ci_provider(target: &str, ci_provider: &str) -> String {
+    signoff_json_with_ci_provenance(target, ci_provider, None, None)
+}
+
+fn signoff_json_with_runner(target: &str, runner_os: &str, runner_arch: &str) -> String {
+    signoff_json_with_ci_provenance(target, CI_PROVIDER, Some(runner_os), Some(runner_arch))
+}
+
+fn signoff_json_with_ci_provenance(
+    target: &str,
+    ci_provider: &str,
+    runner_os: Option<&str>,
+    runner_arch: Option<&str>,
+) -> String {
+    let (default_runner_os, default_runner_arch) = runner_os_arch_for_target(target);
+    signoff_json(target)
+        .replace(
+            &format!("\"ciProvider\": \"{CI_PROVIDER}\""),
+            &format!("\"ciProvider\": \"{ci_provider}\""),
+        )
+        .replace(
+            &format!("\"runnerOs\": \"{default_runner_os}\""),
+            &format!(
+                "\"runnerOs\": \"{}\"",
+                runner_os.unwrap_or(default_runner_os)
+            ),
+        )
+        .replace(
+            &format!("\"runnerArch\": \"{default_runner_arch}\""),
+            &format!(
+                "\"runnerArch\": \"{}\"",
+                runner_arch.unwrap_or(default_runner_arch)
+            ),
+        )
 }
 
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
@@ -809,6 +1018,7 @@ fn signoff_json_with_commands_and_binary_evidence(
         binary_evidence,
         true,
         true,
+        true,
     )
 }
 
@@ -823,6 +1033,7 @@ fn signoff_json_with_commands_and_binary_evidence_without_package_version(
         binary_evidence,
         false,
         true,
+        true,
     )
 }
 
@@ -832,6 +1043,7 @@ fn signoff_json_with_commands_and_binary_evidence_inner(
     binary_evidence: &str,
     include_package_version: bool,
     include_runtime_environment: bool,
+    include_ci_provenance: bool,
 ) -> String {
     let commands_json = commands
         .iter()
@@ -849,10 +1061,15 @@ fn signoff_json_with_commands_and_binary_evidence_inner(
     } else {
         String::new()
     };
+    let ci_provenance = if include_ci_provenance {
+        ci_provenance_evidence(target)
+    } else {
+        String::new()
+    };
     format!(
         r#"{{
   "package": "calckernel",
-  "targetName": "{target}"{package_version}{runtime_environment},
+  "targetName": "{target}"{package_version}{runtime_environment}{ci_provenance},
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{TARBALL_SHA256}",
   "commands": [
@@ -882,6 +1099,44 @@ fn runtime_environment_evidence() -> String {
   "nodeVersion": "{NODE_VERSION}",
   "npmVersion": "{NPM_VERSION}""#
     )
+}
+
+fn ci_provenance_evidence(target: &str) -> String {
+    ci_provenance_evidence_with(target, CI_PROVIDER, None, None)
+}
+
+fn ci_provenance_evidence_with(
+    target: &str,
+    ci_provider: &str,
+    runner_os: Option<&str>,
+    runner_arch: Option<&str>,
+) -> String {
+    let (expected_runner_os, expected_runner_arch) = runner_os_arch_for_target(target);
+    let runner_os = runner_os.unwrap_or(expected_runner_os);
+    let runner_arch = runner_arch.unwrap_or(expected_runner_arch);
+    format!(
+        r#",
+  "ciProvider": "{ci_provider}",
+  "githubRunId": "{GITHUB_RUN_ID}",
+  "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}",
+  "githubSha": "{GITHUB_SHA}",
+  "githubWorkflow": "{GITHUB_WORKFLOW}",
+  "githubJob": "{GITHUB_JOB}",
+  "runnerOs": "{runner_os}",
+  "runnerArch": "{runner_arch}""#
+    )
+}
+
+fn runner_os_arch_for_target(target: &str) -> (&'static str, &'static str) {
+    match target {
+        "darwin-arm64" => ("macOS", "ARM64"),
+        "darwin-x64" => ("macOS", "X64"),
+        "linux-arm64" => ("Linux", "ARM64"),
+        "linux-x64" => ("Linux", "X64"),
+        "win32-arm64" => ("Windows", "ARM64"),
+        "win32-x64" => ("Windows", "X64"),
+        _ => panic!("unknown target {target}"),
+    }
 }
 
 fn installed_bin_evidence(target: &str) -> String {

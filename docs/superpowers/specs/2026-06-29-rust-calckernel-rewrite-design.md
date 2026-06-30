@@ -196,7 +196,8 @@ Current oracle-covered CLI surfaces:
   `CKC_NPM_BINARIES_DIR` staging coverage, formal tarball manifest/SHA256
   verification, host sign-off `packageVersion` and `packagedBinarySha256`
   binding against the manifest package version and target binary SHA256 with
-  `sourceFallback: "disabled"`, TypeScript test-surface migration mapping for
+  `sourceFallback: "disabled"`, GitHub Actions CI provenance, and target-matching
+  `runnerOs` / `runnerArch`, TypeScript test-surface migration mapping for
   every current `tests/**/*.test.ts` file in the oracle checkout, and
   `npm pack --dry-run --ignore-scripts` file coverage.
 - npm release workflow portability, including `workflow_dispatch` inputs for
@@ -269,7 +270,7 @@ cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-At this point the suite has 206 Rust tests. This is substantial coverage, and
+At this point the suite has 212 Rust tests. This is substantial coverage, and
 the local generated-output audit now requires every current `.ck` fixture under
 `examples`, `bench/perf/fixtures`, and `tests/fixtures` to appear in MIR, C,
 WASM, and LLVM oracle tests. Completion of the full replacement objective still

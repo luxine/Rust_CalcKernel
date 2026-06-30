@@ -58,6 +58,14 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
     sha256: manifestTarget.sha256,
     nodeVersion: signoff.nodeVersion,
     npmVersion: signoff.npmVersion,
+    ciProvider: signoff.ciProvider,
+    githubRunId: signoff.githubRunId,
+    githubRunAttempt: signoff.githubRunAttempt,
+    githubSha: signoff.githubSha,
+    githubWorkflow: signoff.githubWorkflow,
+    githubJob: signoff.githubJob,
+    runnerOs: signoff.runnerOs,
+    runnerArch: signoff.runnerArch,
     installedBin: signoff.installedBin,
     packagedBinary: signoff.packagedBinary,
     packagedBinarySha256: signoff.packagedBinarySha256
@@ -133,6 +141,7 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
     fail(`${target.name} source fallback must be disabled`);
   }
   validateRuntimeEnvironmentEvidence(signoff, target);
+  validateCiProvenance(signoff, target);
   validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
@@ -144,6 +153,28 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
 function validateRuntimeEnvironmentEvidence(signoff, target) {
   requireNonEmptyString(signoff.nodeVersion, `${target.name} nodeVersion`);
   requireNonEmptyString(signoff.npmVersion, `${target.name} npmVersion`);
+}
+
+function validateCiProvenance(signoff, target) {
+  if (signoff.ciProvider !== "github-actions") {
+    fail(`${target.name} ciProvider must be "github-actions"`);
+  }
+  requireDigits(signoff.githubRunId, `${target.name} githubRunId`);
+  requireDigits(signoff.githubRunAttempt, `${target.name} githubRunAttempt`);
+  if (typeof signoff.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(signoff.githubSha)) {
+    fail(`${target.name} githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  requireNonEmptyString(signoff.githubWorkflow, `${target.name} githubWorkflow`);
+  requireNonEmptyString(signoff.githubJob, `${target.name} githubJob`);
+
+  const expectedRunnerOs = runnerOsForTarget(target);
+  const expectedRunnerArch = runnerArchForTarget(target);
+  if (signoff.runnerOs !== expectedRunnerOs) {
+    fail(`${target.name} runnerOs must be ${expectedRunnerOs}`);
+  }
+  if (signoff.runnerArch !== expectedRunnerArch) {
+    fail(`${target.name} runnerArch must be ${expectedRunnerArch}`);
+  }
 }
 
 function validateBinaryEvidence(signoff, target, manifestTarget) {
@@ -197,6 +228,38 @@ function requireIncludes(actual, expected, label) {
 function requireNonEmptyString(actual, label) {
   if (typeof actual !== "string" || actual.length === 0) {
     fail(`${label} is missing`);
+  }
+}
+
+function requireDigits(actual, label) {
+  if (typeof actual !== "string" || !/^\d+$/.test(actual)) {
+    fail(`${label} must be a non-empty decimal string`);
+  }
+}
+
+function runnerOsForTarget(target) {
+  switch (target.platform) {
+    case "darwin":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    case "win32":
+      return "Windows";
+    default:
+      fail(`${target.name} runnerOs cannot be inferred for platform ${target.platform}`);
+      return undefined;
+  }
+}
+
+function runnerArchForTarget(target) {
+  switch (target.arch) {
+    case "arm64":
+      return "ARM64";
+    case "x64":
+      return "X64";
+    default:
+      fail(`${target.name} runnerArch cannot be inferred for arch ${target.arch}`);
+      return undefined;
   }
 }
 

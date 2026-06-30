@@ -88,6 +88,11 @@ if (!existsSync(workflowPath)) {
     "npm run verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
     "post-publish registry verifier manifest version command"
   );
+  expectIncludes(
+    publishJob,
+    "npm run verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
+    "post-publish registry verifier manifest version command"
+  );
   expectNotIncludes(
     workflow,
     "npm run verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\"",
@@ -119,9 +124,19 @@ if (!existsSync(workflowPath)) {
     "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
     "post-publish result verifier command"
   );
+  expectIncludes(
+    publishJob,
+    "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
+    "post-publish result verifier command"
+  );
   expectIncludes(workflow, "npm-publish-result.json", "post-publish result verifier artifact");
   expectIncludes(
     workflow,
+    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
+    "final cutover evidence verifier command"
+  );
+  expectIncludes(
+    publishJob,
     "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
     "final cutover evidence verifier command"
   );

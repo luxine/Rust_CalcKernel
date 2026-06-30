@@ -877,6 +877,151 @@ fn npm_release_workflow_audit_should_reject_publish_without_release_signoff_down
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_registry_replacement_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    const COMMAND: &str = r#"      - run: npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
+"#;
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_registry_replacement = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        COMMAND,
+        "      - run: npm run verify:registry-replacement -- \"0.0.0\" > npm-registry-replacement.json\n",
+    );
+    let tampered = publish_without_registry_replacement.replacen(
+        "      - run: npm run verify:typescript-oracle\n",
+        &format!("      - run: npm run verify:typescript-oracle\n{COMMAND}"),
+        1,
+    );
+    let workflow_path = write_temp_workflow("registry-replacement-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced registry replacement workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when registry replacement verification is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("post-publish registry verifier manifest version command"),
+        "misplaced registry replacement failure should identify the verifier command\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_result_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    const COMMAND: &str = r#"      - run: npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
+"#;
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_publish_result = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        COMMAND,
+        "      - run: echo misplaced publish result > npm-publish-result.json\n",
+    );
+    let tampered = publish_without_publish_result.replacen(
+        "      - run: npm run verify:typescript-oracle\n",
+        &format!("      - run: npm run verify:typescript-oracle\n{COMMAND}"),
+        1,
+    );
+    let workflow_path = write_temp_workflow("publish-result-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced publish result workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when publish result verification is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("post-publish result verifier command"),
+        "misplaced publish result failure should identify the verifier command\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_cutover_evidence_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    const COMMAND: &str = r#"      - run: npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
+"#;
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_cutover_evidence = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        COMMAND,
+        "      - run: echo misplaced cutover evidence > npm-cutover-evidence.json\n",
+    );
+    let tampered = publish_without_cutover_evidence.replacen(
+        "      - run: npm run verify:typescript-oracle\n",
+        &format!("      - run: npm run verify:typescript-oracle\n{COMMAND}"),
+        1,
+    );
+    let workflow_path = write_temp_workflow("cutover-evidence-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced cutover evidence workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when cutover evidence verification is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("final cutover evidence verifier command"),
+        "misplaced cutover evidence failure should identify the verifier command\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
     if !node_available() {
         return;

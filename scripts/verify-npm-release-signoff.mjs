@@ -82,6 +82,14 @@ function validateManifest(manifest) {
   if (!Array.isArray(manifest.targets)) {
     fail("release manifest targets must be an array");
   }
+  const actualTargets = manifest.targets.map((target) => target?.name);
+  const expectedTargets = supportedTargetNames();
+  if (JSON.stringify(actualTargets) !== JSON.stringify(expectedTargets)) {
+    fail(
+      `release manifest targets must be ${JSON.stringify(expectedTargets)}, ` +
+        `found ${JSON.stringify(actualTargets)}`
+    );
+  }
 }
 
 function validateSignoff(signoff, target, manifest, manifestTarget) {

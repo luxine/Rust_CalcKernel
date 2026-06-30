@@ -104,6 +104,12 @@ validateReleaseManifestEvidence(manifest);
 if (!isGitSha(manifest.sourceGitSha)) {
   fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
 }
+if (!isSourceRepository(manifest.sourceRepository)) {
+  fail(
+    `release manifest sourceRepository must be "local" or a GitHub owner/repository value, ` +
+      `found ${JSON.stringify(manifest.sourceRepository)}`
+  );
+}
 
 const tarballPath = join(distDir, manifest.tarball);
 if (!existsSync(tarballPath) || !statSync(tarballPath).isFile()) {
@@ -126,7 +132,8 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   tarballPath,
   tarballSha256,
-  sourceGitSha: manifest.sourceGitSha
+  sourceGitSha: manifest.sourceGitSha,
+  sourceRepository: manifest.sourceRepository
 }, null, 2));
 
 function readJson(path) {
@@ -259,6 +266,14 @@ function isSha256(value) {
 
 function isGitSha(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function isSourceRepository(value) {
+  return value === "local" || isGitHubRepository(value);
+}
+
+function isGitHubRepository(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
 function fail(message) {

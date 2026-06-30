@@ -131,6 +131,7 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   tarballSha256: manifest.tarballSha256,
   sourceGitSha: manifest.sourceGitSha,
+  sourceRepository: manifest.sourceRepository,
   targetCount: signoff.targetCount,
   targets: signoff.targets,
   signedTargets: signoff.signedTargets,
@@ -179,6 +180,12 @@ function validateManifest(value) {
   }
   if (!isGitSha(value.sourceGitSha)) {
     fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(value.sourceGitSha)}`);
+  }
+  if (!isSourceRepository(value.sourceRepository)) {
+    fail(
+      `release manifest sourceRepository must be "local" or a GitHub owner/repository value, ` +
+        `found ${JSON.stringify(value.sourceRepository)}`
+    );
   }
   if (
     !value.packageMetadata
@@ -285,6 +292,7 @@ function validatePublishArtifact(value, manifest) {
   expectEqual(value.tarball, manifest.tarball, "publish artifact tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "publish artifact tarballSha256");
   expectEqual(value.sourceGitSha, manifest.sourceGitSha, "publish artifact sourceGitSha");
+  expectEqual(value.sourceRepository, manifest.sourceRepository, "publish artifact sourceRepository");
   if (typeof value.tarballPath !== "string" || value.tarballPath.length === 0) {
     fail("publish artifact tarballPath is missing");
   } else if (basename(value.tarballPath) !== manifest.tarball) {
@@ -302,6 +310,7 @@ function validatePublishResult(value, manifest) {
   expectEqual(value.version, manifest.packageVersion, "publish result version");
   expectEqual(value.tarball, manifest.tarball, "publish result tarball");
   expectEqual(value.sourceGitSha, manifest.sourceGitSha, "publish result sourceGitSha");
+  expectEqual(value.sourceRepository, manifest.sourceRepository, "publish result sourceRepository");
   expectEqual(value.publishPackage, manifest.packageName, "publish result publishPackage");
   expectEqual(value.publishVersion, manifest.packageVersion, "publish result publishVersion");
   expectEqual(
@@ -356,7 +365,12 @@ function validatePublishResult(value, manifest) {
     "publish result engines from release manifest packageMetadata"
   );
   expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
-  validatePublishProvenance(value.publishProvenance, "publish result publishProvenance", manifest.sourceGitSha);
+  validatePublishProvenance(
+    value.publishProvenance,
+    "publish result publishProvenance",
+    manifest.sourceGitSha,
+    manifest.sourceRepository
+  );
 }
 
 function readJsonFile(path, label) {
@@ -575,7 +589,7 @@ function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
   }
 }
 
-function validatePublishProvenance(actual, label, sourceGitSha) {
+function validatePublishProvenance(actual, label, sourceGitSha, sourceRepository) {
   if (!actual || typeof actual !== "object" || Array.isArray(actual)) {
     fail(`${label} is missing`);
     return;
@@ -589,6 +603,11 @@ function validatePublishProvenance(actual, label, sourceGitSha) {
     fail(`${label} githubSha must be a 40-character lowercase hex commit SHA`);
   } else if (actual.githubSha !== sourceGitSha) {
     fail(`${label} githubSha must match release manifest sourceGitSha`);
+  }
+  if (!isGitHubRepository(actual.githubRepository)) {
+    fail(`${label} githubRepository must be a GitHub owner/repository value`);
+  } else if (actual.githubRepository !== sourceRepository) {
+    fail(`${label} githubRepository must match release manifest sourceRepository`);
   }
   if (actual.githubWorkflow !== RELEASE_WORKFLOW) {
     fail(`${label} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
@@ -736,6 +755,14 @@ function isSha256(value) {
 
 function isGitSha(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function isSourceRepository(value) {
+  return value === "local" || isGitHubRepository(value);
+}
+
+function isGitHubRepository(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
 function isSha512Integrity(value) {

@@ -32,6 +32,7 @@ if (!existsSync(workflowPath)) {
   const hostInstallVerifier = readRepoFile("scripts/verify-host-npm-install.mjs");
   const signoffVerifier = readRepoFile("scripts/verify-npm-release-signoff.mjs");
   const signoffSummaryVerifier = readRepoFile("scripts/verify-npm-release-signoff-summary.mjs");
+  const publishArtifactVerifier = readRepoFile("scripts/verify-npm-publish-artifact.mjs");
   const publishResultVerifier = readRepoFile("scripts/verify-npm-publish-result.mjs");
   const cutoverVerifier = readRepoFile("scripts/verify-npm-cutover-evidence.mjs");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
@@ -160,9 +161,11 @@ if (!existsSync(workflowPath)) {
   expectIncludes(npmPublishArtifact, "npm-publish-result.json", "npm publish artifact publish result verifier output");
   expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output");
   expectIncludes(releaseVerifier, "sourceGitSha: readSourceGitSha()", "release manifest sourceGitSha emission");
+  expectIncludes(releaseVerifier, "sourceRepository: readSourceRepository()", "release manifest sourceRepository emission");
   expectIncludes(releaseVerifier, "fileURLToPath(import.meta.url)", "release manifest source root from verifier script");
   expectIncludes(releaseVerifier, "const sourceRoot =", "release manifest source root binding");
   expectIncludes(releaseVerifier, "const githubSha = process.env.GITHUB_SHA;", "release manifest GITHUB_SHA input");
+  expectIncludes(releaseVerifier, "const githubRepository = process.env.GITHUB_REPOSITORY;", "release manifest GITHUB_REPOSITORY input");
   expectIncludes(releaseVerifier, "requireCleanGitWorktree();", "release manifest clean source worktree check");
   expectIncludes(
     releaseVerifier,
@@ -202,20 +205,52 @@ if (!existsSync(workflowPath)) {
   );
   expectIncludes(
     publishResultVerifier,
+    "const githubRepository = requireGithubEnv(\"GITHUB_REPOSITORY\", \"githubRepository\");",
+    "publish result GITHUB_REPOSITORY provenance input"
+  );
+  expectIncludes(
+    publishResultVerifier,
     "publish provenance githubSha from release manifest sourceGitSha",
     "publish result sourceGitSha provenance binding"
   );
+  expectIncludes(
+    publishResultVerifier,
+    "publish provenance githubRepository from release manifest sourceRepository",
+    "publish result sourceRepository provenance binding"
+  );
+  expectIncludes(
+    publishArtifactVerifier,
+    "sourceRepository: manifest.sourceRepository",
+    "publish artifact sourceRepository output"
+  );
   expectIncludes(publishResultVerifier, "sourceGitSha: manifest.sourceGitSha", "publish result sourceGitSha output");
+  expectIncludes(publishResultVerifier, "sourceRepository: manifest.sourceRepository", "publish result sourceRepository output");
   expectIncludes(cutoverVerifier, "sourceGitSha: manifest.sourceGitSha", "cutover sourceGitSha output");
+  expectIncludes(cutoverVerifier, "sourceRepository: manifest.sourceRepository", "cutover sourceRepository output");
   expectIncludes(
     cutoverVerifier,
-    "validatePublishProvenance(value.publishProvenance, \"publish result publishProvenance\", manifest.sourceGitSha)",
+    "expectEqual(value.sourceRepository, manifest.sourceRepository, \"publish artifact sourceRepository\")",
+    "cutover publish artifact sourceRepository binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "expectEqual(value.sourceRepository, manifest.sourceRepository, \"publish result sourceRepository\")",
+    "cutover publish result sourceRepository binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "manifest.sourceRepository",
     "cutover publish provenance source binding"
   );
   expectIncludes(
     cutoverVerifier,
     "actual.githubSha !== sourceGitSha",
     "cutover provenance githubSha source binding"
+  );
+  expectIncludes(
+    cutoverVerifier,
+    "actual.githubRepository !== sourceRepository",
+    "cutover provenance githubRepository source binding"
   );
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");

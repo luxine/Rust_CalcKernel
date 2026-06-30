@@ -6,6 +6,7 @@ use std::{
 };
 
 const SOURCE_GIT_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const SOURCE_REPOSITORY: &str = "luxine/Rust_CalcKernel";
 
 #[test]
 fn publish_artifact_verifier_should_accept_manifest_tarball_with_matching_sha256() {
@@ -51,6 +52,13 @@ fn publish_artifact_verifier_should_accept_manifest_tarball_with_matching_sha256
         String::from_utf8_lossy(&output.stdout)
             .contains(&format!("\"sourceGitSha\": \"{SOURCE_GIT_SHA}\"")),
         "publish artifact verifier should report source checkout SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sourceRepository\": \"{SOURCE_REPOSITORY}\"")),
+        "publish artifact verifier should report source repository\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -182,6 +190,51 @@ fn publish_artifact_verifier_should_reject_missing_source_git_sha() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("sourceGitSha"),
         "failure should identify release manifest source SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_artifact_verifier_should_reject_missing_source_repository() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-artifact-source-repository");
+    let dist = temp.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    let tarball = dist.join("calckernel-0.8.0.tgz");
+    fs::write(&tarball, b"release tarball bytes").expect("write tarball");
+    let manifest = temp.join("release-manifest.json");
+    fs::write(
+        &manifest,
+        release_manifest_json("calckernel-0.8.0.tgz", &sha256_file(&tarball)).replace(
+            &format!("  \"sourceRepository\": \"{SOURCE_REPOSITORY}\",\n"),
+            "",
+        ),
+    )
+    .expect("write release manifest without source repository");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-artifact.mjs")
+        .arg(&manifest)
+        .arg(&dist)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run publish artifact verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing source repository should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify release manifest source repository\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -404,6 +457,7 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
   "tarball": "{tarball}",
   "tarballSha256": "{tarball_sha256}",
   "sourceGitSha": "{SOURCE_GIT_SHA}",
+  "sourceRepository": "{SOURCE_REPOSITORY}",
   "fileSurface": {{
     "packageJsonFiles": [
       "npm",

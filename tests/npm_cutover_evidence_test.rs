@@ -13,6 +13,7 @@ const CI_PROVIDER: &str = "github-actions";
 const GITHUB_RUN_ID: &str = "1234567890";
 const GITHUB_RUN_ATTEMPT: &str = "2";
 const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_REPOSITORY: &str = "luxine/Rust_CalcKernel";
 const GITHUB_WORKFLOW: &str = "npm release artifact";
 const GITHUB_JOB: &str = "platform-signoff";
 const PUBLISH_GITHUB_JOB: &str = "publish-npm";
@@ -96,6 +97,13 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sourceRepository\": \"{GITHUB_REPOSITORY}\"")),
+        "cutover evidence verifier should report the release source repository\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"signedTargets\": ["),
         "cutover evidence verifier should report signed target binary hashes\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -129,6 +137,8 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
             .contains(&format!("\"ciProvider\": \"{CI_PROVIDER}\""))
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""))
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerOs\": \"Linux\"")
             && String::from_utf8_lossy(&output.stdout).contains("\"runnerArch\": \"X64\""),
         "cutover evidence verifier should preserve GitHub Actions provenance and runner evidence\nstdout:\n{}\nstderr:\n{}",
@@ -333,6 +343,8 @@ fn cutover_evidence_verifier_should_preserve_publish_job_provenance() {
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubJob\": \"{PUBLISH_GITHUB_JOB}\""))
             && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""))
+            && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"runnerOs\": \"{PUBLISH_RUNNER_OS}\""))
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"runnerArch\": \"{PUBLISH_RUNNER_ARCH}\"")),
@@ -392,6 +404,64 @@ fn cutover_evidence_verifier_should_reject_missing_publish_result_provenance() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("publishProvenance"),
         "failure should identify missing publishProvenance\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_publish_result_source_repository_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-source-repository");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json().replace(
+            &format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""),
+            "\"githubRepository\": \"luxine/OtherCalcKernel\"",
+        ),
+    )
+    .expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "publish result source repository mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify publish result source repository mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -1083,6 +1153,63 @@ fn cutover_evidence_verifier_should_reject_missing_publish_artifact_tarball_path
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("publish artifact tarballPath"),
         "failure should identify publish artifact tarballPath\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_publish_artifact_source_repository_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-artifact-source-repository");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(
+        &publish_artifact,
+        publish_artifact_json(TARBALL_SHA256).replace(
+            &format!("\"sourceRepository\": \"{GITHUB_REPOSITORY}\""),
+            "\"sourceRepository\": \"luxine/OtherCalcKernel\"",
+        ),
+    )
+    .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "publish artifact source repository mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify publish artifact source repository mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -2068,6 +2195,7 @@ fn release_manifest_json_with_description(tarball_sha256: &str, description: &st
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
   "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}",
   "fileSurface": {{
     "packageJsonFiles": [
       "npm",
@@ -2835,7 +2963,8 @@ fn publish_artifact_json_with_tarball_path(
   "packageVersion": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz"{tarball_path},
   "tarballSha256": "{tarball_sha256}",
-  "sourceGitSha": "{GITHUB_SHA}"
+  "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}"
 }}"#
     )
 }
@@ -2908,6 +3037,7 @@ fn publish_result_json_with_package_version_shasum_publish_side_evidence_and_pro
     "githubRunId": "{GITHUB_RUN_ID}",
     "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}",
     "githubSha": "{GITHUB_SHA}",
+    "githubRepository": "{GITHUB_REPOSITORY}",
     "githubWorkflow": "{GITHUB_WORKFLOW}",
     "githubJob": "{PUBLISH_GITHUB_JOB}",
     "runnerOs": "{PUBLISH_RUNNER_OS}",
@@ -2924,6 +3054,7 @@ fn publish_result_json_with_package_version_shasum_publish_side_evidence_and_pro
   "version": "0.8.0"{package_version},
   "tarball": "calckernel-0.8.0.tgz",
   "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}",
   "publishPackage": "calckernel",
   "publishVersion": "0.8.0"{publish_side_evidence},
   "registryStatus": "ok",

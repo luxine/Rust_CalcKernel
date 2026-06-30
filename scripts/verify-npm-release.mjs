@@ -141,6 +141,7 @@ const manifest = {
   tarball: basename(tarballPath),
   tarballSha256: sha256(readFileSync(tarballPath)),
   sourceGitSha: readSourceGitSha(),
+  sourceRepository: readSourceRepository(),
   requiredFiles,
   fileSurface: {
     packageJsonFiles: packageJson.files,
@@ -246,6 +247,18 @@ function readSourceGitSha() {
   return sourceGitSha;
 }
 
+function readSourceRepository() {
+  const githubRepository = process.env.GITHUB_REPOSITORY;
+  if (githubRepository) {
+    validateGitHubRepository(githubRepository, "GITHUB_REPOSITORY");
+    return githubRepository;
+  }
+  if (process.env.GITHUB_SHA || process.env.GITHUB_ACTIONS === "true") {
+    fail("GITHUB_REPOSITORY is required when creating a release manifest from GitHub source");
+  }
+  return "local";
+}
+
 function requireCleanGitWorktree() {
   const output = spawnSync("git", ["status", "--porcelain"], { cwd: sourceRoot, encoding: "utf8" });
   if (output.error) {
@@ -263,6 +276,12 @@ function requireCleanGitWorktree() {
 
 function isGitSha(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function validateGitHubRepository(value, label) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) {
+    fail(`${label} must be a GitHub owner/repository value, found ${JSON.stringify(value)}`);
+  }
 }
 
 function validatePackageMetadata(packageJson) {

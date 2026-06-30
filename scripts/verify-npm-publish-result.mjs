@@ -77,6 +77,11 @@ if (publishProvenance.ciProvider === "github-actions") {
     manifest.sourceGitSha,
     "publish provenance githubSha from release manifest sourceGitSha"
   );
+  expectEqual(
+    publishProvenance.githubRepository,
+    manifest.sourceRepository,
+    "publish provenance githubRepository from release manifest sourceRepository"
+  );
 }
 expectEqual(publish.name, manifest.packageName, "publish package name");
 expectEqual(publish.version, manifest.packageVersion, "publish package version");
@@ -152,6 +157,7 @@ console.log(JSON.stringify({
   version: manifest.packageVersion,
   tarball: manifest.tarball,
   sourceGitSha: manifest.sourceGitSha,
+  sourceRepository: manifest.sourceRepository,
   publishPackage: publish.name,
   publishVersion: publish.version,
   publishId: publish.id,
@@ -205,6 +211,12 @@ function validateManifest(manifest) {
   if (!isGitSha(manifest.sourceGitSha)) {
     fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
   }
+  if (!isSourceRepository(manifest.sourceRepository)) {
+    fail(
+      `release manifest sourceRepository must be "local" or a GitHub owner/repository value, ` +
+        `found ${JSON.stringify(manifest.sourceRepository)}`
+    );
+  }
   if (
     !manifest.packageMetadata
     || typeof manifest.packageMetadata !== "object"
@@ -248,6 +260,7 @@ function collectPublishProvenance() {
       githubRunId: "",
       githubRunAttempt: "",
       githubSha: "",
+      githubRepository: "",
       githubWorkflow: "",
       githubJob: "",
       runnerOs: localRunnerOs(),
@@ -258,6 +271,7 @@ function collectPublishProvenance() {
   const githubRunId = requireGithubEnv("GITHUB_RUN_ID", "githubRunId");
   const githubRunAttempt = requireGithubEnv("GITHUB_RUN_ATTEMPT", "githubRunAttempt");
   const githubSha = requireGithubEnv("GITHUB_SHA", "githubSha");
+  const githubRepository = requireGithubEnv("GITHUB_REPOSITORY", "githubRepository");
   const githubWorkflow = requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow");
   const githubJob = requireGithubEnv("GITHUB_JOB", "githubJob");
   const runnerOs = requireGithubEnv("RUNNER_OS", "runnerOs");
@@ -271,6 +285,9 @@ function collectPublishProvenance() {
   }
   if (!/^[0-9a-f]{40}$/.test(githubSha)) {
     fail("githubSha must be a 40-character lowercase hex commit SHA");
+  }
+  if (!isGitHubRepository(githubRepository)) {
+    fail(`githubRepository must be a GitHub owner/repository value, found ${JSON.stringify(githubRepository)}`);
   }
   if (githubWorkflow !== RELEASE_WORKFLOW) {
     fail(`githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}, found ${JSON.stringify(githubWorkflow)}`);
@@ -290,6 +307,7 @@ function collectPublishProvenance() {
     githubRunId,
     githubRunAttempt,
     githubSha,
+    githubRepository,
     githubWorkflow,
     githubJob,
     runnerOs,
@@ -343,6 +361,14 @@ function isSha256(value) {
 
 function isGitSha(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function isSourceRepository(value) {
+  return value === "local" || isGitHubRepository(value);
+}
+
+function isGitHubRepository(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
 function fail(message) {

@@ -75,7 +75,8 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const cargoToml = readFileSync(join(root, "Cargo.toml"), "utf8");
 const releaseVerifierEnv = {
   ...process.env,
-  GITHUB_SHA: "abcdef0123456789abcdef0123456789abcdef01"
+  GITHUB_SHA: "abcdef0123456789abcdef0123456789abcdef01",
+  GITHUB_REPOSITORY: "luxine/Rust_CalcKernel"
 };
 
 assert.equal(pkg.name, "calckernel");
@@ -592,6 +593,7 @@ try {
     assert.equal(manifest.packageVersion, "0.8.0");
     assert.match(manifest.tarballSha256, /^[0-9a-f]{64}$/);
     assert.match(manifest.sourceGitSha, /^[0-9a-f]{40}$/);
+    assert.equal(manifest.sourceRepository, "luxine/Rust_CalcKernel");
     assert.deepEqual(manifest.packageMetadata, {
       description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
       keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
@@ -683,6 +685,8 @@ try {
     try {
       const localReleaseEnv = { ...process.env };
       delete localReleaseEnv.GITHUB_SHA;
+      delete localReleaseEnv.GITHUB_REPOSITORY;
+      delete localReleaseEnv.GITHUB_ACTIONS;
       const verifyFromOtherRepo = spawnSync(process.execPath, [
         join(externalVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"),
         matrixTarball
@@ -694,6 +698,7 @@ try {
       assert.equal(verifyFromOtherRepo.status, 0, verifyFromOtherRepo.stderr || verifyFromOtherRepo.stdout);
       const externalManifest = JSON.parse(verifyFromOtherRepo.stdout);
       assert.equal(externalManifest.sourceGitSha, externalVerifierSource.gitSha);
+      assert.equal(externalManifest.sourceRepository, "local");
       assert.notEqual(externalManifest.sourceGitSha, externalCaller.gitSha);
     } finally {
       rmSync(externalVerifierSource.repoRoot, { recursive: true, force: true });
@@ -709,6 +714,8 @@ try {
       );
       const localReleaseEnv = { ...process.env };
       delete localReleaseEnv.GITHUB_SHA;
+      delete localReleaseEnv.GITHUB_REPOSITORY;
+      delete localReleaseEnv.GITHUB_ACTIONS;
       const verifyDirtySource = spawnSync(process.execPath, [
         join(dirtyVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"),
         matrixTarball

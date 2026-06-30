@@ -48,6 +48,8 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
         r#"expectIncludes(npmRelease, "publishShasum", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publishIntegrity", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publishProvenance", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "sourceRepository", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "githubRepository", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publish-npm", "npm release docs")"#,
         "README.zh-CN.md",
     ] {
@@ -131,6 +133,10 @@ fn rust_replacement_readiness_audit_should_require_source_git_sha_evidence() {
         r#"expectIncludes(npmRelease, "sourceGitSha", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "release-manifest.json.sourceGitSha", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "GITHUB_SHA", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "release-manifest.json.sourceRepository", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-publish-artifact.json.sourceRepository", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-publish-result.json.sourceRepository", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "GITHUB_REPOSITORY", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "clean source git worktree", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "source git worktree must be clean", "npm release docs")"#,
     ] {

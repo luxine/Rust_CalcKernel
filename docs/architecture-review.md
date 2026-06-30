@@ -137,7 +137,7 @@ these gates are true in the current checkout:
    `build:npm-matrix --verify-staged --expect-complete`, and packed through
    `CKC_NPM_BINARIES_DIR`.
 7. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
-   `sourceGitSha`, Rust package metadata, `consumerInstallScripts: []`, binary file mode,
+   `sourceGitSha`, `sourceRepository`, Rust package metadata, `consumerInstallScripts: []`, binary file mode,
    binary architecture, binary format, binary size, binary SHA256s, and strict
    file-surface manifest data.
 8. Each supported target platform fresh-installs the same tarball with scripts
@@ -164,7 +164,10 @@ these gates are true in the current checkout:
 13. `npm run verify:registry-replacement -- <version>` passes after publish,
    proving the npm registry metadata points at Rust `npm/` entrypoints and not
    stale TypeScript `dist/` entrypoints.
-14. The Rust replacement package carries its own release checklist and
+14. `verify:publish-result` and `verify:cutover-evidence` bind the publish job
+   `githubSha` / `githubRepository` to `release-manifest.json.sourceGitSha` /
+   `sourceRepository`.
+15. The Rust replacement package carries its own release checklist and
    verification scripts without requiring edits to the TypeScript checkout.
 
 ## Current Boundary

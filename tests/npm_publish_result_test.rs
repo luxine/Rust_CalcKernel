@@ -10,6 +10,7 @@ const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 const GITHUB_RUN_ID: &str = "1234567890";
 const GITHUB_RUN_ATTEMPT: &str = "2";
 const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_REPOSITORY: &str = "luxine/Rust_CalcKernel";
 const GITHUB_WORKFLOW: &str = "npm release artifact";
 const GITHUB_JOB: &str = "publish-npm";
 const RUNNER_OS: &str = "Linux";
@@ -88,6 +89,13 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
         String::from_utf8_lossy(&output.stdout)
             .contains(&format!("\"sourceGitSha\": \"{GITHUB_SHA}\"")),
         "publish result verifier should report the manifest source checkout SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sourceRepository\": \"{GITHUB_REPOSITORY}\"")),
+        "publish result verifier should report the manifest source repository\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -177,6 +185,7 @@ fn publish_result_verifier_should_preserve_github_actions_publish_provenance() {
         .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
         .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
         .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_REPOSITORY", GITHUB_REPOSITORY)
         .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
         .env("GITHUB_JOB", GITHUB_JOB)
         .env("RUNNER_OS", RUNNER_OS)
@@ -199,6 +208,8 @@ fn publish_result_verifier_should_preserve_github_actions_publish_provenance() {
                 .contains("\"ciProvider\": \"github-actions\"")
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRepository\": \"{GITHUB_REPOSITORY}\""))
             && String::from_utf8_lossy(&output.stdout)
                 .contains(&format!("\"githubJob\": \"{GITHUB_JOB}\""))
             && String::from_utf8_lossy(&output.stdout)
@@ -250,6 +261,7 @@ fn publish_result_verifier_should_reject_publish_sha_that_differs_from_manifest_
         .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
         .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
         .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_REPOSITORY", GITHUB_REPOSITORY)
         .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
         .env("GITHUB_JOB", GITHUB_JOB)
         .env("RUNNER_OS", RUNNER_OS)
@@ -269,6 +281,63 @@ fn publish_result_verifier_should_reject_publish_sha_that_differs_from_manifest_
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("sourceGitSha"),
         "failure should identify manifest source SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_result_verifier_should_reject_source_repository_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-source-repository-mismatch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
+        .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
+        .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_REPOSITORY", "luxine/OtherCalcKernel")
+        .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
+        .env("GITHUB_JOB", GITHUB_JOB)
+        .env("RUNNER_OS", RUNNER_OS)
+        .env("RUNNER_ARCH", RUNNER_ARCH)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier with mismatched source repository");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "publish repository mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceRepository"),
+        "failure should identify manifest source repository\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -306,6 +375,7 @@ fn publish_result_verifier_should_reject_incomplete_github_actions_publish_prove
         .env_remove("GITHUB_RUN_ID")
         .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
         .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_REPOSITORY", GITHUB_REPOSITORY)
         .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
         .env("GITHUB_JOB", GITHUB_JOB)
         .env("RUNNER_OS", RUNNER_OS)
@@ -362,6 +432,7 @@ fn publish_result_verifier_should_reject_wrong_publish_workflow_job_in_github_ac
         .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
         .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
         .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_REPOSITORY", GITHUB_REPOSITORY)
         .env("GITHUB_WORKFLOW", "unit test workflow")
         .env("GITHUB_JOB", "verify-release-scripts")
         .env("RUNNER_OS", RUNNER_OS)
@@ -827,6 +898,7 @@ fn release_manifest_json_with_description(tarball: &str, description: &str) -> S
   "tarball": "{tarball}",
   "tarballSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "sourceGitSha": "{GITHUB_SHA}",
+  "sourceRepository": "{GITHUB_REPOSITORY}",
   "targets": []
 }}"#
     )

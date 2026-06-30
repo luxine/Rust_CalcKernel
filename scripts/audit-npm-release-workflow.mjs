@@ -70,6 +70,12 @@ if (!existsSync(workflowPath)) {
   );
   expectIncludes(workflow, "name: release-manifest", "publish release manifest artifact");
   expectIncludes(workflow, "path: release-manifest", "publish release manifest path");
+  expectIncludes(publishJob, "name: release-tarball", "publish release tarball artifact");
+  expectIncludes(publishJob, "path: dist", "publish release tarball path");
+  expectIncludes(publishJob, "name: release-manifest", "publish release manifest artifact");
+  expectIncludes(publishJob, "path: release-manifest", "publish release manifest path");
+  expectIncludes(publishJob, "name: release-signoff", "publish release signoff artifact");
+  expectIncludes(publishJob, "path: release", "publish release signoff path");
   expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
   expectIncludes(publishJob, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
   expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");

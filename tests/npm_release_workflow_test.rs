@@ -757,6 +757,126 @@ fn npm_release_workflow_audit_should_reject_publish_artifact_verifier_outside_pu
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_publish_without_release_tarball_download() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "          name: release-tarball\n          path: dist",
+        "          name: wrong-release-tarball\n          path: wrong-dist",
+    );
+    let workflow_path = write_temp_workflow("publish-without-release-tarball-download", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against missing publish tarball download");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when it does not download the release tarball\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish release tarball artifact"),
+        "missing publish tarball download should identify the release tarball artifact\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_without_release_manifest_download() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "          name: release-manifest\n          path: release-manifest",
+        "          name: wrong-release-manifest\n          path: wrong-release-manifest",
+    );
+    let workflow_path = write_temp_workflow("publish-without-release-manifest-download", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against missing publish manifest download");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when it does not download the release manifest\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish release manifest artifact"),
+        "missing publish manifest download should identify the release manifest artifact\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_without_release_signoff_download() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "          name: release-signoff\n          path: release",
+        "          name: wrong-release-signoff\n          path: wrong-release",
+    );
+    let workflow_path = write_temp_workflow("publish-without-release-signoff-download", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against missing publish signoff download");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when it does not download the release signoff\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish release signoff artifact"),
+        "missing publish signoff download should identify the release signoff artifact\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
     if !node_available() {
         return;

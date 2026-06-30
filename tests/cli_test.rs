@@ -515,6 +515,19 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
             "unchecked",
             "examples/wasm/pricing-soa/pricing_soa.ck",
         ),
+        ("c-wasm-scalar", "unchecked", "examples/wasm_scalar.ck"),
+        ("c-wasm-calls", "unchecked", "examples/wasm_calls.ck"),
+        (
+            "c-wasm-control-flow",
+            "unchecked",
+            "examples/wasm_control_flow.ck",
+        ),
+        ("c-wasm-memory", "unchecked", "examples/wasm_memory.ck"),
+        (
+            "c-wasm-short-circuit",
+            "unchecked",
+            "examples/wasm_short_circuit.ck",
+        ),
         ("c-scalar-checked", "checked", "examples/scalar_checked.ck"),
         (
             "c-control-checked",
@@ -2212,6 +2225,107 @@ def run_c_pricing_soa(library_path: str) -> str:
     return f"c-pricing-soa:status={status};out={','.join(str(value) for value in actual)}"
 
 
+def run_c_wasm_scalar(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.add_i32.argtypes = [ctypes.c_int32, ctypes.c_int32]
+    lib.add_i32.restype = ctypes.c_int32
+    lib.add_i64.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.add_i64.restype = ctypes.c_int64
+    lib.less_i64.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.less_i64.restype = ctypes.c_bool
+    lib.div_u64.argtypes = [ctypes.c_uint64, ctypes.c_uint64]
+    lib.div_u64.restype = ctypes.c_uint64
+
+    add_i32 = lib.add_i32(1, 2)
+    add_i64 = lib.add_i64(1, 2)
+    less_i64 = lib.less_i64(1, 2)
+    div_u64 = lib.div_u64(10, 2)
+    if add_i32 != 3 or add_i64 != 3 or less_i64 is not True or div_u64 != 5:
+        raise AssertionError(
+            f"c-wasm-scalar mismatch add_i32={add_i32} add_i64={add_i64} less_i64={less_i64} div_u64={div_u64}"
+        )
+    return f"c-wasm-scalar:add_i32={add_i32};add_i64={add_i64};less_i64={int(less_i64)};div_u64={div_u64}"
+
+
+def run_c_wasm_calls(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.calc.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.calc.restype = ctypes.c_int64
+
+    result = lib.calc(1, 2)
+    if result != 6:
+        raise AssertionError(f"c-wasm-calls mismatch result={result}")
+    return f"c-wasm-calls:calc={result}"
+
+
+def run_c_wasm_control_flow(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.max_i32.argtypes = [ctypes.c_int32, ctypes.c_int32]
+    lib.max_i32.restype = ctypes.c_int32
+    lib.sum_to_n.argtypes = [ctypes.c_int64]
+    lib.sum_to_n.restype = ctypes.c_int64
+
+    high = lib.max_i32(10, 3)
+    low = lib.max_i32(1, 3)
+    total = lib.sum_to_n(5)
+    if high != 10 or low != 3 or total != 10:
+        raise AssertionError(f"c-wasm-control-flow mismatch high={high} low={low} total={total}")
+    return f"c-wasm-control-flow:max={high},{low};sum={total}"
+
+
+def run_c_wasm_memory(library_path: str) -> str:
+    class Item(ctypes.Structure):
+        _fields_ = [
+            ("price", ctypes.c_int64),
+            ("qty", ctypes.c_int64),
+            ("discount", ctypes.c_int64),
+            ("tax_rate_ppm", ctypes.c_int64),
+        ]
+
+    lib = ctypes.CDLL(library_path)
+    lib.first_price.argtypes = [ctypes.POINTER(Item)]
+    lib.first_price.restype = ctypes.c_int64
+    lib.get_price.argtypes = [ctypes.POINTER(Item), ctypes.c_int32]
+    lib.get_price.restype = ctypes.c_int64
+    lib.write_i64.argtypes = [ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+    lib.write_i64.restype = ctypes.c_int32
+
+    items = (Item * 2)(
+        Item(price=1234, qty=2, discount=3, tax_rate_ppm=4),
+        Item(price=222, qty=0, discount=0, tax_rate_ppm=0),
+    )
+    out = (ctypes.c_int64 * 1)(0)
+    first = lib.first_price(items)
+    indexed = lib.get_price(items, ctypes.c_int32(1))
+    status = lib.write_i64(out, ctypes.c_int64(123))
+    stored = out[0]
+    if first != 1234 or indexed != 222 or status != 0 or stored != 123:
+        raise AssertionError(
+            f"c-wasm-memory mismatch first={first} indexed={indexed} status={status} stored={stored}"
+        )
+    return f"c-wasm-memory:first={first};indexed={indexed};status={status};stored={stored}"
+
+
+def run_c_wasm_short_circuit(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.and_short_circuit.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.and_short_circuit.restype = ctypes.c_bool
+    lib.or_short_circuit.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.or_short_circuit.restype = ctypes.c_bool
+
+    values = [
+        lib.and_short_circuit(0, 10),
+        lib.and_short_circuit(2, 10),
+        lib.or_short_circuit(0, 10),
+        lib.or_short_circuit(2, 10),
+    ]
+    expected = [False, True, True, True]
+    if values != expected:
+        raise AssertionError(f"c-wasm-short-circuit mismatch values={values} expected={expected}")
+    encoded = ",".join(str(int(value)) for value in values)
+    return f"c-wasm-short-circuit:out={encoded}"
+
+
 def run_c_perf_f64_kernels(library_path: str) -> str:
     lib = ctypes.CDLL(library_path)
     double_ptr = ctypes.POINTER(ctypes.c_double)
@@ -2381,6 +2495,11 @@ RUNNERS = {
     "c-f64-axpy": run_c_f64_axpy,
     "c-f64-sum": run_c_f64_sum,
     "c-pricing-soa": run_c_pricing_soa,
+    "c-wasm-scalar": run_c_wasm_scalar,
+    "c-wasm-calls": run_c_wasm_calls,
+    "c-wasm-control-flow": run_c_wasm_control_flow,
+    "c-wasm-memory": run_c_wasm_memory,
+    "c-wasm-short-circuit": run_c_wasm_short_circuit,
     "c-dijkstra": run_c_dijkstra,
     "c-scalar-checked": run_c_scalar_checked,
     "c-control-checked": run_c_control_checked,

@@ -38,6 +38,7 @@ console.log(JSON.stringify({
   targetCount: signoff.targetCount,
   targets: signoff.targets,
   signedTargets: signoff.signedTargets,
+  sourceFallback: signoff.sourceFallback,
   evidence: {
     manifest: manifestPath,
     releaseSignoff: signoffPath
@@ -64,6 +65,7 @@ function validateReleaseSignoff(value, manifest) {
   expectEqual(value.packageVersion, manifest.packageVersion, "release sign-off packageVersion");
   expectEqual(value.tarball, manifest.tarball, "release sign-off tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off tarballSha256");
+  expectEqual(value.sourceFallback, "disabled", "release sign-off sourceFallback");
 
   const expectedTargets = supportedTargetNames();
   if (value.targetCount !== expectedTargets.length) {

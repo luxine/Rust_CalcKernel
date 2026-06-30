@@ -117,6 +117,12 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
+        "cutover evidence verifier should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -222,6 +228,57 @@ fn cutover_evidence_verifier_should_reject_release_signoff_summary_sha256_mismat
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("release sign-off summary tarballSha256"),
         "failure should identify release signoff summary SHA256 mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_release_signoff_summary_source_fallback_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-source-fallback-mismatch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_with_source_fallback(TARBALL_SHA256, "enabled"),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched release signoff summary source fallback should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceFallback"),
+        "failure should identify sourceFallback mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -390,12 +447,20 @@ fn release_signoff_json_with_signed_target_sha256(
     {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
     {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
-  ]
+  ],
+  "sourceFallback": "disabled"
 }}"#
     )
 }
 
 fn release_signoff_summary_json(tarball_sha256: &str) -> String {
+    release_signoff_summary_json_with_source_fallback(tarball_sha256, "disabled")
+}
+
+fn release_signoff_summary_json_with_source_fallback(
+    tarball_sha256: &str,
+    source_fallback: &str,
+) -> String {
     format!(
         r#"{{
   "status": "ok",
@@ -419,7 +484,8 @@ fn release_signoff_summary_json(tarball_sha256: &str) -> String {
     {{"name": "linux-x64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
-  ]
+  ],
+  "sourceFallback": "{source_fallback}"
 }}"#
     )
 }

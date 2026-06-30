@@ -151,7 +151,7 @@ The workflow runs these stages:
    `verify:release-signoff-summary` against `release-manifest.json` and
    `release-signoff.json` and writes `release-signoff-summary.json` so
    publication cannot start from a missing or mismatched six-platform sign-off
-   summary. It also runs
+   summary or missing `sourceFallback: "disabled"` evidence. It also runs
    `verify:publish-artifact` against `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest and
    that the manifest carries the formal release verifier metadata, file surface,
@@ -169,9 +169,9 @@ The workflow runs these stages:
    must match; the publish and registry shasum values must both be sha1 shasum
    strings and must match. Finally, it runs `verify:cutover-evidence` to bind
    the release manifest, `release-signoff-summary.json`, six-platform sign-off
-   summary including signed target binary SHA256 values, pre-publish artifact
-   verifier output, and post-publish result verifier output into one final
-   evidence JSON.
+   summary including signed target binary SHA256 values and
+   `sourceFallback: "disabled"`, pre-publish artifact verifier output, and
+   post-publish result verifier output into one final evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -236,9 +236,9 @@ smoke failures.
 not acceptable release evidence.
 Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
-it proves the signed tarball, signed target binary SHA256 values, platform
-sign-offs, pre-publish artifact check, and registry publish result all refer to
-the same replacement package version.
+it proves the signed tarball, signed target binary SHA256 values, disabled
+source checkout fallback, platform sign-offs, pre-publish artifact check, and
+registry publish result all refer to the same replacement package version.
 Before `npm publish`, run
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
 so the publish step is gated by the same release manifest and six-platform
@@ -363,4 +363,5 @@ sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串
 最终 `verify:cutover-evidence` 必须同时传入 `release-manifest.json`、
 `release-signoff.json`、`release-signoff-summary.json`、
 `npm-publish-artifact.json` 和 `npm-publish-result.json`，把发布前签核摘要、
-发布前 tarball 校验和发布后 registry 结果绑定成同一份最终证据。
+禁用 source checkout fallback 的证据、发布前 tarball 校验和发布后 registry 结果
+绑定成同一份最终证据。

@@ -136,7 +136,7 @@ JavaScript compatibility surface。
    declaration smoke 必须通过。
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
-   tarball SHA256。
+   tarball SHA256，且 `sourceFallback: "disabled"`。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 会通过 `typescript_oracle_repository` /
    `typescript_oracle_ref` checkout 并构建只读 TypeScript oracle，为 parity

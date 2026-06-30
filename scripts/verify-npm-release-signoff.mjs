@@ -62,7 +62,8 @@ console.log(JSON.stringify({
   tarballSha256: manifest.tarballSha256,
   targetCount: verifiedTargets.length,
   targets: verifiedTargets,
-  signedTargets
+  signedTargets,
+  sourceFallback: "disabled"
 }, null, 2));
 
 function validateManifest(manifest) {

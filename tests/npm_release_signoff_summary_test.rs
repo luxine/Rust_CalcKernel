@@ -68,6 +68,53 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
+        "release signoff summary verifier should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_source_fallback_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-source-fallback");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_source_fallback(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing source fallback evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceFallback"),
+        "failure should identify missing sourceFallback evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -178,10 +225,38 @@ fn release_signoff_json(tarball_sha256: &str) -> String {
     release_signoff_json_with_signed_target_sha256(tarball_sha256, BINARY_SHA256)
 }
 
+fn release_signoff_json_without_source_fallback(tarball_sha256: &str) -> String {
+    release_signoff_json_with_signed_target_sha256_and_source_fallback(
+        tarball_sha256,
+        BINARY_SHA256,
+        None,
+    )
+}
+
 fn release_signoff_json_with_signed_target_sha256(
     tarball_sha256: &str,
     signed_target_sha256: &str,
 ) -> String {
+    release_signoff_json_with_signed_target_sha256_and_source_fallback(
+        tarball_sha256,
+        signed_target_sha256,
+        Some("disabled"),
+    )
+}
+
+fn release_signoff_json_with_signed_target_sha256_and_source_fallback(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+    source_fallback: Option<&str>,
+) -> String {
+    let source_fallback = source_fallback
+        .map(|value| {
+            format!(
+                r#",
+  "sourceFallback": "{value}""#
+            )
+        })
+        .unwrap_or_default();
     format!(
         r#"{{
   "status": "ok",
@@ -205,7 +280,7 @@ fn release_signoff_json_with_signed_target_sha256(
     {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
     {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
-  ]
+  ]{source_fallback}
 }}"#
     )
 }

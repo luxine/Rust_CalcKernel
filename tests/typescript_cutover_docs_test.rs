@@ -117,6 +117,22 @@ fn rust_replacement_readiness_audit_should_require_typescript_test_surface_audit
     }
 }
 
+#[test]
+fn rust_replacement_readiness_audit_should_require_tests_fixture_backend_coverage_docs() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(architectureReview, "tests/fixtures", "architecture review")"#,
+        r#"expectIncludes(zhArchitectureReview, "tests/fixtures", "Chinese architecture review")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

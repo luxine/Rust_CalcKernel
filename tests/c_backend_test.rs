@@ -287,6 +287,7 @@ fn c_backend_should_match_typescript_oracle_for_official_examples() {
         "examples/wasm/f64-axpy/axpy.ck",
         "examples/wasm/f64-sum/sum.ck",
         "examples/wasm/pricing-soa/pricing_soa.ck",
+        "tests/fixtures/f64_edges.ck",
     ];
 
     for (index, example) in examples.iter().enumerate() {

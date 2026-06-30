@@ -101,10 +101,12 @@ expectIncludes(npmRelease, "NPM_TOKEN", "npm release docs");
 const architectureReview = readFileSync(join(root, "docs/architecture-review.md"), "utf8");
 expectIncludes(architectureReview, "TypeScript checkout remains the compatibility oracle", "architecture review");
 expectIncludes(architectureReview, "without requiring edits to the TypeScript checkout", "architecture review");
+expectIncludes(architectureReview, "tests/fixtures", "architecture review");
 
 const zhArchitectureReview = readFileSync(join(root, "docs/zh-CN/architecture-review.md"), "utf8");
 expectIncludes(zhArchitectureReview, "TypeScript checkout 继续作为 compatibility oracle", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "不要求修改 TypeScript checkout", "Chinese architecture review");
+expectIncludes(zhArchitectureReview, "tests/fixtures", "Chinese architecture review");
 
 if (existsSync(join(tsRoot, "package.json"))) {
   const tsPackageJson = readJson(join(tsRoot, "package.json"));

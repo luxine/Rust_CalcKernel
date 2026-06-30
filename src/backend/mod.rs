@@ -1468,7 +1468,7 @@ fn c_signature(function: &MirFunction) -> String {
         "{prefix}{} {}({})",
         c_type(&function.return_type),
         function.name,
-        if params.is_empty() { "void" } else { &params }
+        params
     )
 }
 
@@ -1494,7 +1494,7 @@ fn c_export_signature(function: &MirFunction) -> String {
         "{} {}({})",
         c_type(&function.return_type),
         function.name,
-        if params.is_empty() { "void" } else { &params }
+        params
     )
 }
 

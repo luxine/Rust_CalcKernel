@@ -19,9 +19,7 @@ if (!existsSync(tsRoot)) {
 }
 
 const fixtures = fixtureRoots.flatMap((fixtureRoot) => listCkFiles(join(tsRoot, fixtureRoot)));
-const generatedOutputFixtures = fixtures.filter(
-  (fixture) => fixture.startsWith("examples/") || fixture.startsWith("bench/perf/fixtures/")
-);
+const generatedOutputFixtures = fixtures;
 const auxiliaryFixtures = fixtures.filter((fixture) => !generatedOutputFixtures.includes(fixture));
 
 const backendContents = new Map(

@@ -124,8 +124,8 @@ these gates are true in the current checkout:
 3. `cargo fmt --check` and
    `cargo clippy --all-targets --all-features --locked -- -D warnings` pass.
 4. The TypeScript oracle fixture coverage audit passes, proving every current
-   `examples` and `bench/perf/fixtures` `.ck` input is present in MIR, C, WASM,
-   and LLVM backend oracle tests.
+   `examples`, `bench/perf/fixtures`, and `tests/fixtures` `.ck` input is
+   present in MIR, C, WASM, and LLVM backend oracle tests.
 5. `npm run verify:host-npm-install` passes with `CKC_BIN` unset and
    `typeSmoke: "passed"`; the host verifier prepares `typescript@^5.8.0` in
    the temporary consumer when no `tsc` is already available, so release

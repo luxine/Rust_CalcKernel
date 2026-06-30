@@ -115,9 +115,9 @@ JavaScript compatibility surface。
 2. `cargo test` 在 TypeScript oracle tests 启用时通过。
 3. `cargo fmt --check` 和
    `cargo clippy --all-targets --all-features --locked -- -D warnings` 通过。
-4. TypeScript oracle fixture coverage audit 通过，证明当前 `examples` 和
-   `bench/perf/fixtures` 的 `.ck` 输入都已经进入 MIR、C、WASM、LLVM
-   backend oracle 测试。
+4. TypeScript oracle fixture coverage audit 通过，证明当前 `examples`、
+   `bench/perf/fixtures` 和 `tests/fixtures` 的 `.ck` 输入都已经进入
+   MIR、C、WASM、LLVM backend oracle 测试。
 5. `npm run verify:host-npm-install` 在 `CKC_BIN` unset 且
    `typeSmoke: "passed"` 的情况下通过；如果没有现成 `tsc`，host verifier 会在
    临时 consumer 中准备 `typescript@^5.8.0`，因此 release sign-off 不依赖开发机

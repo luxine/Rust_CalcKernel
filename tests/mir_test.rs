@@ -202,6 +202,7 @@ fn mir_cli_should_match_typescript_oracle_for_official_examples_across_opt_level
         "bench/perf/fixtures/pricing_helpers.ck",
         "bench/perf/fixtures/pricing_soa.ck",
         "bench/perf/fixtures/f64_kernels.ck",
+        "tests/fixtures/f64_edges.ck",
     ];
 
     for opt_level in 0..=3 {

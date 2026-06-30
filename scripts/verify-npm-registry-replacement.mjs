@@ -21,6 +21,7 @@ expectEqual(metadata.types, "./npm/index.d.ts", "types");
 expectJson(metadata.exports, { ".": { types: "./npm/index.d.ts", import: "./npm/index.js" } }, "exports");
 expectJson(metadata.bin, { ckc: "./npm/ckc.js" }, "bin");
 expectNoDependencyFields(metadata);
+expectNoConsumerInstallScripts(metadata);
 expectTarball(metadata.dist?.tarball, version);
 if (!isSha512Integrity(metadata.dist?.integrity)) {
   fail(`dist.integrity must be a sha512 npm integrity string, found ${JSON.stringify(metadata.dist?.integrity)}`);
@@ -39,6 +40,7 @@ console.log(JSON.stringify({
   version,
   tarball: metadata.dist.tarball,
   integrity: metadata.dist.integrity,
+  consumerInstallScripts: [],
   bin: metadata.bin,
   main: metadata.main,
   types: metadata.types
@@ -138,6 +140,22 @@ function expectNoDependencyFields(metadata) {
     const value = metadata[field];
     if (value && (Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0)) {
       fail(`${field} must be empty or absent`);
+    }
+  }
+}
+
+function expectNoConsumerInstallScripts(metadata) {
+  const scripts = metadata.scripts;
+  if (!scripts) {
+    return;
+  }
+  if (typeof scripts !== "object" || Array.isArray(scripts)) {
+    fail(`scripts must be an object when present, found ${JSON.stringify(scripts)}`);
+    return;
+  }
+  for (const scriptName of ["preinstall", "install", "postinstall"]) {
+    if (Object.hasOwn(scripts, scriptName)) {
+      fail(`consumer install lifecycle script ${scriptName} must be absent`);
     }
   }
 }

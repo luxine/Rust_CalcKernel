@@ -28,6 +28,7 @@ expectEqual(registry.status, "ok", "registry replacement status");
 expectEqual(registry.package, manifest.packageName, "registry package name");
 expectEqual(registry.version, manifest.packageVersion, "registry package version");
 expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
+expectEmptyArray(registry.consumerInstallScripts, "registry consumerInstallScripts");
 
 if (!isSha512Integrity(publish.integrity)) {
   fail(`publish integrity must be a sha512 npm integrity string, found ${JSON.stringify(publish.integrity)}`);
@@ -56,6 +57,7 @@ console.log(JSON.stringify({
   tarball: manifest.tarball,
   registryStatus: registry.status,
   registryTarball: registry.tarball,
+  consumerInstallScripts: registry.consumerInstallScripts,
   integrity: registry.integrity
 }, null, 2));
 
@@ -90,6 +92,12 @@ function expectRegistryTarball(tarball, packageName, tarballFile) {
   const expectedSuffix = `/${packageName}/-/${basename(tarballFile)}`;
   if (typeof tarball !== "string" || !tarball.endsWith(expectedSuffix)) {
     fail(`registry tarball must end with ${expectedSuffix}, found ${JSON.stringify(tarball)}`);
+  }
+}
+
+function expectEmptyArray(actual, label) {
+  if (!Array.isArray(actual) || actual.length !== 0) {
+    fail(`${label} must be an empty array, found ${JSON.stringify(actual)}`);
   }
 }
 

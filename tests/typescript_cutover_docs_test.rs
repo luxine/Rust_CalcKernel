@@ -37,6 +37,7 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
         r#"expectIncludes(npmRelease, "registry replacement status", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "registry tarball URL", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "sha512 npm integrity", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "consumer install lifecycle scripts", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

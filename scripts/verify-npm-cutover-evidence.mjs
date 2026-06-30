@@ -53,6 +53,7 @@ console.log(JSON.stringify({
   targets: signoff.targets,
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
+  consumerInstallScripts: publishResult.consumerInstallScripts,
   integrity: publishResult.integrity,
   evidence: {
     manifest: manifestPath,
@@ -114,6 +115,7 @@ function validatePublishResult(value, manifest) {
   if (!isSha512Integrity(value.integrity)) {
     fail(`publish result integrity must be a sha512 npm integrity string, found ${JSON.stringify(value.integrity)}`);
   }
+  expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
 }
 
 function readJsonFile(path, label) {
@@ -137,6 +139,12 @@ function sameStringArray(actual, expected) {
   return Array.isArray(actual)
     && actual.length === expected.length
     && actual.every((value, index) => value === expected[index]);
+}
+
+function expectEmptyArray(actual, label) {
+  if (!Array.isArray(actual) || actual.length !== 0) {
+    fail(`${label} must be an empty array, found ${JSON.stringify(actual)}`);
+  }
 }
 
 function isSha256(value) {

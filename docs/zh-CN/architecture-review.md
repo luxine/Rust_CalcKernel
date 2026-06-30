@@ -129,8 +129,8 @@ JavaScript compatibility surface。
    `build:npm-matrix --verify-staged --expect-complete` 检查完整性，并通过
    `CKC_NPM_BINARIES_DIR` 打包。
 7. `npm run verify:npm-release -- <tarball>` 通过，并记录 tarball SHA256、
-   Rust package metadata、每个 binary 的 file mode、architecture、格式、大小、
-   SHA256 和 strict file-surface manifest 数据。
+   Rust package metadata、`consumerInstallScripts: []`、每个 binary 的 file mode、
+   architecture、格式、大小、SHA256 和 strict file-surface manifest 数据。
 8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
    `node_modules/.bin/ckc`，不能依赖本地 checkout fallback，并且 TypeScript
    declaration smoke 必须通过。

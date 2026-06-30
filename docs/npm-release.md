@@ -217,12 +217,15 @@ node --input-type=module --eval "import { SourceFile, TokenKind, lex, parse, che
 before `npm pack`. `verify:npm-release` rejects any file outside the release file surface and
 prints a JSON manifest containing the tarball filename, tarball SHA256,
 Rust package metadata (`type`, `main`, `types`, `exports`, `bin`, and empty
-dependency fields), `package.json` `files` whitelist, allowed tarball entries,
+dependency fields), explicit `consumerInstallScripts: []` evidence,
+`package.json` `files` whitelist, allowed tarball entries,
 required package files, forbidden internal prefixes, every packaged binary file mode,
 architecture, format, size, and SHA256. It also rejects staged target binaries
 that do not look like their expected executable format and architecture, or
 macOS/Linux entries that are not executable: Mach-O for macOS, ELF for Linux,
-PE for Windows, and `arm64` / `x64` matching the npm target name.
+PE for Windows, and `arm64` / `x64` matching the npm target name. It rejects
+consumer install lifecycle scripts (`preinstall`, `install`, `postinstall`) in
+the packaged `package.json` before the tarball is approved for publish.
 Save that manifest as `release-manifest.json`. On each supported target
 platform, run `npm run verify:host-npm-install -- <tarball>` against the same
 tarball with `CKC_BIN` unset and source checkout fallback disabled, then save
@@ -323,6 +326,9 @@ TypeScript checkout 在重写期间保持只读 oracle；Rust 包的发布签核
 用于确认正式 tarball 携带完整矩阵、严格文件面、每个二进制的 file mode、
 architecture、格式、大小和 SHA256，并会拒绝文件面之外的额外文件、macOS/Linux
 二进制不可执行、格式不像目标平台 executable 或架构与 npm target 不匹配的随包文件。
+它也会在发布前拒绝随包 `package.json` 中的 consumer install lifecycle scripts
+（`preinstall`、`install`、`postinstall`），并在 manifest 中记录
+`consumerInstallScripts: []`。
 `npm run verify:host-npm-install` 用于本机 fresh install smoke：它会临时安装
 当前 host tarball、清空 `CKC_BIN`，并验证 CLI backend 命令、package root API
 和 TypeScript declaration smoke。它输出的 `packagedBinarySha256` 必须与

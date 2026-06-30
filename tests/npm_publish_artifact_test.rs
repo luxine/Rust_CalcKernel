@@ -153,7 +153,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
     "bin": {{
       "ckc": "./npm/ckc.js"
     }},
-    "dependencyFields": {{}}
+    "dependencyFields": {{}},
+    "consumerInstallScripts": []
   }},
   "tarball": "{tarball}",
   "tarballSha256": "{tarball_sha256}",

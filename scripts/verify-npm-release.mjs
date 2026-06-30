@@ -228,6 +228,7 @@ function validatePackageMetadata(packageJson) {
       fail(`package/package.json must not declare ${field}`);
     }
   }
+  const consumerInstallScripts = readConsumerInstallScripts(packageJson);
 
   return {
     type: packageJson.type,
@@ -235,8 +236,26 @@ function validatePackageMetadata(packageJson) {
     types: packageJson.types,
     exports: expectedExports,
     bin: expectedBin,
-    dependencyFields
+    dependencyFields,
+    consumerInstallScripts
   };
+}
+
+function readConsumerInstallScripts(packageJson) {
+  const scripts = packageJson.scripts;
+  if (scripts === undefined || scripts === null) {
+    return [];
+  }
+  if (typeof scripts !== "object" || Array.isArray(scripts)) {
+    fail(`package/package.json scripts must be an object when present, found ${JSON.stringify(scripts)}`);
+  }
+  const consumerInstallScripts = ["preinstall", "install", "postinstall"].filter((scriptName) =>
+    Object.hasOwn(scripts, scriptName)
+  );
+  if (consumerInstallScripts.length > 0) {
+    fail(`package/package.json consumer install lifecycle scripts must be absent: ${consumerInstallScripts.join(", ")}`);
+  }
+  return consumerInstallScripts;
 }
 
 function sameJson(actual, expected) {

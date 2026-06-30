@@ -15,7 +15,8 @@ const EXPECTED_PACKAGE_METADATA = Object.freeze({
     }
   },
   bin: { ckc: "./npm/ckc.js" },
-  dependencyFields: {}
+  dependencyFields: {},
+  consumerInstallScripts: []
 });
 const EXPECTED_PACKAGE_JSON_FILES = Object.freeze([
   "npm",

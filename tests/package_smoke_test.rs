@@ -592,7 +592,8 @@ try {
       bin: {
         ckc: "./npm/ckc.js"
       },
-      dependencyFields: {}
+      dependencyFields: {},
+      consumerInstallScripts: []
     });
     assert.deepEqual(manifest.fileSurface.packageJsonFiles, [
       "npm",
@@ -763,6 +764,36 @@ try {
       assert.match(verifyMutated.stderr, /package\/package\.json must not declare dependencies/);
     } finally {
       rmSync(mutatedPackageJsonRoot, { recursive: true, force: true });
+    }
+
+    const mutatedInstallScriptRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-mutated-install-script-"));
+    try {
+      const unpack = spawnSync("tar", ["-xzf", matrixTarball, "-C", mutatedInstallScriptRoot], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(unpack.status, 0, unpack.stderr || unpack.stdout);
+      const packageJsonPath = join(mutatedInstallScriptRoot, "package", "package.json");
+      const mutatedPackageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      mutatedPackageJson.scripts = {
+        ...(mutatedPackageJson.scripts ?? {}),
+        postinstall: "node-gyp rebuild"
+      };
+      writeFileSync(packageJsonPath, `${JSON.stringify(mutatedPackageJson, null, 2)}\n`);
+      const mutatedTarball = join(mutatedInstallScriptRoot, "calckernel-mutated-install-script.tgz");
+      const repack = spawnSync("tar", ["-czf", mutatedTarball, "-C", mutatedInstallScriptRoot, "package"], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(repack.status, 0, repack.stderr || repack.stdout);
+      const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
+      assert.match(verifyMutated.stderr, /consumer install lifecycle scripts.*postinstall/);
+    } finally {
+      rmSync(mutatedInstallScriptRoot, { recursive: true, force: true });
     }
   } finally {
     rmSync(matrixPackRoot, { recursive: true, force: true });

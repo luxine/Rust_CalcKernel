@@ -137,8 +137,9 @@ these gates are true in the current checkout:
    `build:npm-matrix --verify-staged --expect-complete`, and packed through
    `CKC_NPM_BINARIES_DIR`.
 7. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
-   Rust package metadata, binary file mode, binary architecture, binary format,
-   binary size, binary SHA256s, and strict file-surface manifest data.
+   Rust package metadata, `consumerInstallScripts: []`, binary file mode,
+   binary architecture, binary format, binary size, binary SHA256s, and strict
+   file-surface manifest data.
 8. Each supported target platform fresh-installs the same tarball with scripts
    disabled and runs packaged `node_modules/.bin/ckc`, not a local checkout
    fallback, and its TypeScript declaration smoke passes.

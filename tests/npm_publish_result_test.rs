@@ -50,7 +50,7 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -176,7 +176,7 @@ fn publish_result_verifier_should_preserve_github_actions_publish_provenance() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -252,7 +252,7 @@ fn publish_result_verifier_should_reject_publish_sha_that_differs_from_manifest_
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -309,7 +309,7 @@ fn publish_result_verifier_should_reject_source_repository_mismatch() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -366,7 +366,7 @@ fn publish_result_verifier_should_reject_incomplete_github_actions_publish_prove
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -423,7 +423,7 @@ fn publish_result_verifier_should_reject_wrong_publish_workflow_job_in_github_ac
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -484,7 +484,7 @@ fn publish_result_verifier_should_reject_registry_integrity_mismatch() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -537,7 +537,7 @@ fn publish_result_verifier_should_reject_registry_shasum_mismatch() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -585,7 +585,7 @@ fn publish_result_verifier_should_reject_failed_registry_replacement_status() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -633,7 +633,7 @@ fn publish_result_verifier_should_reject_missing_registry_package_version() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -681,7 +681,7 @@ fn publish_result_verifier_should_reject_missing_registry_public_identity() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -737,7 +737,7 @@ fn publish_result_verifier_should_reject_manifest_public_identity_mismatch() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -786,7 +786,7 @@ fn publish_result_verifier_should_reject_incomplete_release_manifest() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -834,7 +834,7 @@ fn publish_result_verifier_should_reject_invalid_integrity_format() {
     )
     .expect("write registry output");
 
-    let output = Command::new("node")
+    let output = node_command()
         .arg("scripts/verify-npm-publish-result.mjs")
         .arg(&manifest)
         .arg(&publish)
@@ -1025,4 +1025,26 @@ fn node_available() -> bool {
         .arg("--version")
         .output()
         .is_ok_and(|output| output.status.success())
+}
+
+fn node_command() -> Command {
+    let mut command = Command::new("node");
+    clear_github_actions_env(&mut command);
+    command
+}
+
+fn clear_github_actions_env(command: &mut Command) {
+    for key in [
+        "GITHUB_ACTIONS",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_SHA",
+        "GITHUB_REPOSITORY",
+        "GITHUB_WORKFLOW",
+        "GITHUB_JOB",
+        "RUNNER_OS",
+        "RUNNER_ARCH",
+    ] {
+        command.env_remove(key);
+    }
 }

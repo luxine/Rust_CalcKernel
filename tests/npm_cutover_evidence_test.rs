@@ -144,6 +144,12 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"typeSmoke\": \"passed\""),
+        "cutover evidence verifier should preserve TypeScript declaration smoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"backendRuntimeSmokes\": ["),
         "cutover evidence verifier should report backend runtime smoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -374,6 +380,112 @@ fn cutover_evidence_verifier_should_reject_missing_release_signoff_summary_runti
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("backendRuntimeSmokes"),
         "failure should identify release signoff summary backendRuntimeSmokes\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_release_signoff_type_smoke() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-signoff-type-smoke");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_type_smoke(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing release signoff typeSmoke should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("typeSmoke"),
+        "failure should identify release signoff typeSmoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_summary_type_smoke_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-type-smoke");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_with_type_smoke(TARBALL_SHA256, "skipped"),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched release signoff summary typeSmoke should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("typeSmoke"),
+        "failure should identify release signoff summary typeSmoke mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -926,7 +1038,35 @@ fn release_signoff_json_with_signed_target_sha256(
     tarball_sha256: &str,
     signed_target_sha256: &str,
 ) -> String {
+    release_signoff_json_with_signed_target_sha256_and_type_smoke(
+        tarball_sha256,
+        signed_target_sha256,
+        Some("passed"),
+    )
+}
+
+fn release_signoff_json_without_type_smoke(tarball_sha256: &str) -> String {
+    release_signoff_json_with_signed_target_sha256_and_type_smoke(
+        tarball_sha256,
+        BINARY_SHA256,
+        None,
+    )
+}
+
+fn release_signoff_json_with_signed_target_sha256_and_type_smoke(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+    type_smoke: Option<&str>,
+) -> String {
     let signed_targets = signed_targets_json(signed_target_sha256, true);
+    let type_smoke = type_smoke
+        .map(|value| {
+            format!(
+                r#",
+  "typeSmoke": "{value}""#
+            )
+        })
+        .unwrap_or_default();
     format!(
         r#"{{
   "status": "ok",
@@ -946,7 +1086,7 @@ fn release_signoff_json_with_signed_target_sha256(
   "signedTargets": [
 {signed_targets}
   ],
-  "sourceFallback": "disabled",
+  "sourceFallback": "disabled"{type_smoke},
   "backendRuntimeSmokes": [
     "node smoke-c-runtime.mjs",
     "node smoke-wasm-runtime.mjs",
@@ -1002,6 +1142,17 @@ fn release_signoff_summary_json_without_runtime_smokes(tarball_sha256: &str) -> 
     )
 }
 
+fn release_signoff_summary_json_with_type_smoke(tarball_sha256: &str, type_smoke: &str) -> String {
+    release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+        true,
+        tarball_sha256,
+        "disabled",
+        true,
+        type_smoke,
+        true,
+    )
+}
+
 fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime_smokes(
     include_package_version: bool,
     tarball_sha256: &str,
@@ -1022,6 +1173,24 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
     tarball_sha256: &str,
     source_fallback: &str,
     include_runtime_smokes: bool,
+    include_platform_arch: bool,
+) -> String {
+    release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+        include_package_version,
+        tarball_sha256,
+        source_fallback,
+        include_runtime_smokes,
+        "passed",
+        include_platform_arch,
+    )
+}
+
+fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+    include_package_version: bool,
+    tarball_sha256: &str,
+    source_fallback: &str,
+    include_runtime_smokes: bool,
+    type_smoke: &str,
     include_platform_arch: bool,
 ) -> String {
     let package_version = if include_package_version {
@@ -1060,7 +1229,8 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
   "signedTargets": [
 {signed_targets}
   ],
-  "sourceFallback": "{source_fallback}"{runtime_smokes}
+  "sourceFallback": "{source_fallback}",
+  "typeSmoke": "{type_smoke}"{runtime_smokes}
 }}"#
     )
 }

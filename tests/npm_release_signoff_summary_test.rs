@@ -88,6 +88,12 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"typeSmoke\": \"passed\""),
+        "release signoff summary verifier should preserve TypeScript declaration smoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"backendRuntimeSmokes\": ["),
         "release signoff summary verifier should report backend runtime smoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -172,6 +178,47 @@ fn release_signoff_summary_verifier_should_reject_missing_backend_runtime_smoke_
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("backendRuntimeSmokes"),
         "failure should identify missing backendRuntimeSmokes evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_type_smoke_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-type-smoke");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_type_smoke(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing TypeScript declaration smoke evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("typeSmoke"),
+        "failure should identify missing typeSmoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -346,6 +393,17 @@ fn release_signoff_json_without_backend_runtime_smokes(tarball_sha256: &str) -> 
     )
 }
 
+fn release_signoff_json_without_type_smoke(tarball_sha256: &str) -> String {
+    release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        None,
+        true,
+    )
+}
+
 fn release_signoff_json_without_source_fallback(tarball_sha256: &str) -> String {
     release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_smokes(
         tarball_sha256,
@@ -389,6 +447,24 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
     include_runtime_smokes: bool,
     include_platform_arch: bool,
 ) -> String {
+    release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+        tarball_sha256,
+        signed_target_sha256,
+        source_fallback,
+        include_runtime_smokes,
+        Some("passed"),
+        include_platform_arch,
+    )
+}
+
+fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+    source_fallback: Option<&str>,
+    include_runtime_smokes: bool,
+    type_smoke: Option<&str>,
+    include_platform_arch: bool,
+) -> String {
     let source_fallback = source_fallback
         .map(|value| {
             format!(
@@ -407,6 +483,14 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
     } else {
         ""
     };
+    let type_smoke = type_smoke
+        .map(|value| {
+            format!(
+                r#",
+  "typeSmoke": "{value}""#
+            )
+        })
+        .unwrap_or_default();
     let signed_targets = signed_targets_json(signed_target_sha256, include_platform_arch);
     format!(
         r#"{{
@@ -426,7 +510,7 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
   ],
   "signedTargets": [
 {signed_targets}
-  ]{source_fallback}{runtime_smokes}
+  ]{source_fallback}{type_smoke}{runtime_smokes}
 }}"#
     )
 }

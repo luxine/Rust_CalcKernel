@@ -507,6 +507,12 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"typeSmoke\": \"passed\""),
+        "complete target signoff should preserve aggregate TypeScript declaration smoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"backendRuntimeSmokes\": ["),
         "complete target signoff should report backend runtime smoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

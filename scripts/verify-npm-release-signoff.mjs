@@ -69,6 +69,7 @@ console.log(JSON.stringify({
   targets: verifiedTargets,
   signedTargets,
   sourceFallback: "disabled",
+  typeSmoke: "passed",
   backendRuntimeSmokes: backendRuntimeSmokes()
 }, null, 2));
 

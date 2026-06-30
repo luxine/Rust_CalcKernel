@@ -106,6 +106,7 @@ expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff-summary", "npm release docs");
 expectIncludes(npmRelease, "verify:typescript-oracle", "npm release docs");
 expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
+expectIncludes(npmRelease, "typeSmoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");
 expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");

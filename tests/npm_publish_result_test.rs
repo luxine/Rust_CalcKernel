@@ -72,6 +72,12 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packageVersion\": \"0.8.0\""),
+        "publish result verifier should report the manifest packageVersion explicitly\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"consumerInstallScripts\": []"),
         "publish result verifier should report that registry metadata has no consumer install lifecycle scripts\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

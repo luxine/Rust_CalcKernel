@@ -291,6 +291,57 @@ fn cutover_evidence_verifier_should_reject_release_signoff_summary_source_fallba
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_missing_release_signoff_summary_package_version() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-package-version");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_without_package_version(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing release signoff summary packageVersion should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("release sign-off summary packageVersion"),
+        "failure should identify release signoff summary packageVersion\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
     if !node_available() {
         return;
@@ -340,6 +391,61 @@ fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("publish result shasum"),
         "failure should identify publish result shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_publish_result_package_version() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-result-package-version");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json_without_package_version(),
+    )
+    .expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing publish result packageVersion should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish result packageVersion"),
+        "failure should identify publish result packageVersion\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -467,11 +573,37 @@ fn release_signoff_summary_json_with_source_fallback(
     tarball_sha256: &str,
     source_fallback: &str,
 ) -> String {
+    release_signoff_summary_json_with_package_version_and_source_fallback(
+        true,
+        tarball_sha256,
+        source_fallback,
+    )
+}
+
+fn release_signoff_summary_json_without_package_version(tarball_sha256: &str) -> String {
+    release_signoff_summary_json_with_package_version_and_source_fallback(
+        false,
+        tarball_sha256,
+        "disabled",
+    )
+}
+
+fn release_signoff_summary_json_with_package_version_and_source_fallback(
+    include_package_version: bool,
+    tarball_sha256: &str,
+    source_fallback: &str,
+) -> String {
+    let package_version = if include_package_version {
+        r#",
+  "packageVersion": "0.8.0""#
+    } else {
+        ""
+    };
     format!(
         r#"{{
   "status": "ok",
   "package": "calckernel",
-  "version": "0.8.0",
+  "version": "0.8.0"{package_version},
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
   "targetCount": 6,
@@ -514,11 +646,28 @@ fn publish_result_json() -> String {
 }
 
 fn publish_result_json_with_shasum(shasum: &str) -> String {
+    publish_result_json_with_package_version_and_shasum(true, shasum)
+}
+
+fn publish_result_json_without_package_version() -> String {
+    publish_result_json_with_package_version_and_shasum(false, VALID_SHASUM)
+}
+
+fn publish_result_json_with_package_version_and_shasum(
+    include_package_version: bool,
+    shasum: &str,
+) -> String {
+    let package_version = if include_package_version {
+        r#",
+  "packageVersion": "0.8.0""#
+    } else {
+        ""
+    };
     format!(
         r#"{{
   "status": "ok",
   "package": "calckernel",
-  "version": "0.8.0",
+  "version": "0.8.0"{package_version},
   "tarball": "calckernel-0.8.0.tgz",
   "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",

@@ -66,6 +66,7 @@ if (failures.length > 0) {
 console.log(JSON.stringify({
   status: "ok",
   package: manifest.packageName,
+  packageVersion: manifest.packageVersion,
   version: manifest.packageVersion,
   tarball: manifest.tarball,
   registryStatus: registry.status,

@@ -117,6 +117,7 @@ function validateReleaseSignoff(value, manifest) {
 function validateReleaseSignoffSummary(value, manifest, signoff) {
   expectEqual(value.status, "ok", "release sign-off summary status");
   expectEqual(value.package, manifest.packageName, "release sign-off summary package");
+  expectEqual(value.packageVersion, manifest.packageVersion, "release sign-off summary packageVersion");
   expectEqual(value.version, manifest.packageVersion, "release sign-off summary version");
   expectEqual(value.tarball, manifest.tarball, "release sign-off summary tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off summary tarballSha256");
@@ -148,6 +149,7 @@ function validatePublishArtifact(value, manifest) {
 function validatePublishResult(value, manifest) {
   expectEqual(value.status, "ok", "publish result status");
   expectEqual(value.package, manifest.packageName, "publish result package");
+  expectEqual(value.packageVersion, manifest.packageVersion, "publish result packageVersion");
   expectEqual(value.version, manifest.packageVersion, "publish result version");
   expectEqual(value.tarball, manifest.tarball, "publish result tarball");
   expectEqual(value.registryStatus, "ok", "publish result registryStatus");

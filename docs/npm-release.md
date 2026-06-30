@@ -377,11 +377,13 @@ member surface by member name and constant value. It also compares type alias
 surface with normalized declaration text and bidirectional TypeScript
 assignability. The Rust package root runtime exports exactly the same public
 JavaScript API names and runtime export kind (`class`, `function`, `object`,
-etc.) as `dist/src/index.js`, and object exports such as `TokenKind` must match
-the TypeScript runtime object property surface by own enumerable property name,
-property kind, and primitive property value. Class exports must also match the
-TypeScript runtime class member surface by static/prototype own member name,
-member placement, member kind, and primitive member value where applicable.
+etc.) as `dist/src/index.js`. Function exports must match the TypeScript
+runtime function metadata surface for observable arity (`.length`), and object
+exports such as `TokenKind` must match the TypeScript runtime object property
+surface by own enumerable property name, property kind, and primitive property
+value. Class exports must also match the TypeScript runtime class member surface
+by static/prototype own member name, member placement, member kind, and primitive
+member value where applicable.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
@@ -456,7 +458,8 @@ property、method、private、static 声明）以及 interface member surface（
 readonly/optional 标记和 TypeScript 结构类型兼容性）、enum member surface
 （成员名和常量值）、type alias surface（规范化声明文本和 TypeScript 双向
 assignability）对齐；同时确认 runtime exports 与
-`dist/src/index.js` 的 public JavaScript API 名称、runtime export kind 以及
+`dist/src/index.js` 的 public JavaScript API 名称、runtime export kind、function
+export 的 runtime function metadata surface（可观察 arity / `.length`）以及
 `TokenKind` 这类 object export 的 runtime object property surface（自有可枚举
 属性名、属性 kind 和 primitive 属性值）、class export 的 runtime class member
 surface（static/prototype 自有成员名、成员位置、成员 kind，以及适用时的 primitive

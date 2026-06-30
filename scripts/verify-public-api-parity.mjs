@@ -19,6 +19,16 @@ const extraRustExports = rustExports.filter((name) => !typescriptExports.include
 const missingRustExports = typescriptExports.filter((name) => !rustExports.includes(name));
 const rustExportKinds = new Map(rustSurface.map((entry) => [entry.name, entry.kind]));
 const typescriptExportKinds = new Map(typescriptSurface.map((entry) => [entry.name, entry.kind]));
+const rustFunctionMetadata = new Map(
+  rustSurface
+    .filter((entry) => entry.functionMetadataInfo)
+    .map((entry) => [entry.name, entry.functionMetadataInfo])
+);
+const typescriptFunctionMetadata = new Map(
+  typescriptSurface
+    .filter((entry) => entry.functionMetadataInfo)
+    .map((entry) => [entry.name, entry.functionMetadataInfo])
+);
 const rustObjectProperties = new Map(
   rustSurface
     .filter((entry) => entry.objectPropertyInfo)
@@ -52,6 +62,14 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   if (rustKind !== typescriptKind) {
     fail(`export kind mismatch for ${name}: Rust ${rustKind}, TypeScript ${typescriptKind}`);
   }
+  const rustFunction = rustFunctionMetadata.get(name);
+  const typescriptFunction = typescriptFunctionMetadata.get(name);
+  if (rustFunction && typescriptFunction && !sameJson(rustFunction.metadata, typescriptFunction.metadata)) {
+    fail(
+      `runtime function metadata mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustFunction.metadata)}, TypeScript ${JSON.stringify(typescriptFunction.metadata)}`
+    );
+  }
   const rustObject = rustObjectProperties.get(name);
   const typescriptObject = typescriptObjectProperties.get(name);
   if (rustObject && typescriptObject && !sameJson(rustObject.properties, typescriptObject.properties)) {
@@ -84,6 +102,9 @@ console.log(JSON.stringify({
   exportCount: rustExports.length,
   exports: rustExports,
   exportKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind])),
+  functionMetadata: Object.fromEntries(
+    [...rustFunctionMetadata.entries()].map(([name, info]) => [name, info.metadata])
+  ),
   objectProperties: Object.fromEntries(
     [...rustObjectProperties.entries()].map(([name, info]) => [name, info.properties])
   ),
@@ -137,6 +158,7 @@ async function readRuntimeExportSurface(path, label) {
       .map((name) => ({
         name,
         kind: runtimeExportKind(module[name]),
+        functionMetadataInfo: runtimeFunctionMetadataInfo(module[name]),
         objectPropertyInfo: runtimeObjectPropertyInfo(module[name]),
         classMemberInfo: runtimeClassMemberInfo(module[name])
       }));
@@ -150,6 +172,17 @@ function runtimeExportKind(value) {
     return "class";
   }
   return typeof value;
+}
+
+function runtimeFunctionMetadataInfo(value) {
+  if (runtimeExportKind(value) !== "function") {
+    return null;
+  }
+  return {
+    metadata: {
+      length: value.length
+    }
+  };
 }
 
 function runtimeObjectPropertyInfo(value) {

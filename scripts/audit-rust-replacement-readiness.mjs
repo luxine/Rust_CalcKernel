@@ -6,6 +6,27 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tsRoot = process.env.CALCKERNEL_TS_ROOT ?? "/Users/lynn/code/CalcKernel";
 const failures = [];
+const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
+  "audit:release-workflow",
+  "audit:typescript-test-surface",
+  "build",
+  "build:npm-matrix",
+  "ckc",
+  "postpack",
+  "prepack",
+  "test",
+  "verify:cutover-evidence",
+  "verify:declaration-parity",
+  "verify:host-npm-install",
+  "verify:npm-release",
+  "verify:public-api-parity",
+  "verify:publish-artifact",
+  "verify:publish-result",
+  "verify:registry-replacement",
+  "verify:release-signoff",
+  "verify:release-signoff-summary",
+  "verify:typescript-oracle"
+]);
 
 const packageJson = readJson(join(root, "package.json"));
 expectEqual(packageJson.name, "calckernel", "Rust package name");
@@ -35,6 +56,8 @@ expectJson(
   "Rust package files"
 );
 expectNoDependencyFields(packageJson, "Rust package");
+expectNoPackageManager(packageJson, "Rust package");
+expectPackageScriptNames(packageJson, EXPECTED_PACKAGE_SCRIPT_NAMES, "Rust package");
 expectEqual(packageJson.scripts?.["build:npm-matrix"], "node scripts/build-npm-binary-matrix.mjs", "binary matrix script");
 expectEqual(packageJson.scripts?.["audit:release-workflow"], "node scripts/audit-npm-release-workflow.mjs", "release workflow audit script");
 expectEqual(packageJson.scripts?.["audit:typescript-test-surface"], "node scripts/audit-typescript-test-surface.mjs", "TypeScript test surface audit script");
@@ -259,4 +282,19 @@ function expectNoDependencyFields(packageJson, label) {
       failures.push(`${label} must not declare ${field}`);
     }
   }
+}
+
+function expectNoPackageManager(packageJson, label) {
+  if (Object.hasOwn(packageJson, "packageManager")) {
+    failures.push(`${label} must not declare packageManager`);
+  }
+}
+
+function expectPackageScriptNames(packageJson, expected, label) {
+  const scripts = packageJson.scripts;
+  if (!scripts || typeof scripts !== "object" || Array.isArray(scripts)) {
+    failures.push(`${label} scripts must be an object, found ${JSON.stringify(scripts)}`);
+    return;
+  }
+  expectJson(Object.keys(scripts).sort(), expected, `${label} scriptNames`);
 }

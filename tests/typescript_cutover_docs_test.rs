@@ -59,6 +59,25 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_exact_package_script_surface() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        "const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze",
+        r#"expectNoPackageManager(packageJson, "Rust package")"#,
+        r#"expectPackageScriptNames(packageJson, EXPECTED_PACKAGE_SCRIPT_NAMES, "Rust package")"#,
+        "function expectNoPackageManager(packageJson, label)",
+        "function expectPackageScriptNames(packageJson, expected, label)",
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_self_contained_cutover_artifact_docs() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

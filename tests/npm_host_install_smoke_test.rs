@@ -6,12 +6,13 @@ fn host_npm_install_verifier_should_pass_without_ckc_bin_override() {
         return;
     }
 
-    let output = Command::new("node")
+    let mut command = Command::new("node");
+    command
         .arg("scripts/verify-host-npm-install.mjs")
         .env_remove("CKC_BIN")
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .output()
-        .expect("run host npm install verifier");
+        .current_dir(env!("CARGO_MANIFEST_DIR"));
+    clear_github_actions_env(&mut command);
+    let output = command.output().expect("run host npm install verifier");
 
     assert!(
         output.status.success(),
@@ -99,11 +100,14 @@ fn host_npm_install_verifier_should_reject_missing_tarball_argument() {
     let missing_tarball = std::env::temp_dir().join("rust-calckernel-missing-host-smoke.tgz");
     let _ = std::fs::remove_file(&missing_tarball);
 
-    let output = Command::new("node")
+    let mut command = Command::new("node");
+    command
         .arg("scripts/verify-host-npm-install.mjs")
         .arg(&missing_tarball)
         .env_remove("CKC_BIN")
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .current_dir(env!("CARGO_MANIFEST_DIR"));
+    clear_github_actions_env(&mut command);
+    let output = command
         .output()
         .expect("run host npm install verifier with missing tarball");
 
@@ -335,6 +339,22 @@ fn npm_available() -> bool {
         .arg("--version")
         .output()
         .is_ok_and(|output| output.status.success())
+}
+
+fn clear_github_actions_env(command: &mut Command) {
+    for key in [
+        "GITHUB_ACTIONS",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_SHA",
+        "GITHUB_REPOSITORY",
+        "GITHUB_WORKFLOW",
+        "GITHUB_JOB",
+        "RUNNER_OS",
+        "RUNNER_ARCH",
+    ] {
+        command.env_remove(key);
+    }
 }
 
 fn expected_runner_os() -> &'static str {

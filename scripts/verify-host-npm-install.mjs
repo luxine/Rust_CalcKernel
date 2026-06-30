@@ -13,6 +13,8 @@ const C_BUILD_RUNTIME_COMMAND = "ckc build smoke.ck -o build/smoke-c";
 const C_RUNTIME_COMMAND = "node smoke-c-runtime.mjs";
 const WASM_RUNTIME_COMMAND = "node smoke-wasm-runtime.mjs";
 const LLVM_OBJECT_RUNTIME_COMMAND = "node smoke-llvm-object-runtime.mjs";
+const RELEASE_WORKFLOW = "npm release artifact";
+const PLATFORM_SIGNOFF_JOB = "platform-signoff";
 const options = parseArgs(process.argv.slice(2));
 const keepTemp = options.keepTemp || process.env.CKC_KEEP_HOST_NPM_SMOKE === "1";
 
@@ -227,6 +229,8 @@ function collectCiProvenance(target) {
   const githubRunId = requireGithubEnv("GITHUB_RUN_ID", "githubRunId");
   const githubRunAttempt = requireGithubEnv("GITHUB_RUN_ATTEMPT", "githubRunAttempt");
   const githubSha = requireGithubEnv("GITHUB_SHA", "githubSha");
+  const githubWorkflow = requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow");
+  const githubJob = requireGithubEnv("GITHUB_JOB", "githubJob");
   if (!/^\d+$/.test(githubRunId)) {
     fail(`githubRunId must be a non-empty decimal string`);
   }
@@ -236,14 +240,20 @@ function collectCiProvenance(target) {
   if (!/^[0-9a-f]{40}$/.test(githubSha)) {
     fail(`githubSha must be a 40-character lowercase hex commit SHA`);
   }
+  if (githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}, found ${JSON.stringify(githubWorkflow)}`);
+  }
+  if (githubJob !== PLATFORM_SIGNOFF_JOB) {
+    fail(`githubJob must be ${JSON.stringify(PLATFORM_SIGNOFF_JOB)}, found ${JSON.stringify(githubJob)}`);
+  }
 
   return {
     ciProvider: "github-actions",
     githubRunId,
     githubRunAttempt,
     githubSha,
-    githubWorkflow: requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow"),
-    githubJob: requireGithubEnv("GITHUB_JOB", "githubJob"),
+    githubWorkflow,
+    githubJob,
     runnerOs,
     runnerArch
   };

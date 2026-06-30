@@ -191,6 +191,42 @@ fn host_npm_install_verifier_should_reject_runner_target_mismatch_in_github_acti
 }
 
 #[test]
+fn host_npm_install_verifier_should_reject_wrong_release_workflow_job_in_github_actions() {
+    if !node_available() || !npm_available() {
+        return;
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-host-npm-install.mjs")
+        .env_remove("CKC_BIN")
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", "1234567890")
+        .env("GITHUB_RUN_ATTEMPT", "1")
+        .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_WORKFLOW", "unit test workflow")
+        .env("GITHUB_JOB", "verify-release-scripts")
+        .env("RUNNER_OS", expected_runner_os())
+        .env("RUNNER_ARCH", expected_runner_arch())
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run host npm install verifier with wrong release workflow provenance");
+
+    assert!(
+        !output.status.success(),
+        "wrong GitHub Actions workflow/job should fail before writing release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubWorkflow")
+            || String::from_utf8_lossy(&output.stderr).contains("githubJob"),
+        "failure should identify the release workflow/job mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn host_npm_install_verifier_should_prepare_typescript_for_ci_without_local_oracle_fallback() {
     let script =
         std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");

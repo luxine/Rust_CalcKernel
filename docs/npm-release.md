@@ -88,6 +88,9 @@ GitHub Actions provenance (`ciProvider`, `githubRunId`, `githubRunAttempt`,
 platform evidence, installed-CLI path smoke, package binary path smoke, root API
 smoke, declaration smoke, and C/WASM/LLVM runtime smoke commands, not just the
 target SHA256s.
+The release sign-off verifier requires `githubWorkflow: "npm release artifact"`
+and `githubJob: "platform-signoff"` so target evidence can only come from the
+formal platform sign-off job.
 To verify an already generated tarball instead of repacking, pass its path:
 
 ```sh
@@ -167,7 +170,9 @@ The workflow runs these stages:
    `npmVersion` for the Node/npm environment that executed the installed CLI,
    plus `ciProvider: "github-actions"`, `githubRunId`, `githubRunAttempt`,
    `githubSha`, `githubWorkflow`, `githubJob`, `runnerOs`, and `runnerArch` so
-   sign-off evidence is tied to the intended target-platform runner.
+   sign-off evidence is tied to the intended target-platform runner. The
+   aggregate verifier also requires the canonical `githubWorkflow` value
+   `npm release artifact` and `githubJob` value `platform-signoff`.
 7. When publication is intentionally approved, rerun or dispatch the workflow
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
@@ -280,6 +285,8 @@ GitHub Actions provenance (`ciProvider`, `githubRunId`, `githubRunAttempt`,
 `githubSha`, `githubWorkflow`, `githubJob`) or target-matching runner evidence
 (`runnerOs` / `runnerArch`), enabled source checkout fallbacks, mismatched
 `packagedBinarySha256` values, and TypeScript declaration smoke failures.
+It rejects sign-offs whose `githubWorkflow` is not `npm release artifact` or
+whose `githubJob` is not `platform-signoff`.
 The release sign-off summary and final cutover verifier require the same
 signed target `platform` / `arch`, `installedBin`, `packagedBinary`,
 `packagedBinarySha256`, `nodeVersion`, `npmVersion`, `ciProvider`,
@@ -412,7 +419,9 @@ GitHub Actions provenance（`ciProvider`、`githubRunId`、`githubRunAttempt`、
 `githubSha`、`githubWorkflow`、`githubJob`）缺失、runner evidence
 （`runnerOs` / `runnerArch`）与目标平台不匹配、
 `packagedBinarySha256` 与 release manifest target SHA256 不一致，以及
-TypeScript declaration smoke 未通过的签核文件。`release-signoff-summary.json`
+TypeScript declaration smoke 未通过的签核文件。`verify:release-signoff`
+还会要求 `githubWorkflow` 必须是 `npm release artifact`，`githubJob` 必须是
+`platform-signoff`，确保签核证据来自正式多平台发布签核 job。`release-signoff-summary.json`
 和最终 cutover verifier 还会要求 `ckcBinOverride: "unset"`、CLI smoke
 `commands`、root API `apiSymbols`、`typeSmoke: "passed"`、
 `backendRuntimeSmokes` 与 `release-signoff.json` 一致，并保留 signed target

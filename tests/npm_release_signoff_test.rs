@@ -490,6 +490,94 @@ fn release_signoff_verifier_should_reject_non_github_actions_signoff() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_wrong_github_workflow() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-wrong-workflow");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_with_github_workflow(target, "unit test workflow"),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong GitHub workflow provenance should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubWorkflow")
+            && String::from_utf8_lossy(&output.stderr).contains(GITHUB_WORKFLOW),
+        "wrong workflow failure should identify the required workflow\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_verifier_should_reject_wrong_github_job() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-wrong-job");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_with_github_job(target, "verify-release-scripts"),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong GitHub job provenance should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubJob")
+            && String::from_utf8_lossy(&output.stderr).contains(GITHUB_JOB),
+        "wrong job failure should identify the required job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_runner_platform_mismatch() {
     if !node_available() {
         return;
@@ -889,6 +977,20 @@ fn signoff_json_with_ci_provider(target: &str, ci_provider: &str) -> String {
 
 fn signoff_json_with_runner(target: &str, runner_os: &str, runner_arch: &str) -> String {
     signoff_json_with_ci_provenance(target, CI_PROVIDER, Some(runner_os), Some(runner_arch))
+}
+
+fn signoff_json_with_github_workflow(target: &str, github_workflow: &str) -> String {
+    signoff_json(target).replace(
+        &format!("\"githubWorkflow\": \"{GITHUB_WORKFLOW}\""),
+        &format!("\"githubWorkflow\": \"{github_workflow}\""),
+    )
+}
+
+fn signoff_json_with_github_job(target: &str, github_job: &str) -> String {
+    signoff_json(target).replace(
+        &format!("\"githubJob\": \"{GITHUB_JOB}\""),
+        &format!("\"githubJob\": \"{github_job}\""),
+    )
 }
 
 fn signoff_json_with_ci_provenance(

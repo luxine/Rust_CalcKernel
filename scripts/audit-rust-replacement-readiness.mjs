@@ -125,6 +125,8 @@ expectIncludes(npmRelease, "githubRunAttempt", "npm release docs");
 expectIncludes(npmRelease, "githubSha", "npm release docs");
 expectIncludes(npmRelease, "githubWorkflow", "npm release docs");
 expectIncludes(npmRelease, "githubJob", "npm release docs");
+expectIncludes(npmRelease, "npm release artifact", "npm release docs");
+expectIncludes(npmRelease, "platform-signoff", "npm release docs");
 expectIncludes(npmRelease, "runnerOs", "npm release docs");
 expectIncludes(npmRelease, "runnerArch", "npm release docs");
 expectIncludes(npmRelease, "ckcBinOverride", "npm release docs");

@@ -110,6 +110,8 @@ fn rust_replacement_readiness_audit_should_require_host_signoff_type_smoke_compi
         r#"expectIncludes(npmRelease, "githubSha", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "githubWorkflow", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "githubJob", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm release artifact", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "platform-signoff", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runnerOs", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runnerArch", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "ckcBinOverride", "npm release docs")"#,

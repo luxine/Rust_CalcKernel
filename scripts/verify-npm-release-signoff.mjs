@@ -3,6 +3,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
+const RELEASE_WORKFLOW = "npm release artifact";
+const PLATFORM_SIGNOFF_JOB = "platform-signoff";
+
 const [manifestArg, signoffDirArg] = process.argv.slice(2);
 if (!manifestArg || !signoffDirArg || manifestArg === "--help" || manifestArg === "-h") {
   console.error("Usage: node scripts/verify-npm-release-signoff.mjs <release-manifest.json> <signoff-dir>");
@@ -164,8 +167,12 @@ function validateCiProvenance(signoff, target) {
   if (typeof signoff.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(signoff.githubSha)) {
     fail(`${target.name} githubSha must be a 40-character lowercase hex commit SHA`);
   }
-  requireNonEmptyString(signoff.githubWorkflow, `${target.name} githubWorkflow`);
-  requireNonEmptyString(signoff.githubJob, `${target.name} githubJob`);
+  if (signoff.githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`${target.name} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
+  }
+  if (signoff.githubJob !== PLATFORM_SIGNOFF_JOB) {
+    fail(`${target.name} githubJob must be ${JSON.stringify(PLATFORM_SIGNOFF_JOB)}`);
+  }
 
   const expectedRunnerOs = runnerOsForTarget(target);
   const expectedRunnerArch = runnerArchForTarget(target);

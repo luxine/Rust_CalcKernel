@@ -5,13 +5,16 @@ import { fileURLToPath } from "node:url";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const workflowPath = join(root, ".github", "workflows", "npm-release.yml");
+const workflowPath = process.env.CKC_NPM_RELEASE_WORKFLOW
+  ? resolve(process.env.CKC_NPM_RELEASE_WORKFLOW)
+  : join(root, ".github", "workflows", "npm-release.yml");
 const failures = [];
 
 if (!existsSync(workflowPath)) {
   fail(`npm release workflow is missing: ${workflowPath}`);
 } else {
   const workflow = readFileSync(workflowPath, "utf8");
+  const buildBinaryJob = workflowSection(workflow, "build-binary:", "pack-release:");
   const platformSignoffJob = workflowSection(workflow, "platform-signoff:", "finalize-signoff:");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
   expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
@@ -127,6 +130,16 @@ if (!existsSync(workflowPath)) {
     expectIncludes(workflow, `target: ${target.name}`, `${target.name} matrix entry`);
     expectIncludes(workflow, `rust-target: ${target.rustTarget}`, `${target.name} rust target`);
     expectIncludes(workflow, `binary: ${binaryNameForTarget(target.name)}`, `${target.name} binary artifact`);
+    expectIncludes(
+      buildBinaryJob,
+      targetMatrixEntry(target),
+      `${target.name} build-binary target/runner binding`
+    );
+    expectIncludes(
+      platformSignoffJob,
+      targetMatrixEntry(target),
+      `${target.name} platform-signoff target/runner binding`
+    );
   }
 
   for (const runner of [
@@ -194,6 +207,35 @@ function expectOrder(text, before, after, label) {
   }
   if (beforeIndex >= afterIndex) {
     fail(`${label} must place ${before} before ${after}`);
+  }
+}
+
+function targetMatrixEntry(target) {
+  return [
+    `          - target: ${target.name}`,
+    `            rust-target: ${target.rustTarget}`,
+    `            runner: ${runnerForTarget(target)}`,
+    `            binary: ${binaryNameForTarget(target.name)}`
+  ].join("\n");
+}
+
+function runnerForTarget(target) {
+  switch (target.name) {
+    case "darwin-arm64":
+      return "macos-15";
+    case "darwin-x64":
+      return "macos-15-intel";
+    case "linux-arm64":
+      return "ubuntu-24.04-arm";
+    case "linux-x64":
+      return "ubuntu-24.04";
+    case "win32-arm64":
+      return "windows-11-arm";
+    case "win32-x64":
+      return "windows-2025";
+    default:
+      fail(`${target.name} has no configured release runner`);
+      return "";
   }
 }
 

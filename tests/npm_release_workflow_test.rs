@@ -252,6 +252,88 @@ fn npm_release_workflow_should_sign_off_the_manifest_tarball() {
     );
 }
 
+#[test]
+fn npm_release_workflow_audit_should_reject_platform_signoff_runner_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "platform-signoff:",
+        "finalize-signoff:",
+        "runner: ubuntu-24.04-arm",
+        "runner: ubuntu-24.04",
+    );
+    let workflow_path = write_temp_workflow("platform-signoff-runner-mismatch", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against tampered platform signoff workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject a platform-signoff target bound to the wrong runner\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("linux-arm64")
+            && String::from_utf8_lossy(&output.stderr).contains("ubuntu-24.04-arm"),
+        "runner mismatch failure should identify the target and expected runner\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_build_binary_runner_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "build-binary:",
+        "pack-release:",
+        "runner: windows-11-arm",
+        "runner: windows-2025",
+    );
+    let workflow_path = write_temp_workflow("build-binary-runner-mismatch", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against tampered build binary workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject a build-binary target bound to the wrong runner\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("win32-arm64")
+            && String::from_utf8_lossy(&output.stderr).contains("windows-11-arm"),
+        "runner mismatch failure should identify the target and expected runner\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn workflow_section<'a>(workflow: &'a str, start: &str, end: &str) -> &'a str {
     let start_index = workflow
         .find(start)
@@ -261,6 +343,41 @@ fn workflow_section<'a>(workflow: &'a str, start: &str, end: &str) -> &'a str {
         .map(|offset| start_index + offset)
         .unwrap_or_else(|| panic!("workflow should include {end} after {start}"));
     &workflow[start_index..end_index]
+}
+
+fn replace_in_workflow_section(
+    workflow: &str,
+    start: &str,
+    end: &str,
+    from: &str,
+    to: &str,
+) -> String {
+    let start_index = workflow
+        .find(start)
+        .unwrap_or_else(|| panic!("workflow should include {start}"));
+    let end_index = workflow[start_index..]
+        .find(end)
+        .map(|offset| start_index + offset)
+        .unwrap_or_else(|| panic!("workflow should include {end} after {start}"));
+    let mut section = workflow[start_index..end_index].to_string();
+    assert!(
+        section.contains(from),
+        "workflow section {start} should include {from}"
+    );
+    section = section.replacen(from, to, 1);
+
+    let mut tampered = String::new();
+    tampered.push_str(&workflow[..start_index]);
+    tampered.push_str(&section);
+    tampered.push_str(&workflow[end_index..]);
+    tampered
+}
+
+fn write_temp_workflow(name: &str, contents: &str) -> std::path::PathBuf {
+    let path =
+        std::env::temp_dir().join(format!("rust-calckernel-{name}-{}.yml", std::process::id()));
+    fs::write(&path, contents).expect("write temp workflow");
+    path
 }
 
 fn node_available() -> bool {

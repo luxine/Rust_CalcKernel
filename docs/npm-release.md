@@ -207,9 +207,10 @@ The workflow runs these stages:
    post-publish result verifier output into one final evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
-the required jobs, target matrix entries, runners, artifact flow, and release
-verification and gated publish commands. The default `publish=false` mode only
-produces release artifacts and sign-off evidence; it does not publish.
+the required jobs, target matrix entries, target-to-runner bindings, artifact
+flow, and release verification and gated publish commands. The default
+`publish=false` mode only produces release artifacts and sign-off evidence; it
+does not publish.
 
 ## Per-Artifact Sign-Off
 

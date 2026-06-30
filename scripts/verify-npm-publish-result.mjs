@@ -2,6 +2,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
+const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
+const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_LICENSE = "MIT";
+const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const [manifestArg, publishArg, registryArg] = process.argv.slice(2);
 
 if (!manifestArg || !publishArg || !registryArg || manifestArg === "--help" || manifestArg === "-h") {
@@ -31,6 +35,10 @@ expectEqual(registry.packageVersion, manifest.packageVersion, "registry packageV
 expectEqual(registry.version, manifest.packageVersion, "registry package version");
 expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
 expectEmptyArray(registry.consumerInstallScripts, "registry consumerInstallScripts");
+expectEqual(registry.description, EXPECTED_PACKAGE_DESCRIPTION, "registry description");
+expectJson(registry.keywords, EXPECTED_PACKAGE_KEYWORDS, "registry keywords");
+expectEqual(registry.license, EXPECTED_PACKAGE_LICENSE, "registry license");
+expectJson(registry.engines, EXPECTED_PACKAGE_ENGINES, "registry engines");
 
 if (!isSha512Integrity(publish.integrity)) {
   fail(`publish integrity must be a sha512 npm integrity string, found ${JSON.stringify(publish.integrity)}`);
@@ -73,6 +81,10 @@ console.log(JSON.stringify({
   registryStatus: registry.status,
   registryTarball: registry.tarball,
   shasum: registry.shasum,
+  description: registry.description,
+  keywords: registry.keywords,
+  license: registry.license,
+  engines: registry.engines,
   consumerInstallScripts: registry.consumerInstallScripts,
   integrity: registry.integrity
 }, null, 2));
@@ -113,6 +125,12 @@ function validateManifest(manifest) {
 
 function expectEqual(actual, expected, label) {
   if (actual !== expected) {
+    fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function expectJson(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
   }
 }

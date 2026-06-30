@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { supportedTargetNames } from "../npm/platform.js";
 
+const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
+const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_LICENSE = "MIT";
+const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const [manifestArg, signoffArg, signoffSummaryArg, publishArtifactArg, publishResultArg] = process.argv.slice(2);
 
 if (
@@ -62,6 +66,10 @@ console.log(JSON.stringify({
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
   shasum: publishResult.shasum,
+  description: publishResult.description,
+  keywords: publishResult.keywords,
+  license: publishResult.license,
+  engines: publishResult.engines,
   consumerInstallScripts: publishResult.consumerInstallScripts,
   integrity: publishResult.integrity,
   evidence: {
@@ -165,6 +173,10 @@ function validatePublishResult(value, manifest) {
   if (!isSha1(value.shasum)) {
     fail(`publish result shasum must be a sha1 hex string, found ${JSON.stringify(value.shasum)}`);
   }
+  expectEqual(value.description, EXPECTED_PACKAGE_DESCRIPTION, "publish result description");
+  expectJson(value.keywords, EXPECTED_PACKAGE_KEYWORDS, "publish result keywords");
+  expectEqual(value.license, EXPECTED_PACKAGE_LICENSE, "publish result license");
+  expectJson(value.engines, EXPECTED_PACKAGE_ENGINES, "publish result engines");
   expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
 }
 
@@ -181,6 +193,12 @@ function readJsonFile(path, label) {
 
 function expectEqual(actual, expected, label) {
   if (actual !== expected) {
+    fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function expectJson(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
   }
 }

@@ -129,6 +129,18 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"description\": \"A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.\""),
+        "cutover evidence verifier should report the public package description\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"keywords\": ["),
+        "cutover evidence verifier should report the public package keywords\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -452,6 +464,62 @@ fn cutover_evidence_verifier_should_reject_missing_publish_result_package_versio
 }
 
 #[test]
+fn cutover_evidence_verifier_should_reject_missing_publish_result_public_identity() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-result-identity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json_without_public_identity(),
+    )
+    .expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing publish result public identity should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish result description")
+            || String::from_utf8_lossy(&output.stderr).contains("publish result keywords"),
+        "failure should identify publish result public identity\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
     if !node_available() {
         return;
@@ -672,6 +740,29 @@ fn publish_result_json_with_package_version_and_shasum(
   "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
   "shasum": "{shasum}",
+  "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "license": "MIT",
+  "engines": {{
+    "node": ">=20"
+  }},
+  "consumerInstallScripts": [],
+  "integrity": "{VALID_INTEGRITY}"
+}}"#
+    )
+}
+
+fn publish_result_json_without_public_identity() -> String {
+    format!(
+        r#"{{
+  "status": "ok",
+  "package": "calckernel",
+  "version": "0.8.0",
+  "packageVersion": "0.8.0",
+  "tarball": "calckernel-0.8.0.tgz",
+  "registryStatus": "ok",
+  "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+  "shasum": "{VALID_SHASUM}",
   "consumerInstallScripts": [],
   "integrity": "{VALID_INTEGRITY}"
 }}"#

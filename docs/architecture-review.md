@@ -144,8 +144,8 @@ these gates are true in the current checkout:
    fallback, and its TypeScript declaration smoke passes.
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` passes
    against the saved `verify:host-npm-install` JSON from every supported
-   platform and confirms all sign-offs used the same tarball SHA256 with
-   `sourceFallback: "disabled"`.
+   platform and confirms all sign-offs used the same package version and
+   tarball SHA256 with `sourceFallback: "disabled"`.
 10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow checks out and builds the read-only
    TypeScript oracle through `typescript_oracle_repository` /

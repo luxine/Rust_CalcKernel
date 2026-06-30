@@ -32,6 +32,12 @@ fn host_npm_install_verifier_should_pass_without_ckc_bin_override() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packageVersion\":"),
+        "host npm install verifier should report the installed package version for release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"tarballSha256\":"),
         "host npm install verifier should report the tarball SHA256 for release sign-off\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

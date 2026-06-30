@@ -207,6 +207,49 @@ fn release_signoff_verifier_should_reject_missing_packaged_binary_evidence() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_missing_package_version_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-missing-package-version");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_without_package_version(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing packageVersion evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("packageVersion"),
+        "missing packageVersion failure should identify packageVersion\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_source_checkout_fallback_smokes() {
     if !node_available() {
         return;
@@ -387,6 +430,18 @@ fn signoff_json(target: &str) -> String {
     signoff_json_with_commands(target, &REQUIRED_COMMANDS)
 }
 
+fn signoff_json_without_package_version(target: &str) -> String {
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
+    let source_fallback = source_fallback_evidence("disabled");
+    signoff_json_with_commands_and_binary_evidence_without_package_version(
+        target,
+        &REQUIRED_COMMANDS,
+        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+    )
+}
+
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
@@ -444,15 +499,38 @@ fn signoff_json_with_commands_and_binary_evidence(
     commands: &[&str],
     binary_evidence: &str,
 ) -> String {
+    signoff_json_with_commands_and_binary_evidence_inner(target, commands, binary_evidence, true)
+}
+
+fn signoff_json_with_commands_and_binary_evidence_without_package_version(
+    target: &str,
+    commands: &[&str],
+    binary_evidence: &str,
+) -> String {
+    signoff_json_with_commands_and_binary_evidence_inner(target, commands, binary_evidence, false)
+}
+
+fn signoff_json_with_commands_and_binary_evidence_inner(
+    target: &str,
+    commands: &[&str],
+    binary_evidence: &str,
+    include_package_version: bool,
+) -> String {
     let commands_json = commands
         .iter()
         .map(|command| format!("    {command:?}"))
         .collect::<Vec<_>>()
         .join(",\n");
+    let package_version = if include_package_version {
+        r#",
+  "packageVersion": "0.8.0""#
+    } else {
+        ""
+    };
     format!(
         r#"{{
   "package": "calckernel",
-  "targetName": "{target}",
+  "targetName": "{target}"{package_version},
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{TARBALL_SHA256}",
   "commands": [

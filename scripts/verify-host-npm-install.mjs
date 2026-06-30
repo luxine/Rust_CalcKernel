@@ -34,6 +34,13 @@ try {
     process.platform === "win32" ? "ckc.cmd" : "ckc"
   );
   const packageRoot = join(consumer, "node_modules", "calckernel");
+  const installedPackageJson = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  if (installedPackageJson.name !== "calckernel") {
+    fail(`Installed package name must be calckernel, found ${JSON.stringify(installedPackageJson.name)}`);
+  }
+  if (!installedPackageJson.version) {
+    fail("Installed package is missing package.json version");
+  }
   const packagedBinary = join(packageRoot, "npm", "bin", currentPlatformBinaryName());
   requireNonEmpty(packagedBinary);
   const packagedBinaryBytes = readFileSync(packagedBinary);
@@ -77,6 +84,7 @@ try {
 
   console.log(JSON.stringify({
     package: "calckernel",
+    packageVersion: installedPackageJson.version,
     tarball: basename(tarball),
     tarballSha256: sha256(readFileSync(tarball)),
     targetName: target.name,

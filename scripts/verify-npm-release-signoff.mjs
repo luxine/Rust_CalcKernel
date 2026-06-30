@@ -96,6 +96,9 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.package !== "calckernel") {
     fail(`${target.name} sign-off package must be "calckernel"`);
   }
+  if (signoff.packageVersion !== manifest.packageVersion) {
+    fail(`${target.name} sign-off packageVersion must be ${manifest.packageVersion}`);
+  }
   if (signoff.tarball !== manifest.tarball) {
     fail(`${target.name} sign-off tarball must be ${manifest.tarball}`);
   }

@@ -91,6 +91,13 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"platform\": \"linux\"")
+            && String::from_utf8_lossy(&output.stdout).contains("\"arch\": \"x64\""),
+        "cutover evidence verifier should preserve target platform and architecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"releaseSignoffSummary\":"),
         "cutover evidence verifier should report the release signoff summary evidence path\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -811,6 +818,58 @@ fn cutover_evidence_verifier_should_reject_signed_target_sha256_mismatch() {
     );
 }
 
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_platform_arch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-target-platform-arch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_without_signed_target_platform_arch(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing summary signed target platform/arch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("platform")
+            || String::from_utf8_lossy(&output.stderr).contains("arch"),
+        "failure should identify signed target platform/arch evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     release_manifest_json_with_description(
         tarball_sha256,
@@ -867,6 +926,7 @@ fn release_signoff_json_with_signed_target_sha256(
     tarball_sha256: &str,
     signed_target_sha256: &str,
 ) -> String {
+    let signed_targets = signed_targets_json(signed_target_sha256, true);
     format!(
         r#"{{
   "status": "ok",
@@ -884,12 +944,7 @@ fn release_signoff_json_with_signed_target_sha256(
     "win32-x64"
   ],
   "signedTargets": [
-    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
-    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
+{signed_targets}
   ],
   "sourceFallback": "disabled",
   "backendRuntimeSmokes": [
@@ -903,6 +958,18 @@ fn release_signoff_json_with_signed_target_sha256(
 
 fn release_signoff_summary_json(tarball_sha256: &str) -> String {
     release_signoff_summary_json_with_source_fallback(tarball_sha256, "disabled")
+}
+
+fn release_signoff_summary_json_without_signed_target_platform_arch(
+    tarball_sha256: &str,
+) -> String {
+    release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_and_platform_arch(
+        true,
+        tarball_sha256,
+        "disabled",
+        true,
+        false,
+    )
 }
 
 fn release_signoff_summary_json_with_source_fallback(
@@ -941,6 +1008,22 @@ fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime
     source_fallback: &str,
     include_runtime_smokes: bool,
 ) -> String {
+    release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_and_platform_arch(
+        include_package_version,
+        tarball_sha256,
+        source_fallback,
+        include_runtime_smokes,
+        true,
+    )
+}
+
+fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_and_platform_arch(
+    include_package_version: bool,
+    tarball_sha256: &str,
+    source_fallback: &str,
+    include_runtime_smokes: bool,
+    include_platform_arch: bool,
+) -> String {
     let package_version = if include_package_version {
         r#",
   "packageVersion": "0.8.0""#
@@ -957,6 +1040,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime
     } else {
         ""
     };
+    let signed_targets = signed_targets_json(BINARY_SHA256, include_platform_arch);
     format!(
         r#"{{
   "status": "ok",
@@ -974,16 +1058,34 @@ fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime
     "win32-x64"
   ],
   "signedTargets": [
-    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-x64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
+{signed_targets}
   ],
   "sourceFallback": "{source_fallback}"{runtime_smokes}
 }}"#
     )
+}
+
+fn signed_targets_json(linux_x64_sha256: &str, include_platform_arch: bool) -> String {
+    [
+        ("darwin-arm64", "darwin", "arm64", BINARY_SHA256),
+        ("darwin-x64", "darwin", "x64", BINARY_SHA256),
+        ("linux-arm64", "linux", "arm64", BINARY_SHA256),
+        ("linux-x64", "linux", "x64", linux_x64_sha256),
+        ("win32-arm64", "win32", "arm64", BINARY_SHA256),
+        ("win32-x64", "win32", "x64", BINARY_SHA256),
+    ]
+    .into_iter()
+    .map(|(name, platform, arch, sha256)| {
+        if include_platform_arch {
+            format!(
+                r#"    {{"name": "{name}", "platform": "{platform}", "arch": "{arch}", "sha256": "{sha256}"}}"#
+            )
+        } else {
+            format!(r#"    {{"name": "{name}", "sha256": "{sha256}"}}"#)
+        }
+    })
+    .collect::<Vec<_>>()
+    .join(",\n")
 }
 
 fn publish_artifact_json(tarball_sha256: &str) -> String {

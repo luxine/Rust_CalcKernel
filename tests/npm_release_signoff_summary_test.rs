@@ -75,6 +75,13 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"platform\": \"linux\"")
+            && String::from_utf8_lossy(&output.stdout).contains("\"arch\": \"x64\""),
+        "release signoff summary verifier should preserve target platform and architecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
         "release signoff summary verifier should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -255,6 +262,48 @@ fn release_signoff_summary_verifier_should_reject_signed_target_sha256_mismatch(
     );
 }
 
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_signed_target_platform_arch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-target-platform-arch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_signed_target_platform_arch(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing signed target platform/arch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("platform")
+            || String::from_utf8_lossy(&output.stderr).contains("arch"),
+        "failure should identify signed target platform/arch evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     format!(
         r#"{{
@@ -276,6 +325,16 @@ fn release_manifest_json(tarball_sha256: &str) -> String {
 
 fn release_signoff_json(tarball_sha256: &str) -> String {
     release_signoff_json_with_signed_target_sha256(tarball_sha256, BINARY_SHA256)
+}
+
+fn release_signoff_json_without_signed_target_platform_arch(tarball_sha256: &str) -> String {
+    release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_and_platform_arch(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        false,
+    )
 }
 
 fn release_signoff_json_without_backend_runtime_smokes(tarball_sha256: &str) -> String {
@@ -314,6 +373,22 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_sm
     source_fallback: Option<&str>,
     include_runtime_smokes: bool,
 ) -> String {
+    release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_and_platform_arch(
+        tarball_sha256,
+        signed_target_sha256,
+        source_fallback,
+        include_runtime_smokes,
+        true,
+    )
+}
+
+fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes_and_platform_arch(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+    source_fallback: Option<&str>,
+    include_runtime_smokes: bool,
+    include_platform_arch: bool,
+) -> String {
     let source_fallback = source_fallback
         .map(|value| {
             format!(
@@ -332,6 +407,7 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_sm
     } else {
         ""
     };
+    let signed_targets = signed_targets_json(signed_target_sha256, include_platform_arch);
     format!(
         r#"{{
   "status": "ok",
@@ -349,15 +425,33 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_sm
     "win32-x64"
   ],
   "signedTargets": [
-    {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "linux-x64", "sha256": "{signed_target_sha256}"}},
-    {{"name": "win32-arm64", "sha256": "{BINARY_SHA256}"}},
-    {{"name": "win32-x64", "sha256": "{BINARY_SHA256}"}}
+{signed_targets}
   ]{source_fallback}{runtime_smokes}
 }}"#
     )
+}
+
+fn signed_targets_json(linux_x64_sha256: &str, include_platform_arch: bool) -> String {
+    [
+        ("darwin-arm64", "darwin", "arm64", BINARY_SHA256),
+        ("darwin-x64", "darwin", "x64", BINARY_SHA256),
+        ("linux-arm64", "linux", "arm64", BINARY_SHA256),
+        ("linux-x64", "linux", "x64", linux_x64_sha256),
+        ("win32-arm64", "win32", "arm64", BINARY_SHA256),
+        ("win32-x64", "win32", "x64", BINARY_SHA256),
+    ]
+    .into_iter()
+    .map(|(name, platform, arch, sha256)| {
+        if include_platform_arch {
+            format!(
+                r#"    {{"name": "{name}", "platform": "{platform}", "arch": "{arch}", "sha256": "{sha256}"}}"#
+            )
+        } else {
+            format!(r#"    {{"name": "{name}", "sha256": "{sha256}"}}"#)
+        }
+    })
+    .collect::<Vec<_>>()
+    .join(",\n")
 }
 
 fn temp_dir(prefix: &str) -> PathBuf {

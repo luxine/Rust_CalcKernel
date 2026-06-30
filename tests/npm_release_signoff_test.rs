@@ -306,6 +306,50 @@ fn release_signoff_verifier_should_reject_missing_package_version_evidence() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_missing_platform_arch_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-missing-platform-arch");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_without_platform_arch(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing platform/arch evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("platform")
+            || String::from_utf8_lossy(&output.stderr).contains("arch"),
+        "missing platform/arch failure should identify target platform metadata\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_source_checkout_fallback_smokes() {
     if !node_available() {
         return;
@@ -450,6 +494,13 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"platform\": \"linux\"")
+            && String::from_utf8_lossy(&output.stdout).contains("\"arch\": \"x64\""),
+        "complete target signoff should preserve target platform and architecture evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
         "complete target signoff should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -503,7 +554,24 @@ fn signoff_json(target: &str) -> String {
     signoff_json_with_commands(target, &commands)
 }
 
+fn signoff_json_without_platform_arch(target: &str) -> String {
+    let installed_bin = installed_bin_evidence(target);
+    let packaged_binary = packaged_binary_evidence(target);
+    let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
+    let source_fallback = source_fallback_evidence("disabled");
+    signoff_json_with_commands_and_binary_evidence(
+        target,
+        &REQUIRED_COMMANDS
+            .iter()
+            .chain(REQUIRED_RUNTIME_COMMANDS.iter())
+            .copied()
+            .collect::<Vec<_>>(),
+        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+    )
+}
+
 fn signoff_json_without_package_version(target: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
     let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
@@ -511,11 +579,14 @@ fn signoff_json_without_package_version(target: &str) -> String {
     signoff_json_with_commands_and_binary_evidence_without_package_version(
         target,
         &REQUIRED_COMMANDS,
-        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
     )
 }
 
 fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
+    let platform_arch = platform_arch_evidence(target);
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
     let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
@@ -523,11 +594,14 @@ fn signoff_json_with_commands(target: &str, commands: &[&str]) -> String {
     signoff_json_with_commands_and_binary_evidence(
         target,
         commands,
-        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
     )
 }
 
 fn signoff_json_with_packaged_binary_sha256(target: &str, packaged_binary_sha256: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
     let packaged_binary_sha = packaged_binary_sha256_evidence(packaged_binary_sha256);
@@ -535,20 +609,29 @@ fn signoff_json_with_packaged_binary_sha256(target: &str, packaged_binary_sha256
     signoff_json_with_commands_and_binary_evidence(
         target,
         &REQUIRED_COMMANDS,
-        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
     )
 }
 
 fn signoff_json_without_binary_evidence(target: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
     let source_fallback = source_fallback_evidence("disabled");
     signoff_json_with_commands_and_binary_evidence(
         target,
         &REQUIRED_COMMANDS,
-        &format!("{}{}", installed_bin_evidence(target), source_fallback),
+        &format!(
+            "{}{}{}",
+            platform_arch,
+            installed_bin_evidence(target),
+            source_fallback
+        ),
     )
 }
 
 fn signoff_json_with_source_fallback(target: &str, source_fallback: &str) -> String {
+    let platform_arch = platform_arch_evidence(target);
     let installed_bin = installed_bin_evidence(target);
     let packaged_binary = packaged_binary_evidence(target);
     let packaged_binary_sha = packaged_binary_sha256_evidence(BINARY_SHA256);
@@ -556,8 +639,31 @@ fn signoff_json_with_source_fallback(target: &str, source_fallback: &str) -> Str
     signoff_json_with_commands_and_binary_evidence(
         target,
         &REQUIRED_COMMANDS,
-        &format!("{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"),
+        &format!(
+            "{platform_arch}{installed_bin}{packaged_binary}{packaged_binary_sha}{source_fallback}"
+        ),
     )
+}
+
+fn platform_arch_evidence(target: &str) -> String {
+    let (platform, arch) = platform_arch_for_target(target);
+    format!(
+        r#",
+  "platform": "{platform}",
+  "arch": "{arch}""#
+    )
+}
+
+fn platform_arch_for_target(target: &str) -> (&'static str, &'static str) {
+    match target {
+        "darwin-arm64" => ("darwin", "arm64"),
+        "darwin-x64" => ("darwin", "x64"),
+        "linux-arm64" => ("linux", "arm64"),
+        "linux-x64" => ("linux", "x64"),
+        "win32-arm64" => ("win32", "arm64"),
+        "win32-x64" => ("win32", "x64"),
+        _ => panic!("unknown target {target}"),
+    }
 }
 
 fn source_fallback_evidence(source_fallback: &str) -> String {

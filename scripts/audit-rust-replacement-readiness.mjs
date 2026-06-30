@@ -109,6 +109,7 @@ expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");
 expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");
+expectIncludes(npmRelease, "platform / arch", "npm release docs");
 expectIncludes(npmRelease, "sourceFallback", "npm release docs");
 expectIncludes(npmRelease, "backend runtime smoke", "npm release docs");
 expectIncludes(npmRelease, "backendRuntimeSmokes", "npm release docs");

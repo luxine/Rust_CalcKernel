@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { supportedTargetNames } from "../npm/platform.js";
+import { SUPPORTED_CKC_BINARY_TARGETS, supportedTargetNames } from "../npm/platform.js";
 
 const [manifestArg, signoffArg] = process.argv.slice(2);
 
@@ -58,7 +58,7 @@ function validateManifest(value) {
   if (!isSha256(value.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(value.tarballSha256)}`);
   }
-  validateSignedTargets(value.targets, "release manifest targets");
+  validateManifestTargets(value.targets, "release manifest targets");
 }
 
 function validateReleaseSignoff(value, manifest) {
@@ -127,7 +127,7 @@ function sameStringArray(actual, expected) {
     && actual.every((value, index) => value === expected[index]);
 }
 
-function validateSignedTargets(actual, label) {
+function validateManifestTargets(actual, label) {
   const expectedTargets = supportedTargetNames();
   if (!Array.isArray(actual)) {
     fail(`${label} must be an array`);
@@ -140,6 +140,22 @@ function validateSignedTargets(actual, label) {
   for (const target of actual) {
     if (!isSha256(target?.sha256)) {
       fail(`${label} ${target?.name ?? "unknown"} sha256 is invalid`);
+    }
+  }
+}
+
+function validateSignedTargets(actual, label) {
+  validateManifestTargets(actual, label);
+  if (!Array.isArray(actual) || actual.length !== SUPPORTED_CKC_BINARY_TARGETS.length) {
+    return;
+  }
+  for (const [index, target] of (actual ?? []).entries()) {
+    const expectedTarget = SUPPORTED_CKC_BINARY_TARGETS[index];
+    if (target?.platform !== expectedTarget.platform) {
+      fail(`${label} ${expectedTarget.name} platform must be ${expectedTarget.platform}`);
+    }
+    if (target?.arch !== expectedTarget.arch) {
+      fail(`${label} ${expectedTarget.name} arch must be ${expectedTarget.arch}`);
     }
   }
 }

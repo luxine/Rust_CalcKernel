@@ -51,7 +51,12 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
   const manifestTarget = manifestTargetsByName.get(target.name);
   validateSignoff(signoff, target, manifest, manifestTarget);
   verifiedTargets.push(target.name);
-  signedTargets.push({ name: target.name, sha256: manifestTarget.sha256 });
+  signedTargets.push({
+    name: target.name,
+    platform: target.platform,
+    arch: target.arch,
+    sha256: manifestTarget.sha256
+  });
 }
 
 console.log(JSON.stringify({
@@ -106,10 +111,10 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.tarballSha256 !== manifest.tarballSha256) {
     fail(`${target.name} sign-off tarballSha256 does not match release manifest`);
   }
-  if (signoff.platform && signoff.platform !== target.platform) {
+  if (signoff.platform !== target.platform) {
     fail(`${target.name} sign-off platform must be ${target.platform}`);
   }
-  if (signoff.arch && signoff.arch !== target.arch) {
+  if (signoff.arch !== target.arch) {
     fail(`${target.name} sign-off arch must be ${target.arch}`);
   }
   if (signoff.ckcBinOverride !== "unset") {

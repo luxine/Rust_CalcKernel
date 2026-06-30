@@ -5,6 +5,10 @@ import { basename, join, resolve } from "node:path";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
+  description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  license: "MIT",
+  engines: { node: ">=20" },
   type: "module",
   main: "./npm/index.js",
   types: "./npm/index.d.ts",

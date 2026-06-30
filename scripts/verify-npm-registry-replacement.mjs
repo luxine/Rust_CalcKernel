@@ -5,6 +5,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
+const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_LICENSE = "MIT";
+const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const options = parseArgs(process.argv.slice(2));
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const version = options.version ?? packageJson.version;
@@ -15,6 +19,10 @@ const failures = [];
 
 expectEqual(metadata.name, "calckernel", "name");
 expectEqual(metadata.version, version, "version");
+expectEqual(metadata.description, EXPECTED_PACKAGE_DESCRIPTION, "description");
+expectJson(metadata.keywords, EXPECTED_PACKAGE_KEYWORDS, "keywords");
+expectEqual(metadata.license, EXPECTED_PACKAGE_LICENSE, "license");
+expectJson(metadata.engines, EXPECTED_PACKAGE_ENGINES, "engines");
 expectEqual(metadata.type, "module", "type");
 expectEqual(metadata.main, "./npm/index.js", "main");
 expectEqual(metadata.types, "./npm/index.d.ts", "types");
@@ -45,6 +53,10 @@ console.log(JSON.stringify({
   tarball: metadata.dist.tarball,
   shasum: metadata.dist.shasum,
   integrity: metadata.dist.integrity,
+  description: metadata.description,
+  keywords: metadata.keywords,
+  license: metadata.license,
+  engines: metadata.engines,
   consumerInstallScripts: [],
   bin: metadata.bin,
   main: metadata.main,

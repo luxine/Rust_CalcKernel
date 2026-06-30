@@ -141,6 +141,12 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
   "packageName": "calckernel",
   "packageVersion": "0.8.0",
   "packageMetadata": {{
+    "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+    "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+    "license": "MIT",
+    "engines": {{
+      "node": ">=20"
+    }},
     "type": "module",
     "main": "./npm/index.js",
     "types": "./npm/index.d.ts",

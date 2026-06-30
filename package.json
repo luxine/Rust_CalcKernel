@@ -1,7 +1,7 @@
 {
   "name": "calckernel",
   "version": "0.8.0",
-  "description": "Rust rewrite of the CK / CalcKernel compiler with C, WASM, and LLVM backends.",
+  "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
   "type": "module",
   "main": "./npm/index.js",
   "types": "./npm/index.d.ts",
@@ -50,8 +50,7 @@
     "dsl",
     "c",
     "wasm",
-    "llvm",
-    "rust"
+    "llvm"
   ],
   "license": "MIT",
   "engines": {

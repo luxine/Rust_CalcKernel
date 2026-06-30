@@ -8,6 +8,9 @@ keeping the public package name, CLI name, and JavaScript helper API stable.
 
 - Package name stays `calckernel`.
 - The only npm binary remains `ckc`.
+- User-facing package identity stays implementation-neutral: description,
+  keywords, license, and Node engine metadata must match the public
+  `calckernel` package identity rather than advertising the Rust rewrite.
 - The package root exports TypeScript-compatible `SourceFile`, `TokenKind`,
   `lex`, `parse`, `check`, type-checker helpers, `Scope`, `SymbolTable`,
   C backend helpers, `formatDiagnostic`, `formatDiagnostics`, `CKWasmArena`,
@@ -217,7 +220,8 @@ node --input-type=module --eval "import { SourceFile, TokenKind, lex, parse, che
 before `npm pack`. `verify:npm-release` rejects any file outside the release file surface and
 prints a JSON manifest containing the tarball filename, tarball SHA256,
 Rust package metadata (`type`, `main`, `types`, `exports`, `bin`, and empty
-dependency fields), explicit `consumerInstallScripts: []` evidence,
+dependency fields), public package identity (`description`, `keywords`,
+`license`, `engines`), explicit `consumerInstallScripts: []` evidence,
 `package.json` `files` whitelist including `README.zh-CN.md`,
 allowed tarball entries,
 required package files, forbidden internal prefixes, every packaged binary file mode,

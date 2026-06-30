@@ -5,6 +5,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
 
+const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
+const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_LICENSE = "MIT";
+const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const tarballArg = process.argv[2];
 
 if (!tarballArg || tarballArg === "--help" || tarballArg === "-h") {
@@ -192,6 +196,27 @@ function sameStringArray(actual, expected) {
 }
 
 function validatePackageMetadata(packageJson) {
+  if (packageJson.description !== EXPECTED_PACKAGE_DESCRIPTION) {
+    fail(
+      `package/package.json description must be ${JSON.stringify(EXPECTED_PACKAGE_DESCRIPTION)}, ` +
+        `found ${JSON.stringify(packageJson.description)}`
+    );
+  }
+  if (!sameJson(packageJson.keywords, EXPECTED_PACKAGE_KEYWORDS)) {
+    fail(
+      `package/package.json keywords must be ${JSON.stringify(EXPECTED_PACKAGE_KEYWORDS)}, ` +
+        `found ${JSON.stringify(packageJson.keywords)}`
+    );
+  }
+  if (packageJson.license !== EXPECTED_PACKAGE_LICENSE) {
+    fail(`package/package.json license must be ${EXPECTED_PACKAGE_LICENSE}, found ${JSON.stringify(packageJson.license)}`);
+  }
+  if (!sameJson(packageJson.engines, EXPECTED_PACKAGE_ENGINES)) {
+    fail(
+      `package/package.json engines must be ${JSON.stringify(EXPECTED_PACKAGE_ENGINES)}, ` +
+        `found ${JSON.stringify(packageJson.engines)}`
+    );
+  }
   if (packageJson.type !== "module") {
     fail(`package/package.json type must be "module", found ${JSON.stringify(packageJson.type)}`);
   }
@@ -233,6 +258,10 @@ function validatePackageMetadata(packageJson) {
   const consumerInstallScripts = readConsumerInstallScripts(packageJson);
 
   return {
+    description: EXPECTED_PACKAGE_DESCRIPTION,
+    keywords: EXPECTED_PACKAGE_KEYWORDS,
+    license: EXPECTED_PACKAGE_LICENSE,
+    engines: EXPECTED_PACKAGE_ENGINES,
     type: packageJson.type,
     main: packageJson.main,
     types: packageJson.types,

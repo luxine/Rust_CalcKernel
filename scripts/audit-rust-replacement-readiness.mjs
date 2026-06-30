@@ -9,6 +9,14 @@ const failures = [];
 
 const packageJson = readJson(join(root, "package.json"));
 expectEqual(packageJson.name, "calckernel", "Rust package name");
+expectEqual(
+  packageJson.description,
+  "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  "Rust package description"
+);
+expectJson(packageJson.keywords, ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"], "Rust package keywords");
+expectEqual(packageJson.license, "MIT", "Rust package license");
+expectJson(packageJson.engines, { node: ">=20" }, "Rust package engines");
 expectEqual(packageJson.type, "module", "Rust package type");
 expectEqual(packageJson.main, "./npm/index.js", "Rust package main");
 expectEqual(packageJson.types, "./npm/index.d.ts", "Rust package types");

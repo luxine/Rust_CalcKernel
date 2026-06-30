@@ -54,6 +54,18 @@ fn registry_replacement_verifier_should_accept_rust_package_metadata() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"description\": \"A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.\""),
+        "success output should report the public package description\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"keywords\": ["),
+        "success output should report the public package keywords\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -205,6 +217,49 @@ fn registry_replacement_verifier_should_reject_consumer_install_lifecycle_script
     );
 }
 
+#[test]
+fn registry_replacement_verifier_should_reject_public_identity_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-registry-identity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let metadata = temp.join("metadata.json");
+    fs::write(
+        &metadata,
+        rust_metadata_with_public_identity(
+            "Rust rewrite of the CK / CalcKernel compiler with C, WASM, and LLVM backends.",
+            r#"["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm", "rust"]"#,
+        ),
+    )
+    .expect("write metadata");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-registry-replacement.mjs")
+        .arg("--metadata-file")
+        .arg(&metadata)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm registry replacement verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "public identity mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("description")
+            || String::from_utf8_lossy(&output.stderr).contains("keywords"),
+        "failure should identify package identity metadata\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn rust_metadata() -> String {
     rust_metadata_with_integrity(VALID_INTEGRITY)
 }
@@ -218,29 +273,58 @@ fn rust_metadata_with_shasum(shasum: &str) -> String {
 }
 
 fn rust_metadata_with_integrity_and_shasum(integrity: &str, shasum: &str) -> String {
-    r#"{
+    rust_metadata_with_public_identity_and_dist(
+        "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+        r#"["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"]"#,
+        integrity,
+        shasum,
+    )
+}
+
+fn rust_metadata_with_public_identity(description: &str, keywords: &str) -> String {
+    rust_metadata_with_public_identity_and_dist(
+        description,
+        keywords,
+        VALID_INTEGRITY,
+        VALID_SHASUM,
+    )
+}
+
+fn rust_metadata_with_public_identity_and_dist(
+    description: &str,
+    keywords: &str,
+    integrity: &str,
+    shasum: &str,
+) -> String {
+    format!(
+        r#"{{
   "name": "calckernel",
   "version": "0.8.0",
+  "description": "{description}",
+  "keywords": {keywords},
+  "license": "MIT",
+  "engines": {{
+    "node": ">=20"
+  }},
   "type": "module",
   "main": "./npm/index.js",
   "types": "./npm/index.d.ts",
-  "exports": {
-    ".": {
+  "exports": {{
+    ".": {{
       "types": "./npm/index.d.ts",
       "import": "./npm/index.js"
-    }
-  },
-  "bin": {
+    }}
+  }},
+  "bin": {{
     "ckc": "./npm/ckc.js"
-  },
-  "dist": {
+  }},
+  "dist": {{
     "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
-    "shasum": "__SHASUM__",
-    "integrity": "__INTEGRITY__"
-  }
-}"#
-    .replace("__SHASUM__", shasum)
-    .replace("__INTEGRITY__", integrity)
+    "shasum": "{shasum}",
+    "integrity": "{integrity}"
+  }}
+}}"#
+    )
 }
 
 fn rust_metadata_with_scripts(scripts: &str) -> String {
@@ -248,6 +332,12 @@ fn rust_metadata_with_scripts(scripts: &str) -> String {
         r#"{{
   "name": "calckernel",
   "version": "0.8.0",
+  "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "license": "MIT",
+  "engines": {{
+    "node": ">=20"
+  }},
   "type": "module",
   "main": "./npm/index.js",
   "types": "./npm/index.d.ts",

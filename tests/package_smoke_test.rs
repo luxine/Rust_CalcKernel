@@ -77,6 +77,13 @@ const cargoToml = readFileSync(join(root, "Cargo.toml"), "utf8");
 assert.equal(pkg.name, "calckernel");
 assert.equal(pkg.version, "0.8.0");
 assert.match(cargoToml, /\nversion = "0\.8\.0"\n/);
+assert.equal(
+  pkg.description,
+  "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends."
+);
+assert.deepEqual(pkg.keywords, ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"]);
+assert.equal(pkg.license, "MIT");
+assert.deepEqual(pkg.engines, { node: ">=20" });
 assert.equal(pkg.type, "module");
 assert.deepEqual(Object.keys(pkg.bin), ["ckc"]);
 assert.equal(pkg.bin.ckc, "./npm/ckc.js");
@@ -580,6 +587,10 @@ try {
     assert.equal(manifest.packageVersion, "0.8.0");
     assert.match(manifest.tarballSha256, /^[0-9a-f]{64}$/);
     assert.deepEqual(manifest.packageMetadata, {
+      description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+      keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+      license: "MIT",
+      engines: { node: ">=20" },
       type: "module",
       main: "./npm/index.js",
       types: "./npm/index.d.ts",

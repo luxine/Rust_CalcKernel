@@ -477,6 +477,10 @@ fn build_llvm_object_should_match_typescript_oracle_for_official_e2e_runtime_beh
         ("llvm-short-circuit", "examples/llvm_short_circuit.ck"),
         ("llvm-bool", "examples/llvm_bool.ck"),
         ("llvm-dijkstra", "examples/dijkstra.ck"),
+        (
+            "llvm-f64-array",
+            "examples/node-wasm-f64-array/f64_array.ck",
+        ),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
 
@@ -694,6 +698,10 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_official_e2e_runtime_be
         ("llvm-short-circuit", "examples/llvm_short_circuit.ck"),
         ("llvm-bool", "examples/llvm_bool.ck"),
         ("llvm-dijkstra", "examples/dijkstra.ck"),
+        (
+            "llvm-f64-array",
+            "examples/node-wasm-f64-array/f64_array.ck",
+        ),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
 
@@ -1146,9 +1154,51 @@ int main(void) {
         }
         "llvm-f64-edges" => f64_edges_llvm_object_harness(),
         "llvm-perf-f64-kernels" => f64_kernels_llvm_object_harness(),
+        "llvm-f64-array" => f64_array_llvm_object_harness(),
         "llvm-dijkstra" => dijkstra_llvm_object_harness(),
         _ => panic!("missing official LLVM object harness for {case_name}"),
     }
+}
+
+fn f64_array_llvm_object_harness() -> &'static str {
+    r#"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+double axpy_f64(double a, double* x, double* y, int32_t len);
+
+static int close_f64(double actual, double expected) {
+  double diff = fabs(actual - expected);
+  double scale = fmax(fmax(fabs(actual), fabs(expected)), 1.0);
+  return diff <= 0.000000000001 * scale || diff <= 0.000000000001;
+}
+
+int main(void) {
+  double x[4] = {1.0, 2.0, 3.0, 4.0};
+  double y[4] = {0.5, 1.25, 1.25, 2.0};
+  double expected[4] = {1.75, 3.75, 5.0, 7.0};
+  double checksum = axpy_f64(1.25, x, y, 4);
+  double expected_checksum = 17.5;
+
+  if (!close_f64(checksum, expected_checksum)) {
+    return 1;
+  }
+  for (int32_t i = 0; i < 4; i += 1) {
+    if (!close_f64(y[i], expected[i])) {
+      return 2;
+    }
+  }
+
+  printf("llvm-f64-array:checksum=%.17g;out=%.17g,%.17g,%.17g,%.17g\n",
+    checksum,
+    y[0],
+    y[1],
+    y[2],
+    y[3]);
+  return 0;
+}
+"#
 }
 
 fn dijkstra_llvm_object_harness() -> &'static str {
@@ -1644,6 +1694,30 @@ def run_bool(lib: ctypes.CDLL) -> str:
     )
 
 
+def run_f64_array(lib: ctypes.CDLL) -> str:
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.axpy_f64.argtypes = [ctypes.c_double, double_ptr, double_ptr, ctypes.c_int32]
+    lib.axpy_f64.restype = ctypes.c_double
+
+    x_input = [1.0, 2.0, 3.0, 4.0]
+    y_input = [0.5, 1.25, 1.25, 2.0]
+    length = len(x_input)
+    x = (ctypes.c_double * length)(*x_input)
+    y = (ctypes.c_double * length)(*y_input)
+    checksum = lib.axpy_f64(ctypes.c_double(1.25), x, y, ctypes.c_int32(length))
+    actual = list(y)
+    expected = [1.75, 3.75, 5.0, 7.0]
+    expected_checksum = sum(expected)
+    if not close_f64(checksum, expected_checksum) or any(
+        not close_f64(value, expected[index]) for index, value in enumerate(actual)
+    ):
+        raise AssertionError(f"llvm-f64-array mismatch checksum={checksum} actual={actual}")
+    return (
+        f"llvm-f64-array:checksum={format_float(checksum)};"
+        f"out={','.join(format_float(value) for value in actual)}"
+    )
+
+
 def run_dijkstra(lib: ctypes.CDLL) -> str:
     lib.dijkstra_matrix.argtypes = [
         ctypes.POINTER(DijkstraConfig),
@@ -1894,6 +1968,7 @@ RUNNERS = {
     "llvm-short-circuit": run_short_circuit,
     "llvm-bool": run_bool,
     "llvm-dijkstra": run_dijkstra,
+    "llvm-f64-array": run_f64_array,
     "llvm-f64-edges": run_f64_edges,
     "llvm-perf-f64-kernels": run_f64_kernels,
 }

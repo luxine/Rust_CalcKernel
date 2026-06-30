@@ -503,6 +503,11 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
         ("c-scalar", "unchecked", "examples/scalar.ck"),
         ("c-casts", "unchecked", "examples/explicit_casts.ck"),
         ("c-dijkstra", "unchecked", "examples/dijkstra.ck"),
+        (
+            "c-f64-array",
+            "unchecked",
+            "examples/node-wasm-f64-array/f64_array.ck",
+        ),
         ("c-scalar-checked", "checked", "examples/scalar_checked.ck"),
         (
             "c-control-checked",
@@ -1867,6 +1872,31 @@ def run_c_casts(library_path: str) -> str:
     return f"c-casts:avg={avg};ratio={ratio}"
 
 
+def run_c_f64_array(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.axpy_f64.argtypes = [ctypes.c_double, double_ptr, double_ptr, ctypes.c_int32]
+    lib.axpy_f64.restype = ctypes.c_double
+
+    x_input = [1.0, 2.0, 3.0, 4.0]
+    y_input = [0.5, 1.25, 1.25, 2.0]
+    length = len(x_input)
+    x = (ctypes.c_double * length)(*x_input)
+    y = (ctypes.c_double * length)(*y_input)
+    checksum = lib.axpy_f64(ctypes.c_double(1.25), x, y, ctypes.c_int32(length))
+    actual = list(y)
+    expected = [1.75, 3.75, 5.0, 7.0]
+    expected_checksum = sum(expected)
+    if not close(checksum, expected_checksum) or any(
+        not close(value, expected[index]) for index, value in enumerate(actual)
+    ):
+        raise AssertionError(f"c-f64-array mismatch checksum={checksum} actual={actual}")
+    return (
+        f"c-f64-array:checksum={format_float(checksum)};"
+        f"out={','.join(format_float(value) for value in actual)}"
+    )
+
+
 def run_c_dijkstra(library_path: str) -> str:
     lib = ctypes.CDLL(library_path)
     lib.dijkstra_matrix.argtypes = [
@@ -2268,6 +2298,7 @@ def run_c_f64_edges(library_path: str) -> str:
 RUNNERS = {
     "c-scalar": run_c_scalar,
     "c-casts": run_c_casts,
+    "c-f64-array": run_c_f64_array,
     "c-dijkstra": run_c_dijkstra,
     "c-scalar-checked": run_c_scalar_checked,
     "c-control-checked": run_c_control_checked,

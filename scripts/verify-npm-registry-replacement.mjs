@@ -40,6 +40,7 @@ if (failures.length > 0) {
 console.log(JSON.stringify({
   status: "ok",
   package: metadata.name,
+  packageVersion: version,
   version,
   tarball: metadata.dist.tarball,
   shasum: metadata.dist.shasum,

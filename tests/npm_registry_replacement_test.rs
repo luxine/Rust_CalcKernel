@@ -42,6 +42,12 @@ fn registry_replacement_verifier_should_accept_rust_package_metadata() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packageVersion\": \"0.8.0\""),
+        "success output should report the registry packageVersion explicitly\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout)
             .contains(&format!("\"shasum\": \"{VALID_SHASUM}\"")),
         "success output should report the registry dist.shasum\nstdout:\n{}\nstderr:\n{}",

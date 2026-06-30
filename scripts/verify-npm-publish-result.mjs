@@ -27,6 +27,7 @@ expectEqual(publish.id, `${manifest.packageName}@${manifest.packageVersion}`, "p
 expectEqual(publish.filename, manifest.tarball, "publish tarball filename");
 expectEqual(registry.status, "ok", "registry replacement status");
 expectEqual(registry.package, manifest.packageName, "registry package name");
+expectEqual(registry.packageVersion, manifest.packageVersion, "registry packageVersion");
 expectEqual(registry.version, manifest.packageVersion, "registry package version");
 expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
 expectEmptyArray(registry.consumerInstallScripts, "registry consumerInstallScripts");

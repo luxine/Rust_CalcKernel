@@ -245,6 +245,54 @@ fn publish_result_verifier_should_reject_failed_registry_replacement_status() {
 }
 
 #[test]
+fn publish_result_verifier_should_reject_missing_registry_package_version() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-registry-package-version");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json_without_package_version("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing registry packageVersion should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("registry packageVersion"),
+        "failure should identify registry packageVersion\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn publish_result_verifier_should_reject_incomplete_release_manifest() {
     if !node_available() {
         return;
@@ -383,7 +431,13 @@ fn registry_replacement_json(tarball: &str, integrity: &str) -> String {
 }
 
 fn registry_replacement_json_with_status(status: &str, tarball: &str, integrity: &str) -> String {
-    registry_replacement_json_with_status_and_shasum(status, tarball, VALID_SHASUM, integrity)
+    registry_replacement_json_with_package_version_status_and_shasum(
+        true,
+        status,
+        tarball,
+        VALID_SHASUM,
+        integrity,
+    )
 }
 
 fn registry_replacement_json_with_status_and_shasum(
@@ -392,11 +446,39 @@ fn registry_replacement_json_with_status_and_shasum(
     shasum: &str,
     integrity: &str,
 ) -> String {
+    registry_replacement_json_with_package_version_status_and_shasum(
+        true, status, tarball, shasum, integrity,
+    )
+}
+
+fn registry_replacement_json_without_package_version(tarball: &str, integrity: &str) -> String {
+    registry_replacement_json_with_package_version_status_and_shasum(
+        false,
+        "ok",
+        tarball,
+        VALID_SHASUM,
+        integrity,
+    )
+}
+
+fn registry_replacement_json_with_package_version_status_and_shasum(
+    include_package_version: bool,
+    status: &str,
+    tarball: &str,
+    shasum: &str,
+    integrity: &str,
+) -> String {
+    let package_version = if include_package_version {
+        r#",
+  "packageVersion": "0.8.0""#
+    } else {
+        ""
+    };
     format!(
         r#"{{
   "status": "{status}",
   "package": "calckernel",
-  "version": "0.8.0",
+  "version": "0.8.0"{package_version},
   "tarball": "https://registry.npmjs.org/calckernel/-/{tarball}",
   "shasum": "{shasum}",
   "consumerInstallScripts": [],

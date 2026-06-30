@@ -57,17 +57,19 @@ npm run verify:host-npm-install
 ```
 
 `verify:host-npm-install` packs the current host binary, installs the tarball
-into a temporary consumer project with `CKC_BIN` unset, runs the installed `ckc`
-through the CLI backend commands, imports the package root API, and runs a
-TypeScript declaration smoke against `npm/index.d.ts`. If no compiler is
-already available through `TSC_BIN` or local `node_modules`, the verifier
-installs `typescript@^5.8.0` in that temporary consumer before running the
-smoke. Its JSON output includes the npm target name, platform, architecture,
-tarball filename, tarball SHA256, installed `node_modules/.bin/ckc` path,
-packaged `node_modules/calckernel/npm/bin/ckc-<target>` Rust binary path,
+into a temporary consumer project with `CKC_BIN` unset and
+`CKC_DISABLE_SOURCE_FALLBACK=1`, runs the installed `ckc` through the CLI
+backend commands, imports the package root API, and runs a TypeScript
+declaration smoke against `npm/index.d.ts`. If no compiler is already available
+through `TSC_BIN` or local `node_modules`, the verifier installs
+`typescript@^5.8.0` in that temporary consumer before running the smoke. Its
+JSON output includes the npm target name, platform, architecture, tarball
+filename, tarball SHA256, installed `node_modules/.bin/ckc` path, packaged
+`node_modules/calckernel/npm/bin/ckc-<target>` Rust binary path,
 `packagedBinarySha256` for that Rust binary, command list, API symbols,
-TypeScript smoke status, and
-`ckcBinOverride: "unset"` so it can be archived as a platform sign-off.
+TypeScript smoke status, `ckcBinOverride: "unset"`, and
+`sourceFallback: "disabled"` so it can be archived as a platform sign-off that
+cannot be satisfied by a local source checkout fallback.
 To verify an already generated tarball instead of repacking, pass its path:
 
 ```sh
@@ -220,13 +222,15 @@ macOS/Linux entries that are not executable: Mach-O for macOS, ELF for Linux,
 PE for Windows, and `arm64` / `x64` matching the npm target name.
 Save that manifest as `release-manifest.json`. On each supported target
 platform, run `npm run verify:host-npm-install -- <tarball>` against the same
-tarball with `CKC_BIN` unset and save stdout as `signoffs/<npm-target>.json`.
-Then run `npm run verify:release-signoff -- release-manifest.json signoffs`.
+tarball with `CKC_BIN` unset and source checkout fallback disabled, then save
+stdout as `signoffs/<npm-target>.json`. Then run
+`npm run verify:release-signoff -- release-manifest.json signoffs`.
 The sign-off verifier rejects missing or duplicate targets, unsupported target
 names, mismatched tarball SHA256s, `CKC_BIN` overrides, missing backend smoke
 commands, missing `build-llvm --kind object` smoke evidence, missing public API
-symbols, missing installed/package binary path evidence, mismatched
-`packagedBinarySha256` values, and TypeScript declaration smoke failures.
+symbols, missing installed/package binary path evidence, enabled source checkout
+fallbacks, mismatched `packagedBinarySha256` values, and TypeScript declaration
+smoke failures.
 `verify:host-npm-install` must report
 `typeSmoke: "passed"` on every sign-off target; skipped declaration smokes are
 not acceptable release evidence.

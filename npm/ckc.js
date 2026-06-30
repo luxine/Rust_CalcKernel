@@ -16,12 +16,18 @@ function candidateBinaries() {
   } catch {
     packagedBinary = undefined;
   }
-  return [
+  const packagedCandidates = [
     process.env.CKC_BIN,
-    packagedBinary,
+    packagedBinary
+  ].filter(Boolean);
+  if (process.env.CKC_DISABLE_SOURCE_FALLBACK === "1") {
+    return packagedCandidates;
+  }
+  return [
+    ...packagedCandidates,
     join(root, "target", "release", exeName),
     join(root, "target", "debug", exeName)
-  ].filter(Boolean);
+  ];
 }
 
 function resolveBinary() {

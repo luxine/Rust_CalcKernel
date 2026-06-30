@@ -25,6 +25,7 @@ try {
 
   const installedEnv = { ...process.env };
   delete installedEnv.CKC_BIN;
+  installedEnv.CKC_DISABLE_SOURCE_FALLBACK = "1";
 
   const installedBin = join(
     consumer,
@@ -99,7 +100,8 @@ try {
       "createCKWasmArena"
     ],
     typeSmoke,
-    ckcBinOverride: "unset"
+    ckcBinOverride: "unset",
+    sourceFallback: "disabled"
   }, null, 2));
 } finally {
   if (keepTemp) {

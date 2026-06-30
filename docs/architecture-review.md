@@ -126,10 +126,11 @@ these gates are true in the current checkout:
 4. The TypeScript oracle fixture coverage audit passes, proving every current
    `examples`, `bench/perf/fixtures`, and `tests/fixtures` `.ck` input is
    present in MIR, C, WASM, and LLVM backend oracle tests.
-5. `npm run verify:host-npm-install` passes with `CKC_BIN` unset and
-   `typeSmoke: "passed"`; the host verifier prepares `typescript@^5.8.0` in
-   the temporary consumer when no `tsc` is already available, so release
-   sign-offs do not depend on the developer-local TypeScript checkout.
+5. `npm run verify:host-npm-install` passes with `CKC_BIN` unset,
+   `sourceFallback: "disabled"`, and `typeSmoke: "passed"`; the host verifier
+   prepares `typescript@^5.8.0` in the temporary consumer when no `tsc` is
+   already available, so release sign-offs do not depend on the developer-local
+   TypeScript checkout or a source checkout fallback.
 6. A formal release tarball is built with all binaries from `npm/platform.js`
    staged by `npm run build:npm-matrix`, checked with
    `build:npm-matrix --expect-complete` or

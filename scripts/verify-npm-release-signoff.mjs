@@ -102,6 +102,9 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   if (signoff.ckcBinOverride !== "unset") {
     fail(`${target.name} sign-off must run with CKC_BIN unset`);
   }
+  if (signoff.sourceFallback !== "disabled") {
+    fail(`${target.name} source fallback must be disabled`);
+  }
   validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);

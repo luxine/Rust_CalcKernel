@@ -55,6 +55,12 @@ fn host_npm_install_verifier_should_pass_without_ckc_bin_override() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
+        "host npm install verifier should report disabled source fallback for release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -104,6 +110,26 @@ fn host_npm_install_verifier_should_prepare_typescript_for_ci_without_local_orac
     assert!(
         !script.contains("join(\"/Users/lynn/code/CalcKernel\""),
         "host npm install verifier must not depend on the developer-local TypeScript oracle path"
+    );
+}
+
+#[test]
+fn host_npm_install_verifier_should_disable_source_checkout_fallback_for_release_signoff() {
+    let verifier =
+        std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
+    let wrapper = std::fs::read_to_string("npm/ckc.js").expect("read npm wrapper");
+
+    assert!(
+        verifier.contains("installedEnv.CKC_DISABLE_SOURCE_FALLBACK = \"1\""),
+        "host npm install verifier must disable npm wrapper source checkout fallback during release sign-off"
+    );
+    assert!(
+        verifier.contains("sourceFallback: \"disabled\""),
+        "host npm install verifier must report disabled source fallback in sign-off JSON"
+    );
+    assert!(
+        wrapper.contains("CKC_DISABLE_SOURCE_FALLBACK"),
+        "npm wrapper must support disabling source checkout fallback for release sign-off"
     );
 }
 

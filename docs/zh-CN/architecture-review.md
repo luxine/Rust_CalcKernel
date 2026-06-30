@@ -118,10 +118,11 @@ JavaScript compatibility surface。
 4. TypeScript oracle fixture coverage audit 通过，证明当前 `examples`、
    `bench/perf/fixtures` 和 `tests/fixtures` 的 `.ck` 输入都已经进入
    MIR、C、WASM、LLVM backend oracle 测试。
-5. `npm run verify:host-npm-install` 在 `CKC_BIN` unset 且
-   `typeSmoke: "passed"` 的情况下通过；如果没有现成 `tsc`，host verifier 会在
-   临时 consumer 中准备 `typescript@^5.8.0`，因此 release sign-off 不依赖开发机
-   本地 TypeScript checkout。
+5. `npm run verify:host-npm-install` 在 `CKC_BIN` unset、
+   `sourceFallback: "disabled"` 且 `typeSmoke: "passed"` 的情况下通过；如果没有
+   现成 `tsc`，host verifier 会在临时 consumer 中准备 `typescript@^5.8.0`，因此
+   release sign-off 不依赖开发机本地 TypeScript checkout，也不依赖 source checkout
+   fallback。
 6. 正式 release tarball 使用 `npm run build:npm-matrix` staging
    `npm/platform.js` 里的全部二进制，通过
    `build:npm-matrix --expect-complete` 或

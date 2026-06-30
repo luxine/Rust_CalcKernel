@@ -335,6 +335,7 @@ export declare class SymbolTable {
 
 export declare class Scope {
   readonly parent: Scope | null;
+  private readonly variables;
 
   constructor(parent?: Scope | null);
 
@@ -509,6 +510,8 @@ export declare function createCKWasmArena(
 
 export declare class CKWasmArena {
   readonly memory: CKWasmMemory;
+  private buffer;
+  private nextOffset;
 
   constructor(memory: CKWasmMemory, options?: CKWasmArenaOptions);
 
@@ -532,4 +535,8 @@ export declare class CKWasmArena {
   copyInI32(src: Int32Array): CKWasmArenaCopy<Int32Array>;
   copyInU32(src: Uint32Array): CKWasmArenaCopy<Uint32Array>;
   copyOutF64(ptr: number, length: number): Float64Array;
+  private allocTyped;
+  private allocBytesForApi;
+  private viewTyped;
+  private ensureBytesForApi;
 }

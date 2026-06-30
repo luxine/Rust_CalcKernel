@@ -38,6 +38,16 @@ const typescriptFunctionSignatures = new Map(
     .filter((entry) => entry.functionInfo)
     .map((entry) => [entry.name, entry.functionInfo])
 );
+const rustClassMembers = new Map(
+  rustSurface
+    .filter((entry) => entry.classMemberInfo)
+    .map((entry) => [entry.name, entry.classMemberInfo])
+);
+const typescriptClassMembers = new Map(
+  typescriptSurface
+    .filter((entry) => entry.classMemberInfo)
+    .map((entry) => [entry.name, entry.classMemberInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
@@ -60,7 +70,15 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   ) {
     fail(
       `function signature mismatch for ${name}: ` +
-        `Rust ${JSON.stringify(rustFunction.signatures)}, TypeScript ${JSON.stringify(typescriptFunction.signatures)}`
+      `Rust ${JSON.stringify(rustFunction.signatures)}, TypeScript ${JSON.stringify(typescriptFunction.signatures)}`
+    );
+  }
+  const rustClass = rustClassMembers.get(name);
+  const typescriptClass = typescriptClassMembers.get(name);
+  if (rustClass && typescriptClass && !sameJson(rustClass.members, typescriptClass.members)) {
+    fail(
+      `declaration member mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.members)}, TypeScript ${JSON.stringify(typescriptClass.members)}`
     );
   }
 }
@@ -81,6 +99,9 @@ console.log(JSON.stringify({
   declarationKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind])),
   functionSignatures: Object.fromEntries(
     [...rustFunctionSignatures.entries()].map(([name, info]) => [name, info.signatures])
+  ),
+  classMembers: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
   )
 }, null, 2));
 
@@ -181,7 +202,8 @@ function readDeclarationExportSurface(program, checker, path, label) {
     .map((symbol) => ({
       name: symbol.getName(),
       kind: declarationExportKind(symbol, checker, label),
-      functionInfo: declarationFunctionInfo(symbol, checker)
+      functionInfo: declarationFunctionInfo(symbol, checker),
+      classMemberInfo: declarationClassMemberInfo(symbol, checker)
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -213,6 +235,26 @@ function declarationFunctionInfo(symbol, checker) {
     .map((signature) => checker.signatureToString(signature, signatureAnchor, ts.TypeFormatFlags.NoTruncation))
     .sort();
   return { type, signatures };
+}
+
+function declarationClassMemberInfo(symbol, checker) {
+  const resolvedSymbol = resolveAliasedSymbol(symbol, checker);
+  const classDeclarations = (resolvedSymbol.getDeclarations() ?? []).filter(ts.isClassDeclaration);
+  if (classDeclarations.length === 0) {
+    return null;
+  }
+  const printer = ts.createPrinter({ removeComments: true });
+  const members = classDeclarations
+    .flatMap((declaration) => declaration.members.map((member) => classMemberText(member, declaration, printer)))
+    .sort();
+  return { members };
+}
+
+function classMemberText(member, declaration, printer) {
+  return printer
+    .printNode(ts.EmitHint.Unspecified, member, declaration.getSourceFile())
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function functionSignaturesAreCompatible(rustFunction, typescriptFunction, checker) {

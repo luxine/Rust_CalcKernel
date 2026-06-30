@@ -71,6 +71,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "name: release-manifest", "publish release manifest artifact");
   expectIncludes(workflow, "path: release-manifest", "publish release manifest path");
   expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
+  expectIncludes(publishJob, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
   expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");
   expectIncludes(workflow, "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball", "manifest-derived publish tarball");
   expectNotIncludes(workflow, "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish", "publish job ls tarball selection");
@@ -92,6 +93,11 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "--test npm_release_signoff_summary_test", "release signoff summary verifier test gate");
   expectIncludes(
     workflow,
+    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "pre-publish release signoff summary verifier command"
+  );
+  expectIncludes(
+    publishJob,
     "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
     "pre-publish release signoff summary verifier command"
   );

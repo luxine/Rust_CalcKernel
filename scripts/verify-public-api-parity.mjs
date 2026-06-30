@@ -203,10 +203,12 @@ function runtimeObjectPropertyInfo(value) {
   const properties = Object.keys(value)
     .sort()
     .map((name) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, name);
       const propertyValue = value[name];
       return {
         name,
         kind: runtimeExportKind(propertyValue),
+        descriptor: descriptorAttributes(descriptor),
         value: runtimeComparablePropertyValue(propertyValue)
       };
     });
@@ -235,6 +237,7 @@ function classMemberEntries(target, placement, excludedNames) {
         placement,
         name,
         kind: descriptorRuntimeKind(descriptor),
+        descriptor: descriptorAttributes(descriptor),
         metadata: descriptorFunctionMetadata(descriptor),
         value: descriptor && "value" in descriptor
           ? runtimeComparablePropertyValue(descriptor.value)
@@ -260,6 +263,20 @@ function descriptorRuntimeKind(descriptor) {
     return "setter";
   }
   return "unknown";
+}
+
+function descriptorAttributes(descriptor) {
+  if (!descriptor) {
+    return null;
+  }
+  const attributes = {
+    enumerable: descriptor.enumerable,
+    configurable: descriptor.configurable
+  };
+  if ("value" in descriptor) {
+    attributes.writable = descriptor.writable;
+  }
+  return attributes;
 }
 
 function descriptorFunctionMetadata(descriptor) {

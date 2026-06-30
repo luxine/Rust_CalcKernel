@@ -14,7 +14,7 @@ export class SourceFile {
   }
 }
 
-export const TokenKind = Object.freeze({
+export const TokenKind = {
   Eof: "Eof",
   Identifier: "Identifier",
   Integer: "Integer",
@@ -62,7 +62,7 @@ export const TokenKind = Object.freeze({
   GreaterEqual: "GreaterEqual",
   AmpAmp: "AmpAmp",
   PipePipe: "PipePipe"
-});
+};
 
 const KEYWORDS = new Map([
   ["struct", TokenKind.Struct],

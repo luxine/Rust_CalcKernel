@@ -104,12 +104,14 @@ expectIncludes(architectureReview, "TypeScript checkout remains the compatibilit
 expectIncludes(architectureReview, "without requiring edits to the TypeScript checkout", "architecture review");
 expectIncludes(architectureReview, "tests/fixtures", "architecture review");
 expectIncludes(architectureReview, "f64 edge fixture C dynamic-library runtime parity", "architecture review");
+expectIncludes(architectureReview, "f64 edge fixture WASM runtime parity", "architecture review");
 
 const zhArchitectureReview = readFileSync(join(root, "docs/zh-CN/architecture-review.md"), "utf8");
 expectIncludes(zhArchitectureReview, "TypeScript checkout 继续作为 compatibility oracle", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "不要求修改 TypeScript checkout", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "tests/fixtures", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "f64 edge fixture C dynamic-library runtime parity", "Chinese architecture review");
+expectIncludes(zhArchitectureReview, "f64 edge fixture WASM runtime parity", "Chinese architecture review");
 
 if (existsSync(join(tsRoot, "package.json"))) {
   const tsPackageJson = readJson(join(tsRoot, "package.json"));

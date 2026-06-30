@@ -83,7 +83,7 @@ JavaScript compatibility surface。
 | Frontend + type checker | `src/typeck.rs` | Checker tests，以及 checked program、symbol lookup、helper metadata、diagnostics 的 root API parity |
 | Frontend + MIR + optimizer | `src/mir/mod.rs`, `src/opt/mod.rs` | 官方 examples 和 perf fixtures 的 MIR O0-O3 TS oracle 输出对比 |
 | C backend | `src/backend/mod.rs` 的 C emission 部分 | C/header 输出 parity、f64 edge fixture C dynamic-library runtime parity、C dynamic-library runtime parity、checked/unchecked ABI checks |
-| WASM backend | `src/backend/mod.rs` 的 WAT/WASM 部分 | WAT text、WASM bytes、Node runtime interop、package WASM helper interop |
+| WASM backend | `src/backend/mod.rs` 的 WAT/WASM 部分 | WAT text、WASM bytes、f64 edge fixture WASM runtime parity、Node runtime interop、package WASM helper interop |
 | LLVM backend | `src/backend/mod.rs` 的 LLVM 部分 | LLVM IR parity、object/dynamic-library runtime parity、target/clang behavior parity |
 | CLI replacement | `src/main.rs`, `npm/ckc.js` | stdout/stderr/exit-code parity、error precedence、output write failures、fresh npm install smoke |
 | npm package replacement | `package.json`, `npm/*`, `scripts/*` | strict file-surface verifier、binary matrix staging、target executable format 与 architecture checks、TypeScript declaration smoke |

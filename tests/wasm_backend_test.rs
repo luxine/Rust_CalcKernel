@@ -334,6 +334,91 @@ fn wasm_cli_should_match_typescript_oracle_for_official_interop_runtime_behavior
 }
 
 #[test]
+fn wasm_cli_should_match_typescript_oracle_for_f64_edge_fixture_runtime_behavior() {
+    let Some(ts_cli) = typescript_cli() else {
+        return;
+    };
+    if !node_available() {
+        return;
+    }
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("rust_calckernel_wasm_f64_edges_{unique}"));
+    fs::create_dir_all(&dir).expect("create temp dir");
+    let runner = dir.join("run_wasm_case.mjs");
+    fs::write(&runner, wasm_runtime_runner()).expect("write WASM runtime runner");
+    let source_path = typescript_root().join("tests/fixtures/f64_edges.ck");
+    let ts_wasm = dir.join("f64_edges.ts.wasm");
+    let rust_wasm = dir.join("f64_edges.rust.wasm");
+
+    let ts_emit = Command::new("node")
+        .arg(&ts_cli)
+        .arg("emit-wasm")
+        .arg("-O3")
+        .arg("--out")
+        .arg(&ts_wasm)
+        .arg(&source_path)
+        .output()
+        .expect("run TypeScript ckc emit-wasm");
+    assert!(
+        ts_emit.status.success(),
+        "wasm-f64-edges TS emit stderr:\n{}",
+        String::from_utf8_lossy(&ts_emit.stderr)
+    );
+
+    let rust_emit = Command::new(env!("CARGO_BIN_EXE_ckc"))
+        .arg("emit-wasm")
+        .arg("-O3")
+        .arg("--out")
+        .arg(&rust_wasm)
+        .arg(&source_path)
+        .output()
+        .expect("run Rust ckc emit-wasm");
+    assert!(
+        rust_emit.status.success(),
+        "wasm-f64-edges Rust emit stderr:\n{}",
+        String::from_utf8_lossy(&rust_emit.stderr)
+    );
+
+    let ts_run = Command::new("node")
+        .arg(&runner)
+        .arg("wasm-f64-edges")
+        .arg(&ts_wasm)
+        .output()
+        .expect("run TS WASM f64 edge runtime");
+    assert!(
+        ts_run.status.success(),
+        "wasm-f64-edges TS runtime stderr:\n{}",
+        String::from_utf8_lossy(&ts_run.stderr)
+    );
+
+    let rust_run = Command::new("node")
+        .arg(&runner)
+        .arg("wasm-f64-edges")
+        .arg(&rust_wasm)
+        .output()
+        .expect("run Rust WASM f64 edge runtime");
+    assert!(
+        rust_run.status.success(),
+        "wasm-f64-edges Rust runtime stderr:\n{}",
+        String::from_utf8_lossy(&rust_run.stderr)
+    );
+
+    assert_eq!(
+        String::from_utf8(rust_run.stdout).expect("Rust runtime stdout should be UTF-8"),
+        String::from_utf8(ts_run.stdout).expect("TS runtime stdout should be UTF-8"),
+        "wasm-f64-edges runtime stdout"
+    );
+    assert_eq!(
+        String::from_utf8(rust_run.stderr).expect("Rust runtime stderr should be UTF-8"),
+        String::from_utf8(ts_run.stderr).expect("TS runtime stderr should be UTF-8"),
+        "wasm-f64-edges runtime stderr"
+    );
+}
+
+#[test]
 fn wasm_cli_should_match_typescript_oracle_for_perf_fixture_runtime_behavior() {
     let Some(ts_cli) = typescript_cli() else {
         return;
@@ -461,6 +546,36 @@ if (!(memory instanceof WebAssembly.Memory)) {
 
 function close(actual, expected) {
   return Math.abs(actual - expected) < 0.0000001;
+}
+
+function closeF64(actual, expected) {
+  const diff = Math.abs(actual - expected);
+  const scale = Math.max(Math.abs(actual), Math.abs(expected), 1.0);
+  return diff <= 0.000000000001 * scale || diff <= 0.000000000001;
+}
+
+function classifyF64(value) {
+  if (Number.isNaN(value)) {
+    return "nan";
+  }
+  if (!Number.isFinite(value)) {
+    return Object.is(value, -Infinity) ? "-inf" : "+inf";
+  }
+  if (Object.is(value, -0)) {
+    return "-0";
+  }
+  if (Object.is(value, 0)) {
+    return "+0";
+  }
+  return "finite";
+}
+
+function classIs(value, expected) {
+  return classifyF64(value) === expected;
+}
+
+function ok(value) {
+  return value ? "ok" : "fail";
 }
 
 function expectedTotal(price, quantity, discount, taxRatePpm) {
@@ -667,6 +782,123 @@ function runF64Sum() {
   return `f64-sum:result=${actual};inputLength=${input.length}`;
 }
 
+function runF64Edges() {
+  const f64Exports = [
+    "finite_add",
+    "finite_sub",
+    "finite_mul",
+    "finite_div",
+    "tolerance_calc",
+    "negative_infinity",
+    "positive_infinity",
+    "not_a_number",
+    "negative_zero",
+    "infinity_plus_finite",
+    "infinity_minus_infinity",
+    "overflow_to_infinity",
+    "underflow_smoke"
+  ];
+  const boolExports = [
+    "finite_less",
+    "finite_less_equal",
+    "finite_equal",
+    "zero_equals_negative_zero",
+    "nan_equals_nan",
+    "nan_not_equals_nan",
+    "nan_less_than_one",
+    "nan_less_equal_one",
+    "nan_greater_than_one",
+    "nan_greater_equal_one",
+    "infinity_greater_than_finite",
+    "negative_infinity_less_than_finite"
+  ];
+  const pointerExports = [
+    "ptr_read",
+    "ptr_write",
+    "struct_read",
+    "struct_write",
+    "nested_struct_read",
+    "nested_struct_write"
+  ];
+  for (const name of [...f64Exports, ...boolExports, ...pointerExports]) {
+    if (typeof instance.exports[name] !== "function") {
+      throw new Error(`generated f64 edge WASM did not export ${name}`);
+    }
+  }
+
+  const view = new DataView(memory.buffer);
+  const valuesOffset = 0;
+  const quotesOffset = 64;
+  const nestedOffset = 128;
+  const quoteSize = 16;
+  const nestedSize = 24;
+
+  for (const [index, value] of [1.0, 2.5, 4.0].entries()) {
+    view.setFloat64(valuesOffset + index * 8, value, true);
+  }
+  const quotes = [
+    { price: 10.25, tax: 0.75 },
+    { price: 20.5, tax: 1.25 }
+  ];
+  for (const [index, quote] of quotes.entries()) {
+    const base = quotesOffset + index * quoteSize;
+    view.setFloat64(base + 0, quote.price, true);
+    view.setFloat64(base + 8, quote.tax, true);
+  }
+  const nested = [
+    { price: 1.25, tax: 0.75, fee: 2.0 },
+    { price: 10.0, tax: 2.0, fee: 3.0 }
+  ];
+  for (const [index, item] of nested.entries()) {
+    const base = nestedOffset + index * nestedSize;
+    view.setFloat64(base + 0, item.price, true);
+    view.setFloat64(base + 8, item.tax, true);
+    view.setFloat64(base + 16, item.fee, true);
+  }
+
+  const ptrStoreValue = instance.exports.ptr_write(valuesOffset, 1, 8.75);
+  const structWriteValue = instance.exports.struct_write(quotesOffset, 1, 0.5);
+  const nestedWriteValue = instance.exports.nested_struct_write(nestedOffset, 1, 1.5);
+
+  const checks = [
+    ["finite_add", closeF64(instance.exports.finite_add(), 4.0)],
+    ["finite_sub", closeF64(instance.exports.finite_sub(), 3.5)],
+    ["finite_mul", closeF64(instance.exports.finite_mul(), 3.75)],
+    ["finite_div", closeF64(instance.exports.finite_div(), 3.5)],
+    ["tolerance_calc", closeF64(instance.exports.tolerance_calc(), 10.0)],
+    ["finite_less", instance.exports.finite_less() === 1],
+    ["finite_less_equal", instance.exports.finite_less_equal() === 1],
+    ["finite_equal", instance.exports.finite_equal() === 1],
+    ["pos_inf", classIs(instance.exports.positive_infinity(), "+inf")],
+    ["neg_inf", classIs(instance.exports.negative_infinity(), "-inf")],
+    ["nan", classIs(instance.exports.not_a_number(), "nan")],
+    ["neg_zero", classIs(instance.exports.negative_zero(), "-0")],
+    ["zero_eq_neg_zero", instance.exports.zero_equals_negative_zero() === 1],
+    ["nan_eq_nan", instance.exports.nan_equals_nan() === 0],
+    ["nan_ne_nan", instance.exports.nan_not_equals_nan() === 1],
+    ["nan_lt_one", instance.exports.nan_less_than_one() === 0],
+    ["nan_le_one", instance.exports.nan_less_equal_one() === 0],
+    ["nan_gt_one", instance.exports.nan_greater_than_one() === 0],
+    ["nan_ge_one", instance.exports.nan_greater_equal_one() === 0],
+    ["inf_plus", classIs(instance.exports.infinity_plus_finite(), "+inf")],
+    ["inf_minus_inf", classIs(instance.exports.infinity_minus_infinity(), "nan")],
+    ["overflow", classIs(instance.exports.overflow_to_infinity(), "+inf")],
+    ["underflow", classIs(instance.exports.underflow_smoke(), "+0")],
+    ["inf_gt_finite", instance.exports.infinity_greater_than_finite() === 1],
+    ["neg_inf_lt_finite", instance.exports.negative_infinity_less_than_finite() === 1],
+    ["ptr_load", closeF64(instance.exports.ptr_read(valuesOffset, 2), 4.0)],
+    ["ptr_store", closeF64(ptrStoreValue, 8.75) && closeF64(view.getFloat64(valuesOffset + 8, true), 8.75)],
+    ["struct_read", closeF64(instance.exports.struct_read(quotesOffset, 0), 11.0)],
+    ["struct_write", closeF64(structWriteValue, 21.0) && closeF64(view.getFloat64(quotesOffset + quoteSize + 8, true), 0.5)],
+    ["nested_struct_read", closeF64(instance.exports.nested_struct_read(nestedOffset, 0), 4.0)],
+    [
+      "nested_struct_write",
+      closeF64(nestedWriteValue, 14.5) && closeF64(view.getFloat64(nestedOffset + nestedSize + 8, true), 1.5)
+    ]
+  ];
+  return `wasm-f64-edges:${checks.map(([name, passed]) => `${name}=${ok(passed)}`).join(";")}`;
+}
+
 function runPricingSoa() {
   const pricingSoA = instance.exports.pricing_soa;
   if (typeof pricingSoA !== "function") {
@@ -788,6 +1020,7 @@ const runners = {
   "f64-array": runF64Array,
   "f64-axpy": runF64Axpy,
   "f64-sum": runF64Sum,
+  "wasm-f64-edges": runF64Edges,
   "pricing-soa": runPricingSoa,
   "bench-pricing-helpers": runBenchPricingHelpers,
   "bench-pricing-soa": runBenchPricingSoa,

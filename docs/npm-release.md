@@ -386,11 +386,18 @@ property value, plus the runtime object property descriptor surface for
 enumerable/configurable/writable flags. Class exports must also match the
 TypeScript runtime class constructor metadata surface for observable constructor
 arity (`.length`), runtime class object metadata surface for constructor and
-prototype extensible/sealed/frozen state, plus the runtime class member surface
-by static/prototype own member name, member placement, member kind, runtime
-class member descriptor surface for enumerable/configurable/writable flags,
-runtime class member function metadata surface for observable member arity
-(`.length`), and primitive member value where applicable.
+prototype extensible/sealed/frozen state, runtime class instance metadata surface
+for sampled instance extensible/sealed/frozen state, runtime class instance own
+property surface by sampled instance own property name, runtime class instance
+property descriptor surface for enumerable/configurable/writable flags plus
+property kind and primitive value, plus the runtime class member surface by
+static/prototype own member name, member placement, member kind, runtime class
+member descriptor surface for enumerable/configurable/writable flags, runtime
+class member function metadata surface for observable member arity (`.length`),
+and primitive member value where applicable.
+The class instance gates are `runtime class instance metadata surface`,
+`runtime class instance own property surface`, and
+`runtime class instance property descriptor surface`.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
@@ -473,11 +480,17 @@ runtime object property surface（属性 kind、primitive 属性值，以及
 runtime object property descriptor surface 的 enumerable/configurable/writable
 flags）、class export 的 runtime class constructor metadata surface
 （可观察 constructor arity / `.length`）、runtime class object metadata surface
-（constructor/prototype extensible/sealed/frozen 状态）以及 runtime class member surface
-（static/prototype 自有成员名、成员位置、成员 kind、runtime class member descriptor surface
-的 enumerable/configurable/writable flags、runtime class member function metadata surface
-的可观察 member arity / `.length`，以及适用时的
-primitive 成员值）对齐。
+（constructor/prototype extensible/sealed/frozen 状态）、runtime class instance metadata surface
+（采样 instance 的 extensible/sealed/frozen 状态）、runtime class instance own property surface
+（采样 instance 自有属性名）、runtime class instance property descriptor surface
+（enumerable/configurable/writable flags、属性 kind 和 primitive 值）以及
+runtime class member surface（static/prototype 自有成员名、成员位置、成员 kind、
+runtime class member descriptor surface 的 enumerable/configurable/writable flags、
+runtime class member function metadata surface 的可观察 member arity / `.length`，
+以及适用时的 primitive 成员值）对齐。
+class instance gate 名称为 `runtime class instance metadata surface`、
+`runtime class instance own property surface` 和
+`runtime class instance property descriptor surface`。
 每个平台都应把该命令 stdout 保存为 `signoffs/<npm-target>.json`，再用
 `npm run verify:release-signoff -- release-manifest.json signoffs` 汇总验收。
 在 GitHub Actions 中，`verify:host-npm-install` 会在写出平台签核前拒绝缺失

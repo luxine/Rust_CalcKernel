@@ -98,6 +98,18 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
         `Rust ${JSON.stringify(rustClass.objectMetadata)}, TypeScript ${JSON.stringify(typescriptClass.objectMetadata)}`
     );
   }
+  if (rustClass && typescriptClass && !sameJson(rustClass.instance.metadata, typescriptClass.instance.metadata)) {
+    fail(
+      `runtime class instance metadata mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.instance.metadata)}, TypeScript ${JSON.stringify(typescriptClass.instance.metadata)}`
+    );
+  }
+  if (rustClass && typescriptClass && !sameJson(rustClass.instance.properties, typescriptClass.instance.properties)) {
+    fail(
+      `runtime class instance property mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.instance.properties)}, TypeScript ${JSON.stringify(typescriptClass.instance.properties)}`
+    );
+  }
   if (rustClass && typescriptClass && !sameJson(rustClass.members, typescriptClass.members)) {
     fail(
       `runtime class member mismatch for ${name}: ` +
@@ -134,6 +146,12 @@ console.log(JSON.stringify({
   ),
   classObjectMetadata: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.objectMetadata])
+  ),
+  classInstanceMetadata: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.instance.metadata])
+  ),
+  classInstanceProperties: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.instance.properties])
   ),
   classMembers: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
@@ -187,7 +205,7 @@ async function readRuntimeExportSurface(path, label) {
         kind: runtimeExportKind(module[name]),
         functionMetadataInfo: runtimeFunctionMetadataInfo(module[name]),
         objectPropertyInfo: runtimeObjectPropertyInfo(module[name]),
-        classMemberInfo: runtimeClassMemberInfo(module[name])
+        classMemberInfo: runtimeClassMemberInfo(name, module[name])
       }));
   } catch (error) {
     failImmediate(`Unable to import ${label}: ${error.message}`);
@@ -195,6 +213,12 @@ async function readRuntimeExportSurface(path, label) {
 }
 
 function runtimeExportKind(value) {
+  if (value === null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
   if (typeof value === "function" && /^class\s/.test(Function.prototype.toString.call(value))) {
     return "class";
   }
@@ -218,25 +242,13 @@ function runtimeObjectPropertyInfo(value) {
   if (runtimeExportKind(value) !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const properties = Object.getOwnPropertyNames(value)
-    .sort()
-    .map((name) => {
-      const descriptor = Object.getOwnPropertyDescriptor(value, name);
-      const propertyValue = value[name];
-      return {
-        name,
-        kind: runtimeExportKind(propertyValue),
-        descriptor: descriptorAttributes(descriptor),
-        value: runtimeComparablePropertyValue(propertyValue)
-      };
-    });
   return {
     metadata: runtimeObjectMetadata(value),
-    properties
+    properties: runtimePropertyEntries(value)
   };
 }
 
-function runtimeClassMemberInfo(value) {
+function runtimeClassMemberInfo(name, value) {
   if (runtimeExportKind(value) !== "class") {
     return null;
   }
@@ -248,8 +260,42 @@ function runtimeClassMemberInfo(value) {
       constructor: runtimeObjectMetadata(value),
       prototype: runtimeObjectMetadata(value.prototype)
     },
+    instance: runtimeClassInstanceInfo(name, value),
     members: [...staticMembers, ...prototypeMembers].sort(compareClassMembers)
   };
+}
+
+function runtimeClassInstanceInfo(name, value) {
+  const instance = instantiateClassSample(name, value);
+  return {
+    metadata: runtimeObjectMetadata(instance),
+    properties: runtimePropertyEntries(instance)
+  };
+}
+
+function instantiateClassSample(name, value) {
+  if (name === "CKWasmArena") {
+    return new value(new WebAssembly.Memory({ initial: 1 }));
+  }
+  if (name === "SourceFile") {
+    return new value("sample.ck", "text");
+  }
+  return new value();
+}
+
+function runtimePropertyEntries(value) {
+  return Object.getOwnPropertyNames(value)
+    .sort()
+    .map((name) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, name);
+      const propertyValue = value[name];
+      return {
+        name,
+        kind: runtimeExportKind(propertyValue),
+        descriptor: descriptorAttributes(descriptor),
+        value: runtimeComparablePropertyValue(propertyValue)
+      };
+    });
 }
 
 function classMemberEntries(target, placement, excludedNames) {

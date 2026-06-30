@@ -166,6 +166,9 @@ expectIncludes(npmRelease, "runtime object property surface", "npm release docs"
 expectIncludes(npmRelease, "runtime object property descriptor surface", "npm release docs");
 expectIncludes(npmRelease, "runtime class constructor metadata surface", "npm release docs");
 expectIncludes(npmRelease, "runtime class object metadata surface", "npm release docs");
+expectIncludes(npmRelease, "runtime class instance metadata surface", "npm release docs");
+expectIncludes(npmRelease, "runtime class instance own property surface", "npm release docs");
+expectIncludes(npmRelease, "runtime class instance property descriptor surface", "npm release docs");
 expectIncludes(npmRelease, "runtime class member surface", "npm release docs");
 expectIncludes(npmRelease, "runtime class member descriptor surface", "npm release docs");
 expectIncludes(npmRelease, "runtime class member function metadata surface", "npm release docs");

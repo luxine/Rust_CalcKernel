@@ -149,7 +149,9 @@ The workflow runs these stages:
    `cargo test`, package release tests including the registry replacement
    verifier test, `audit-rust-replacement-readiness`,
    `audit:typescript-test-surface`, `verify:declaration-parity`,
-   `verify:public-api-parity`, and `audit-npm-release-workflow`.
+   `verify:public-api-parity`, and `audit-npm-release-workflow`. The workflow
+   audit also rejects a broken release job dependency chain; `publish-npm` must
+   still depend on `finalize-signoff`.
 3. Build the six npm targets from `npm/platform.js` on their matching runners
    and upload one binary artifact per target.
 4. Download all binaries into `build/npm-binaries`, pack once with
@@ -439,7 +441,8 @@ TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-sid
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
-同一个 tarball。发布前必须先运行 `verify:release-signoff-summary` 并输出
+同一个 tarball。`audit-npm-release-workflow` 会拒绝被破坏的 release job
+依赖链，尤其是 `publish-npm` 不再依赖 `finalize-signoff` 的 workflow。发布前必须先运行 `verify:release-signoff-summary` 并输出
 `release-signoff-summary.json`，确认
 `release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
 SHA256 和六个平台，并在摘要中显式保留 `packageVersion`；随后运行

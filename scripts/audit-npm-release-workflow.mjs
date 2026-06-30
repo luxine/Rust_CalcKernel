@@ -15,7 +15,9 @@ if (!existsSync(workflowPath)) {
 } else {
   const workflow = readFileSync(workflowPath, "utf8");
   const buildBinaryJob = workflowSection(workflow, "build-binary:", "pack-release:");
+  const packReleaseJob = workflowSection(workflow, "pack-release:", "platform-signoff:");
   const platformSignoffJob = workflowSection(workflow, "platform-signoff:", "finalize-signoff:");
+  const finalizeSignoffJob = workflowSection(workflow, "finalize-signoff:", "publish-npm:");
   const publishJob = workflowSection(workflow, "publish-npm:", "");
   const npmPublishArtifact = workflowSection(publishJob, "name: npm-publish", "if-no-files-found: error");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
@@ -25,6 +27,11 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "platform-signoff:", "platform sign-off job");
   expectIncludes(workflow, "finalize-signoff:", "final sign-off job");
   expectIncludes(workflow, "publish-npm:", "npm publish job");
+  expectIncludes(buildBinaryJob, "needs: verify-release-scripts", "build-binary job dependency");
+  expectIncludes(packReleaseJob, "needs: build-binary", "pack-release job dependency");
+  expectIncludes(platformSignoffJob, "needs: pack-release", "platform-signoff job dependency");
+  expectIncludes(finalizeSignoffJob, "needs: platform-signoff", "finalize-signoff job dependency");
+  expectIncludes(publishJob, "needs: finalize-signoff", "publish-npm job dependency");
   expectIncludes(workflow, "publish:", "publish workflow input");
   expectIncludes(workflow, "type: boolean", "boolean publish input");
   expectIncludes(workflow, "default: false", "publish default");

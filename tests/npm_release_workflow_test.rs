@@ -351,6 +351,47 @@ fn npm_release_workflow_audit_should_reject_build_binary_runner_mismatch() {
     );
 }
 
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_without_final_signoff_dependency() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "needs: finalize-signoff",
+        "needs: pack-release",
+    );
+    let workflow_path = write_temp_workflow("publish-without-final-signoff", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against tampered publish workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when it bypasses finalize-signoff\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish-npm")
+            && String::from_utf8_lossy(&output.stderr).contains("finalize-signoff"),
+        "dependency failure should identify publish-npm and finalize-signoff\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn workflow_section<'a>(workflow: &'a str, start: &str, end: &str) -> &'a str {
     let start_index = workflow
         .find(start)
@@ -375,10 +416,14 @@ fn replace_in_workflow_section(
     let start_index = workflow
         .find(start)
         .unwrap_or_else(|| panic!("workflow should include {start}"));
-    let end_index = workflow[start_index..]
-        .find(end)
-        .map(|offset| start_index + offset)
-        .unwrap_or_else(|| panic!("workflow should include {end} after {start}"));
+    let end_index = if end.is_empty() {
+        workflow.len()
+    } else {
+        workflow[start_index..]
+            .find(end)
+            .map(|offset| start_index + offset)
+            .unwrap_or_else(|| panic!("workflow should include {end} after {start}"))
+    };
     let mut section = workflow[start_index..end_index].to_string();
     assert!(
         section.contains(from),

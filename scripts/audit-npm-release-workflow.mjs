@@ -49,7 +49,9 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "if: ${{ inputs.publish }}", "publish job guard");
   expectIncludes(publishJob, "if: ${{ inputs.publish }}", "publish job guard");
   expectIncludes(workflow, "environment: npm-production", "publish environment");
+  expectIncludes(publishJob, "environment: npm-production", "publish environment");
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");
+  expectIncludes(publishJob, "id-token: write", "npm provenance token permission");
   expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
   expectIncludes(workflow, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm token secret");
   expectIncludes(publishJob, "test -n \"${NODE_AUTH_TOKEN}\"", "NPM_TOKEN preflight");

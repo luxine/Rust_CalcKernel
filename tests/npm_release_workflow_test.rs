@@ -490,6 +490,91 @@ fn npm_release_workflow_audit_should_reject_publish_guard_outside_publish_job() 
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_publish_environment_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_environment = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "environment: npm-production",
+        "environment: npm-staging",
+    );
+    let tampered = publish_without_environment.replacen(
+        "  verify-release-scripts:\n",
+        "  verify-release-scripts:\n    environment: npm-production\n",
+        1,
+    );
+    let workflow_path = write_temp_workflow("publish-environment-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced publish environment workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when npm-production is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish environment"),
+        "misplaced publish environment failure should identify the publish environment\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_provenance_permission_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_without_id_token =
+        replace_in_workflow_section(&workflow, "publish-npm:", "", "      id-token: write\n", "");
+    let tampered = publish_without_id_token.replacen(
+        "permissions:\n  contents: read\n",
+        "permissions:\n  contents: read\n  id-token: write\n",
+        1,
+    );
+    let workflow_path = write_temp_workflow("provenance-permission-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced provenance permission workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when id-token write permission is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("npm provenance token permission"),
+        "misplaced provenance permission failure should identify the npm provenance permission\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
     if !node_available() {
         return;

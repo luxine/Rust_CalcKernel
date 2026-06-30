@@ -19,8 +19,9 @@ const keepTemp = options.keepTemp || process.env.CKC_KEEP_HOST_NPM_SMOKE === "1"
 const tmpRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-host-install-"));
 
 try {
-  const tarball = options.tarballPath ?? npmPack(tmpRoot);
   const target = currentTarget();
+  const ciProvenance = collectCiProvenance(target);
+  const tarball = options.tarballPath ?? npmPack(tmpRoot);
   const npmVersion = readNpmVersion();
   const consumer = join(tmpRoot, "consumer");
   mkdirSync(consumer);
@@ -113,14 +114,7 @@ try {
     arch: target.arch,
     nodeVersion: process.version,
     npmVersion,
-    ciProvider: ciProvider(),
-    githubRunId: process.env.GITHUB_RUN_ID ?? "",
-    githubRunAttempt: process.env.GITHUB_RUN_ATTEMPT ?? "",
-    githubSha: process.env.GITHUB_SHA ?? "",
-    githubWorkflow: process.env.GITHUB_WORKFLOW ?? "",
-    githubJob: process.env.GITHUB_JOB ?? "",
-    runnerOs: process.env.RUNNER_OS ?? localRunnerOs(),
-    runnerArch: process.env.RUNNER_ARCH ?? localRunnerArch(),
+    ...ciProvenance,
     installedBin,
     packageRoot,
     packagedBinary,
@@ -204,8 +198,63 @@ function readNpmVersion() {
   return run("npm", ["--version"], { cwd: root }).stdout.trim();
 }
 
-function ciProvider() {
-  return process.env.GITHUB_ACTIONS === "true" ? "github-actions" : "local";
+function collectCiProvenance(target) {
+  if (process.env.GITHUB_ACTIONS !== "true") {
+    return {
+      ciProvider: "local",
+      githubRunId: "",
+      githubRunAttempt: "",
+      githubSha: "",
+      githubWorkflow: "",
+      githubJob: "",
+      runnerOs: localRunnerOs(),
+      runnerArch: localRunnerArch()
+    };
+  }
+
+  const runnerOs = requireGithubEnv("RUNNER_OS", "runnerOs");
+  const runnerArch = requireGithubEnv("RUNNER_ARCH", "runnerArch");
+  const expectedRunnerOs = runnerOsForTarget(target);
+  const expectedRunnerArch = runnerArchForTarget(target);
+
+  if (runnerOs !== expectedRunnerOs) {
+    fail(`${target.name} runnerOs must be ${expectedRunnerOs}, found ${JSON.stringify(runnerOs)}`);
+  }
+  if (runnerArch !== expectedRunnerArch) {
+    fail(`${target.name} runnerArch must be ${expectedRunnerArch}, found ${JSON.stringify(runnerArch)}`);
+  }
+
+  const githubRunId = requireGithubEnv("GITHUB_RUN_ID", "githubRunId");
+  const githubRunAttempt = requireGithubEnv("GITHUB_RUN_ATTEMPT", "githubRunAttempt");
+  const githubSha = requireGithubEnv("GITHUB_SHA", "githubSha");
+  if (!/^\d+$/.test(githubRunId)) {
+    fail(`githubRunId must be a non-empty decimal string`);
+  }
+  if (!/^\d+$/.test(githubRunAttempt)) {
+    fail(`githubRunAttempt must be a non-empty decimal string`);
+  }
+  if (!/^[0-9a-f]{40}$/.test(githubSha)) {
+    fail(`githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+
+  return {
+    ciProvider: "github-actions",
+    githubRunId,
+    githubRunAttempt,
+    githubSha,
+    githubWorkflow: requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow"),
+    githubJob: requireGithubEnv("GITHUB_JOB", "githubJob"),
+    runnerOs,
+    runnerArch
+  };
+}
+
+function requireGithubEnv(envName, evidenceName) {
+  const value = process.env[envName];
+  if (typeof value !== "string" || value.length === 0) {
+    fail(`${evidenceName} is required when GITHUB_ACTIONS=true`);
+  }
+  return value;
 }
 
 function localRunnerOs() {
@@ -229,6 +278,32 @@ function localRunnerArch() {
       return "X64";
     default:
       return process.arch;
+  }
+}
+
+function runnerOsForTarget(target) {
+  switch (target.platform) {
+    case "darwin":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    case "win32":
+      return "Windows";
+    default:
+      fail(`${target.name} runnerOs cannot be inferred for platform ${target.platform}`);
+      return undefined;
+  }
+}
+
+function runnerArchForTarget(target) {
+  switch (target.arch) {
+    case "arm64":
+      return "ARM64";
+    case "x64":
+      return "X64";
+    default:
+      fail(`${target.name} runnerArch cannot be inferred for arch ${target.arch}`);
+      return undefined;
   }
 }
 

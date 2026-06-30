@@ -121,6 +121,76 @@ fn host_npm_install_verifier_should_reject_missing_tarball_argument() {
 }
 
 #[test]
+fn host_npm_install_verifier_should_reject_incomplete_github_actions_provenance() {
+    if !node_available() || !npm_available() {
+        return;
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-host-npm-install.mjs")
+        .env_remove("CKC_BIN")
+        .env("GITHUB_ACTIONS", "true")
+        .env_remove("GITHUB_RUN_ID")
+        .env("GITHUB_RUN_ATTEMPT", "1")
+        .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_WORKFLOW", "npm release artifact")
+        .env("GITHUB_JOB", "platform-signoff")
+        .env("RUNNER_OS", expected_runner_os())
+        .env("RUNNER_ARCH", expected_runner_arch())
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run host npm install verifier with incomplete GitHub Actions provenance");
+
+    assert!(
+        !output.status.success(),
+        "incomplete GitHub Actions provenance should fail before writing release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubRunId"),
+        "failure should identify the missing GitHub Actions run id\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn host_npm_install_verifier_should_reject_runner_target_mismatch_in_github_actions() {
+    if !node_available() || !npm_available() {
+        return;
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-host-npm-install.mjs")
+        .env_remove("CKC_BIN")
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", "1234567890")
+        .env("GITHUB_RUN_ATTEMPT", "1")
+        .env("GITHUB_SHA", "abcdef0123456789abcdef0123456789abcdef01")
+        .env("GITHUB_WORKFLOW", "npm release artifact")
+        .env("GITHUB_JOB", "platform-signoff")
+        .env("RUNNER_OS", "Plan9")
+        .env("RUNNER_ARCH", expected_runner_arch())
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run host npm install verifier with mismatched runner evidence");
+
+    assert!(
+        !output.status.success(),
+        "mismatched GitHub Actions runner evidence should fail before writing release sign-off\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("runnerOs"),
+        "failure should identify the runner OS mismatch\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn host_npm_install_verifier_should_prepare_typescript_for_ci_without_local_oracle_fallback() {
     let script =
         std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
@@ -189,4 +259,21 @@ fn npm_available() -> bool {
         .arg("--version")
         .output()
         .is_ok_and(|output| output.status.success())
+}
+
+fn expected_runner_os() -> &'static str {
+    match std::env::consts::OS {
+        "macos" => "macOS",
+        "linux" => "Linux",
+        "windows" => "Windows",
+        _ => std::env::consts::OS,
+    }
+}
+
+fn expected_runner_arch() -> &'static str {
+    match std::env::consts::ARCH {
+        "aarch64" => "ARM64",
+        "x86_64" => "X64",
+        _ => std::env::consts::ARCH,
+    }
 }

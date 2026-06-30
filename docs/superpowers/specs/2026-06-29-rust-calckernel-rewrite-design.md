@@ -269,7 +269,7 @@ cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-At this point the suite has 188 Rust tests. This is substantial coverage, and
+At this point the suite has 201 Rust tests. This is substantial coverage, and
 the local generated-output audit now requires every current `.ck` fixture under
 `examples`, `bench/perf/fixtures`, and `tests/fixtures` to appear in MIR, C,
 WASM, and LLVM oracle tests. Completion of the full replacement objective still

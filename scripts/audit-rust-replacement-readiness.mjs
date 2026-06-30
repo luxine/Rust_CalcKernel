@@ -109,6 +109,8 @@ expectIncludes(npmRelease, "TypeScript declaration smoke", "npm release docs");
 expectIncludes(npmRelease, "typeSmoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");
+expectIncludes(npmRelease, "installedBin", "npm release docs");
+expectIncludes(npmRelease, "packagedBinary", "npm release docs");
 expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");
 expectIncludes(npmRelease, "platform / arch", "npm release docs");
 expectIncludes(npmRelease, "ckcBinOverride", "npm release docs");

@@ -98,6 +98,28 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":")
+            && String::from_utf8_lossy(&output.stdout).contains("node_modules/.bin/ckc"),
+        "cutover evidence verifier should preserve installed CLI path evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packagedBinary\":")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("node_modules/calckernel/npm/bin/ckc-linux-x64"),
+        "cutover evidence verifier should preserve packaged binary path evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"packagedBinarySha256\": \"{BINARY_SHA256}\"")),
+        "cutover evidence verifier should preserve packaged binary SHA256 evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"releaseSignoffSummary\":"),
         "cutover evidence verifier should report the release signoff summary evidence path\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -1160,6 +1182,114 @@ fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_platfor
     );
 }
 
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_signoff_signed_target_binary_paths() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-signoff-target-binary-paths");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_signed_target_binary_paths(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing signoff signed target binary path evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("installedBin")
+            || String::from_utf8_lossy(&output.stderr).contains("packagedBinary"),
+        "failure should identify signoff signed target binary path evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_binary_paths() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-summary-target-binary-paths");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json_without_signed_target_binary_paths(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing summary signed target binary path evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("installedBin")
+            || String::from_utf8_lossy(&output.stderr).contains("packagedBinary"),
+        "failure should identify summary signed target binary path evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     release_manifest_json_with_description(
         tarball_sha256,
@@ -1237,7 +1367,20 @@ fn release_signoff_json_without_commands(tarball_sha256: &str) -> String {
         BINARY_SHA256,
         Some("passed"),
         true,
+        true,
         false,
+        true,
+    )
+}
+
+fn release_signoff_json_without_signed_target_binary_paths(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("passed"),
+        false,
+        true,
+        true,
         true,
     )
 }
@@ -1254,6 +1397,7 @@ fn release_signoff_json_with_signed_target_sha256_and_type_smoke(
         true,
         true,
         true,
+        true,
     )
 }
 
@@ -1261,11 +1405,12 @@ fn release_signoff_json_with_evidence(
     tarball_sha256: &str,
     signed_target_sha256: &str,
     type_smoke: Option<&str>,
+    include_binary_paths: bool,
     include_ckc_bin_override: bool,
     include_commands: bool,
     include_api_symbols: bool,
 ) -> String {
-    let signed_targets = signed_targets_json(signed_target_sha256, true);
+    let signed_targets = signed_targets_json(signed_target_sha256, true, include_binary_paths);
     let type_smoke = type_smoke
         .map(|value| {
             format!(
@@ -1358,6 +1503,18 @@ fn release_signoff_summary_json_without_signed_target_platform_arch(
         "disabled",
         true,
         false,
+        true,
+    )
+}
+
+fn release_signoff_summary_json_without_signed_target_binary_paths(tarball_sha256: &str) -> String {
+    release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_and_platform_arch(
+        true,
+        tarball_sha256,
+        "disabled",
+        true,
+        true,
+        false,
     )
 }
 
@@ -1399,6 +1556,7 @@ fn release_signoff_summary_json_with_type_smoke(tarball_sha256: &str, type_smoke
         true,
         type_smoke,
         true,
+        true,
     )
 }
 
@@ -1413,6 +1571,7 @@ fn release_signoff_summary_json_with_ckc_bin_override(
         true,
         "passed",
         true,
+        true,
         Some(ckc_bin_override),
         true,
         true,
@@ -1426,6 +1585,7 @@ fn release_signoff_summary_json_without_api_symbols(tarball_sha256: &str) -> Str
         "disabled",
         true,
         "passed",
+        true,
         true,
         Some("unset"),
         true,
@@ -1445,6 +1605,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime
         source_fallback,
         include_runtime_smokes,
         true,
+        true,
     )
 }
 
@@ -1454,6 +1615,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
     source_fallback: &str,
     include_runtime_smokes: bool,
     include_platform_arch: bool,
+    include_binary_paths: bool,
 ) -> String {
     release_signoff_summary_json_with_package_version_source_fallback_runtime_smokes_type_smoke_and_platform_arch(
         include_package_version,
@@ -1462,6 +1624,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
         include_runtime_smokes,
         "passed",
         include_platform_arch,
+        include_binary_paths,
     )
 }
 
@@ -1472,6 +1635,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
     include_runtime_smokes: bool,
     type_smoke: &str,
     include_platform_arch: bool,
+    include_binary_paths: bool,
 ) -> String {
     release_signoff_summary_json_with_evidence(
         include_package_version,
@@ -1480,6 +1644,7 @@ fn release_signoff_summary_json_with_package_version_source_fallback_runtime_smo
         include_runtime_smokes,
         type_smoke,
         include_platform_arch,
+        include_binary_paths,
         Some("unset"),
         true,
         true,
@@ -1495,6 +1660,7 @@ fn release_signoff_summary_json_with_evidence(
     include_runtime_smokes: bool,
     type_smoke: &str,
     include_platform_arch: bool,
+    include_binary_paths: bool,
     ckc_bin_override: Option<&str>,
     include_commands: bool,
     include_api_symbols: bool,
@@ -1559,7 +1725,8 @@ fn release_signoff_summary_json_with_evidence(
     } else {
         ""
     };
-    let signed_targets = signed_targets_json(BINARY_SHA256, include_platform_arch);
+    let signed_targets =
+        signed_targets_json(BINARY_SHA256, include_platform_arch, include_binary_paths);
     format!(
         r#"{{
   "status": "ok",
@@ -1585,7 +1752,11 @@ fn release_signoff_summary_json_with_evidence(
     )
 }
 
-fn signed_targets_json(linux_x64_sha256: &str, include_platform_arch: bool) -> String {
+fn signed_targets_json(
+    linux_x64_sha256: &str,
+    include_platform_arch: bool,
+    include_binary_paths: bool,
+) -> String {
     [
         ("darwin-arm64", "darwin", "arm64", BINARY_SHA256),
         ("darwin-x64", "darwin", "x64", BINARY_SHA256),
@@ -1596,16 +1767,46 @@ fn signed_targets_json(linux_x64_sha256: &str, include_platform_arch: bool) -> S
     ]
     .into_iter()
     .map(|(name, platform, arch, sha256)| {
-        if include_platform_arch {
+        let platform_arch = if include_platform_arch {
+            format!(r#", "platform": "{platform}", "arch": "{arch}""#)
+        } else {
+            String::new()
+        };
+        let binary_paths = if include_binary_paths {
             format!(
-                r#"    {{"name": "{name}", "platform": "{platform}", "arch": "{arch}", "sha256": "{sha256}"}}"#
+                r#", "installedBin": "{}", "packagedBinary": "{}", "packagedBinarySha256": "{sha256}""#,
+                installed_bin_value(name),
+                packaged_binary_value(name)
             )
         } else {
-            format!(r#"    {{"name": "{name}", "sha256": "{sha256}"}}"#)
-        }
+            String::new()
+        };
+        format!(r#"    {{"name": "{name}"{platform_arch}, "sha256": "{sha256}"{binary_paths}}}"#)
     })
     .collect::<Vec<_>>()
     .join(",\n")
+}
+
+fn installed_bin_value(target: &str) -> String {
+    if target.starts_with("win32-") {
+        r#"C:\\consumer\\node_modules\\.bin\\ckc.cmd"#.to_string()
+    } else {
+        "/tmp/consumer/node_modules/.bin/ckc".to_string()
+    }
+}
+
+fn packaged_binary_value(target: &str) -> String {
+    let binary_file = match target {
+        "win32-arm64" => "ckc-win32-arm64.exe".to_string(),
+        "win32-x64" => "ckc-win32-x64.exe".to_string(),
+        _ => format!("ckc-{target}"),
+    };
+
+    if target.starts_with("win32-") {
+        format!(r#"C:\\consumer\\node_modules\\calckernel\\npm\\bin\\{binary_file}"#)
+    } else {
+        format!("/tmp/consumer/node_modules/calckernel/npm/bin/{binary_file}")
+    }
 }
 
 fn publish_artifact_json(tarball_sha256: &str) -> String {

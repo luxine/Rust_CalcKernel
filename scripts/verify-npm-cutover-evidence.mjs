@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { SUPPORTED_CKC_BINARY_TARGETS, supportedTargetNames } from "../npm/platform.js";
+import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
@@ -301,7 +301,12 @@ function sameSignedTargets(actual, expected) {
     && actual.length === expected.length
     && actual.every((target, index) => (
       target?.name === expected[index]?.name
+      && target?.platform === expected[index]?.platform
+      && target?.arch === expected[index]?.arch
       && target?.sha256 === expected[index]?.sha256
+      && target?.installedBin === expected[index]?.installedBin
+      && target?.packagedBinary === expected[index]?.packagedBinary
+      && target?.packagedBinarySha256 === expected[index]?.packagedBinarySha256
     ));
 }
 
@@ -341,6 +346,35 @@ function validateSignedTargets(actual, label) {
     if (target?.arch !== expectedTarget.arch) {
       fail(`${label} ${expectedTarget.name} arch must be ${expectedTarget.arch}`);
     }
+    validateSignedTargetBinaryEvidence(target, expectedTarget, label);
+  }
+}
+
+function validateSignedTargetBinaryEvidence(actual, expectedTarget, label) {
+  const installedBinName = expectedTarget.platform === "win32" ? "ckc.cmd" : "ckc";
+  requirePathSuffix(
+    actual?.installedBin,
+    `node_modules/.bin/${installedBinName}`,
+    `${label} ${expectedTarget.name} installedBin`
+  );
+  requirePathSuffix(
+    actual?.packagedBinary,
+    `node_modules/calckernel/npm/bin/${binaryNameForTarget(expectedTarget.name)}`,
+    `${label} ${expectedTarget.name} packagedBinary`
+  );
+  if (actual?.packagedBinarySha256 !== actual?.sha256) {
+    fail(`${label} ${expectedTarget.name} packagedBinarySha256 must match sha256`);
+  }
+}
+
+function requirePathSuffix(actual, expectedSuffix, label) {
+  if (typeof actual !== "string" || actual.length === 0) {
+    fail(`${label} is missing`);
+    return;
+  }
+  const normalizedActual = actual.replace(/\\/g, "/");
+  if (!normalizedActual.endsWith(expectedSuffix)) {
+    fail(`${label} must end with ${expectedSuffix}, found ${JSON.stringify(actual)}`);
   }
 }
 

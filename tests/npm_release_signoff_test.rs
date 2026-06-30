@@ -501,6 +501,28 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":")
+            && String::from_utf8_lossy(&output.stdout).contains("node_modules/.bin/ckc"),
+        "complete target signoff should preserve installed CLI path evidence per target\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packagedBinary\":")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("node_modules/calckernel/npm/bin/ckc-linux-x64"),
+        "complete target signoff should preserve packaged binary path evidence per target\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"packagedBinarySha256\": \"{BINARY_SHA256}\"")),
+        "complete target signoff should preserve packaged binary SHA256 evidence per target\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
         "complete target signoff should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

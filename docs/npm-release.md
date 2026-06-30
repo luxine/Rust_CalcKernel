@@ -77,11 +77,14 @@ TypeScript smoke status, `ckcBinOverride: "unset"`, and
 cannot be satisfied by a local source checkout fallback. The aggregate
 `release-signoff.json`, `release-signoff-summary.json`, and final
 `npm-cutover-evidence.json` also carry each signed target's platform / arch
-(`platform` / `arch`), `ckcBinOverride: "unset"`, the CLI smoke
+(`platform` / `arch`), installed CLI path (`installedBin`), packaged Rust
+binary path (`packagedBinary`), packaged Rust binary hash
+(`packagedBinarySha256`), `ckcBinOverride: "unset"`, the CLI smoke
 `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `backendRuntimeSmokes` so the final cutover bundle preserves the per-runner
-platform evidence, installed-CLI smoke, root API smoke, declaration smoke, and
-C/WASM/LLVM runtime smoke commands, not just the target SHA256s.
+platform evidence, installed-CLI path smoke, package binary path smoke, root API
+smoke, declaration smoke, and C/WASM/LLVM runtime smoke commands, not just the
+target SHA256s.
 To verify an already generated tarball instead of repacking, pass its path:
 
 ```sh
@@ -258,7 +261,8 @@ missing public API symbols, missing installed/package binary path evidence,
 missing target platform / arch (`platform` / `arch`) evidence, enabled source checkout fallbacks, mismatched
 `packagedBinarySha256` values, and TypeScript declaration smoke failures.
 The release sign-off summary and final cutover verifier require the same
-signed target `platform` / `arch` entries, `ckcBinOverride: "unset"`,
+signed target `platform` / `arch`, `installedBin`, `packagedBinary`,
+and `packagedBinarySha256` entries, `ckcBinOverride: "unset"`,
 CLI smoke `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `backendRuntimeSmokes` list to match `release-signoff.json`.
 `verify:host-npm-install` must report
@@ -267,10 +271,10 @@ not acceptable release evidence.
 Record the release manifest and the final sign-off verifier output in the
 release notes. After publication, also archive `npm-cutover-evidence.json`;
 it proves the signed tarball, signed target binary SHA256 values, disabled
-source checkout fallback, CKC_BIN unset execution, CLI smoke commands, root API
-smoke, TypeScript declaration smoke, platform sign-offs, pre-publish artifact
-check, and registry publish result all refer to the same replacement package
-version.
+source checkout fallback, CKC_BIN unset execution, signed target installed and
+packaged binary paths, CLI smoke commands, root API smoke, TypeScript
+declaration smoke, platform sign-offs, pre-publish artifact check, and registry
+publish result all refer to the same replacement package version.
 Before `npm publish`, run
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
 so the publish step is gated by the same release manifest and six-platform
@@ -380,9 +384,10 @@ TypeScript declaration smoke 未通过的签核文件。`release-signoff-summary
 和最终 cutover verifier 还会要求 `ckcBinOverride: "unset"`、CLI smoke
 `commands`、root API `apiSymbols`、`typeSmoke: "passed"`、
 `backendRuntimeSmokes` 与 `release-signoff.json` 一致，并保留 signed target
-的 `platform` / `arch` 证据。最终 cutover evidence 必须归档 signed target
-binary SHA256 值、CKC_BIN unset、CLI/API smoke、TypeScript declaration smoke
-和 backend runtime smoke 清单。
+的 `platform` / `arch`、`installedBin`、`packagedBinary` 和
+`packagedBinarySha256` 证据。最终 cutover evidence 必须归档 signed target
+binary SHA256 值、安装入口路径、包内二进制路径、CKC_BIN unset、CLI/API smoke、
+TypeScript declaration smoke 和 backend runtime smoke 清单。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的

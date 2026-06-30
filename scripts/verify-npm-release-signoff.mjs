@@ -55,7 +55,10 @@ for (const target of SUPPORTED_CKC_BINARY_TARGETS) {
     name: target.name,
     platform: target.platform,
     arch: target.arch,
-    sha256: manifestTarget.sha256
+    sha256: manifestTarget.sha256,
+    installedBin: signoff.installedBin,
+    packagedBinary: signoff.packagedBinary,
+    packagedBinarySha256: signoff.packagedBinarySha256
   });
 }
 

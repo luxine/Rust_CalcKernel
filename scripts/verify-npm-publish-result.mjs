@@ -20,6 +20,7 @@ const publish = normalizePublishResult(readJsonFile(publishPath, "npm publish re
 const registry = readJsonFile(registryPath, "npm registry replacement result");
 const failures = [];
 
+validateManifest(manifest);
 expectEqual(publish.name, manifest.packageName, "publish package name");
 expectEqual(publish.version, manifest.packageVersion, "publish package version");
 expectEqual(publish.id, `${manifest.packageName}@${manifest.packageVersion}`, "publish id");
@@ -95,6 +96,19 @@ function normalizePublishResult(result) {
   return result;
 }
 
+function validateManifest(manifest) {
+  expectEqual(manifest.packageName, "calckernel", "release manifest packageName");
+  if (!manifest.packageVersion) {
+    fail("release manifest is missing packageVersion");
+  }
+  if (!manifest.tarball || basename(manifest.tarball) !== manifest.tarball) {
+    fail(`release manifest tarball must be a tarball filename, found ${JSON.stringify(manifest.tarball)}`);
+  }
+  if (!isSha256(manifest.tarballSha256)) {
+    fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(manifest.tarballSha256)}`);
+  }
+}
+
 function expectEqual(actual, expected, label) {
   if (actual !== expected) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
@@ -120,6 +134,10 @@ function isSha512Integrity(value) {
 
 function isSha1(value) {
   return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+function isSha256(value) {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 }
 
 function fail(message) {

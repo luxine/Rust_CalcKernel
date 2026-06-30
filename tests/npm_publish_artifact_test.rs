@@ -227,6 +227,52 @@ fn publish_artifact_verifier_should_reject_wrong_target_binary_architecture() {
     );
 }
 
+#[test]
+fn publish_artifact_verifier_should_reject_non_executable_unix_target_file_mode() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-artifact-file-mode");
+    let dist = temp.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    let tarball = dist.join("calckernel-0.8.0.tgz");
+    fs::write(&tarball, b"release tarball bytes").expect("write tarball");
+    let manifest = temp.join("release-manifest.json");
+    fs::write(
+        &manifest,
+        release_manifest_json("calckernel-0.8.0.tgz", &sha256_file(&tarball)).replacen(
+            r#""fileMode": "-rwxr-xr-x""#,
+            r#""fileMode": "-rw-r--r--""#,
+            1,
+        ),
+    )
+    .expect("write release manifest");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-artifact.mjs")
+        .arg(&manifest)
+        .arg(&dist)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run publish artifact verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "non-executable Unix target file mode evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("fileMode"),
+        "failure should identify fileMode evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
     format!(
         r#"{{

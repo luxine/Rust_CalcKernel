@@ -159,6 +159,9 @@ function validateReleaseManifestEvidence(manifest) {
       if (typeof target.fileMode !== "string" || target.fileMode.length === 0) {
         fail(`${label} fileMode is missing`);
       }
+      if (expectedTarget.platform !== "win32" && !hasOwnerExecuteBit(target.fileMode)) {
+        fail(`${label} fileMode must be executable, found ${JSON.stringify(target.fileMode)}`);
+      }
       expectEqual(target.binaryFormat, expectedBinaryFormat(expectedTarget), `${label} binaryFormat`);
       expectEqual(target.binaryArchitecture, expectedTarget.arch, `${label} binaryArchitecture`);
       if (!Number.isSafeInteger(target.sizeBytes) || target.sizeBytes <= 0) {
@@ -199,6 +202,10 @@ function expectedBinaryFormat(target) {
     return "PE";
   }
   fail(`Unsupported release binary platform for ${target.name}: ${target.platform}`);
+}
+
+function hasOwnerExecuteBit(mode) {
+  return mode.length >= 4 && (mode[3] === "x" || mode[3] === "s");
 }
 
 function expectEqual(actual, expected, label) {

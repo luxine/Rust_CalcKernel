@@ -16,6 +16,8 @@ if (!existsSync(workflowPath)) {
   const workflow = readFileSync(workflowPath, "utf8");
   const buildBinaryJob = workflowSection(workflow, "build-binary:", "pack-release:");
   const platformSignoffJob = workflowSection(workflow, "platform-signoff:", "finalize-signoff:");
+  const publishJob = workflowSection(workflow, "publish-npm:", "");
+  const npmPublishArtifact = workflowSection(publishJob, "name: npm-publish", "if-no-files-found: error");
   expectIncludes(workflow, "workflow_dispatch:", "workflow trigger");
   expectIncludes(workflow, "verify-release-scripts:", "source/package verifier job");
   expectIncludes(workflow, "build-binary:", "binary matrix job");
@@ -89,6 +91,8 @@ if (!existsSync(workflowPath)) {
   );
   expectIncludes(workflow, "npm-cutover-evidence.json", "final cutover evidence verifier artifact");
   expectIncludes(workflow, "name: npm-publish", "npm publish artifact");
+  expectIncludes(npmPublishArtifact, "release-manifest/release-manifest.json", "npm publish artifact release manifest source evidence");
+  expectIncludes(npmPublishArtifact, "release/release-signoff.json", "npm publish artifact release signoff source evidence");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
   expectIncludes(workflow, "- run: cargo test\n", "full Rust test suite gate");
@@ -185,6 +189,9 @@ function workflowSection(workflow, start, end) {
   if (startIndex < 0) {
     fail(`workflow must include ${start}`);
     return "";
+  }
+  if (end.length === 0) {
+    return workflow.slice(startIndex);
   }
   const endIndex = workflow.indexOf(end, startIndex);
   if (endIndex < 0) {

@@ -259,6 +259,8 @@ jobs:
         with:
           name: npm-publish
           path: |
+            release-manifest/release-manifest.json
+            release/release-signoff.json
             npm-publish-artifact.json
             npm-publish.json
             release-signoff-summary.json

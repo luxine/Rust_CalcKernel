@@ -205,6 +205,10 @@ The workflow runs these stages:
    `publishArtifactTarballPath`, public
    package identity from `release-manifest.json.packageMetadata`, and
    post-publish result verifier output into one final evidence JSON.
+   The final `npm-publish` artifact archives the source
+   `release-manifest/release-manifest.json` and `release/release-signoff.json`
+   files alongside those verifier outputs so the downloadable cutover bundle is
+   self-contained.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, target-to-runner bindings, artifact
@@ -288,8 +292,9 @@ CLI smoke `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
 `typeSmoke: "passed"` on every sign-off target; skipped declaration smokes are
 not acceptable release evidence.
 Record the release manifest and the final sign-off verifier output in the
-release notes. After publication, also archive `npm-cutover-evidence.json`;
-it proves the signed tarball, signed target binary SHA256 values, disabled
+release notes. After publication, archive the final `npm-publish` artifact with
+`release-manifest/release-manifest.json`, `release/release-signoff.json`, and
+`npm-cutover-evidence.json`; it proves the signed tarball, signed target binary SHA256 values, disabled
 source checkout fallback, CKC_BIN unset execution, signed target installed and
 packaged binary paths, signed target Node/npm runtime environment, signed target
 GitHub Actions provenance and runner evidence, CLI smoke commands, root API smoke, TypeScript
@@ -450,3 +455,6 @@ sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串
 显式 `packageVersion`、禁用 source checkout fallback 的证据、发布前 tarball
 校验和 `publishArtifactTarballPath`、来自 `release-manifest.json.packageMetadata` 的 public package identity
 和发布后 registry 结果绑定成同一份最终证据。
+最终 `npm-publish` artifact 必须同时归档源证据
+`release-manifest/release-manifest.json` 和 `release/release-signoff.json`，
+确保下载到的 cutover bundle 可独立追溯。

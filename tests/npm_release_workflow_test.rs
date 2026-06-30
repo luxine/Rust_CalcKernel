@@ -164,6 +164,23 @@ fn npm_release_workflow_should_verify_final_cutover_evidence_after_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_archive_cutover_source_evidence_after_publish() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_job = workflow_section(&workflow, "publish-npm:", "");
+    let publish_artifact = workflow_section(publish_job, "name: npm-publish", "if-no-files-found");
+
+    assert!(
+        publish_artifact.contains("release-manifest/release-manifest.json"),
+        "publish job must archive the release manifest with final npm cutover evidence"
+    );
+    assert!(
+        publish_artifact.contains("release/release-signoff.json"),
+        "publish job must archive the aggregate release signoff with final npm cutover evidence"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
@@ -338,6 +355,9 @@ fn workflow_section<'a>(workflow: &'a str, start: &str, end: &str) -> &'a str {
     let start_index = workflow
         .find(start)
         .unwrap_or_else(|| panic!("workflow should include {start}"));
+    if end.is_empty() {
+        return &workflow[start_index..];
+    }
     let end_index = workflow[start_index..]
         .find(end)
         .map(|offset| start_index + offset)

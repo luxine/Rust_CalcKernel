@@ -139,6 +139,33 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"publishId\": \"calckernel@0.8.0\""),
+        "cutover evidence verifier should preserve the npm publish package id\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains("\"publishFilename\": \"calckernel-0.8.0.tgz\""),
+        "cutover evidence verifier should preserve the npm publish tarball filename\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"publishShasum\": \"{VALID_SHASUM}\"")),
+        "cutover evidence verifier should preserve the npm publish shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"publishIntegrity\": \"{VALID_INTEGRITY}\"")),
+        "cutover evidence verifier should preserve the npm publish integrity\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains(
             "\"registryTarball\": \"https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz\""
         ),
@@ -1290,6 +1317,64 @@ fn cutover_evidence_verifier_should_reject_missing_summary_signed_target_binary_
     );
 }
 
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_publish_side_result_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-side-result");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json_without_publish_side_evidence(),
+    )
+    .expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing publish-side result evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publishId")
+            || String::from_utf8_lossy(&output.stderr).contains("publishFilename")
+            || String::from_utf8_lossy(&output.stderr).contains("publishShasum")
+            || String::from_utf8_lossy(&output.stderr).contains("publishIntegrity"),
+        "failure should identify missing publish-side result evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     release_manifest_json_with_description(
         tarball_sha256,
@@ -1843,16 +1928,29 @@ fn publish_result_json() -> String {
 }
 
 fn publish_result_json_with_shasum(shasum: &str) -> String {
-    publish_result_json_with_package_version_and_shasum(true, shasum)
+    publish_result_json_with_package_version_shasum_and_publish_side_evidence(true, shasum, true)
 }
 
 fn publish_result_json_without_package_version() -> String {
-    publish_result_json_with_package_version_and_shasum(false, VALID_SHASUM)
+    publish_result_json_with_package_version_shasum_and_publish_side_evidence(
+        false,
+        VALID_SHASUM,
+        true,
+    )
 }
 
-fn publish_result_json_with_package_version_and_shasum(
+fn publish_result_json_without_publish_side_evidence() -> String {
+    publish_result_json_with_package_version_shasum_and_publish_side_evidence(
+        true,
+        VALID_SHASUM,
+        false,
+    )
+}
+
+fn publish_result_json_with_package_version_shasum_and_publish_side_evidence(
     include_package_version: bool,
     shasum: &str,
+    include_publish_side_evidence: bool,
 ) -> String {
     let package_version = if include_package_version {
         r#",
@@ -1860,12 +1958,25 @@ fn publish_result_json_with_package_version_and_shasum(
     } else {
         ""
     };
+    let publish_side_evidence = if include_publish_side_evidence {
+        format!(
+            r#",
+  "publishId": "calckernel@0.8.0",
+  "publishFilename": "calckernel-0.8.0.tgz",
+  "publishShasum": "{shasum}",
+  "publishIntegrity": "{VALID_INTEGRITY}""#
+        )
+    } else {
+        String::new()
+    };
     format!(
         r#"{{
   "status": "ok",
   "package": "calckernel",
   "version": "0.8.0"{package_version},
   "tarball": "calckernel-0.8.0.tgz",
+  "publishPackage": "calckernel",
+  "publishVersion": "0.8.0"{publish_side_evidence},
   "registryStatus": "ok",
   "registryTarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
   "shasum": "{shasum}",

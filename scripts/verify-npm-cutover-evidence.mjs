@@ -87,6 +87,12 @@ console.log(JSON.stringify({
   typeSmoke: signoff.typeSmoke,
   backendRuntimeSmokes: signoff.backendRuntimeSmokes,
   publishArtifactTarballPath: publishArtifact.tarballPath,
+  publishPackage: publishResult.publishPackage,
+  publishVersion: publishResult.publishVersion,
+  publishId: publishResult.publishId,
+  publishFilename: publishResult.publishFilename,
+  publishShasum: publishResult.publishShasum,
+  publishIntegrity: publishResult.publishIntegrity,
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
   shasum: publishResult.shasum,
@@ -225,6 +231,14 @@ function validatePublishResult(value, manifest) {
   expectEqual(value.packageVersion, manifest.packageVersion, "publish result packageVersion");
   expectEqual(value.version, manifest.packageVersion, "publish result version");
   expectEqual(value.tarball, manifest.tarball, "publish result tarball");
+  expectEqual(value.publishPackage, manifest.packageName, "publish result publishPackage");
+  expectEqual(value.publishVersion, manifest.packageVersion, "publish result publishVersion");
+  expectEqual(
+    value.publishId,
+    `${manifest.packageName}@${manifest.packageVersion}`,
+    "publish result publishId"
+  );
+  expectEqual(value.publishFilename, manifest.tarball, "publish result publishFilename");
   expectEqual(value.registryStatus, "ok", "publish result registryStatus");
   if (typeof value.registryTarball !== "string" || !value.registryTarball.endsWith(`/${manifest.packageName}/-/${manifest.tarball}`)) {
     fail(
@@ -232,12 +246,20 @@ function validatePublishResult(value, manifest) {
         `found ${JSON.stringify(value.registryTarball)}`
     );
   }
+  if (!isSha512Integrity(value.publishIntegrity)) {
+    fail(`publish result publishIntegrity must be a sha512 npm integrity string, found ${JSON.stringify(value.publishIntegrity)}`);
+  }
   if (!isSha512Integrity(value.integrity)) {
     fail(`publish result integrity must be a sha512 npm integrity string, found ${JSON.stringify(value.integrity)}`);
+  }
+  if (!isSha1(value.publishShasum)) {
+    fail(`publish result publishShasum must be a sha1 hex string, found ${JSON.stringify(value.publishShasum)}`);
   }
   if (!isSha1(value.shasum)) {
     fail(`publish result shasum must be a sha1 hex string, found ${JSON.stringify(value.shasum)}`);
   }
+  expectEqual(value.publishIntegrity, value.integrity, "publish result publishIntegrity");
+  expectEqual(value.publishShasum, value.shasum, "publish result publishShasum");
   expectEqual(value.description, EXPECTED_PACKAGE_DESCRIPTION, "publish result description");
   expectJson(value.keywords, EXPECTED_PACKAGE_KEYWORDS, "publish result keywords");
   expectEqual(value.license, EXPECTED_PACKAGE_LICENSE, "publish result license");

@@ -273,8 +273,9 @@ release notes. After publication, also archive `npm-cutover-evidence.json`;
 it proves the signed tarball, signed target binary SHA256 values, disabled
 source checkout fallback, CKC_BIN unset execution, signed target installed and
 packaged binary paths, CLI smoke commands, root API smoke, TypeScript
-declaration smoke, platform sign-offs, pre-publish artifact check, and registry
-publish result all refer to the same replacement package version.
+declaration smoke, platform sign-offs, pre-publish artifact check, publish-side
+`publishId`, `publishFilename`, `publishShasum`, and `publishIntegrity`, and
+registry publish result all refer to the same replacement package version.
 Before `npm publish`, run
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
 so the publish step is gated by the same release manifest and six-platform
@@ -387,7 +388,8 @@ TypeScript declaration smoke 未通过的签核文件。`release-signoff-summary
 的 `platform` / `arch`、`installedBin`、`packagedBinary` 和
 `packagedBinarySha256` 证据。最终 cutover evidence 必须归档 signed target
 binary SHA256 值、安装入口路径、包内二进制路径、CKC_BIN unset、CLI/API smoke、
-TypeScript declaration smoke 和 backend runtime smoke 清单。
+TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-side
+`publishId`、`publishFilename`、`publishShasum` 和 `publishIntegrity`。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的

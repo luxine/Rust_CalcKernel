@@ -91,6 +91,33 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"publishId\": \"calckernel@0.8.0\""),
+        "publish result verifier should preserve the npm publish package id\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains("\"publishFilename\": \"calckernel-0.8.0.tgz\""),
+        "publish result verifier should preserve the npm publish tarball filename\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"publishShasum\": \"{VALID_SHASUM}\"")),
+        "publish result verifier should preserve the npm publish shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"publishIntegrity\": \"{VALID_INTEGRITY}\"")),
+        "publish result verifier should preserve the npm publish integrity\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"description\": \"A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.\""),
         "publish result verifier should report the public package description\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

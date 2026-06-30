@@ -29,6 +29,16 @@ const typescriptObjectProperties = new Map(
     .filter((entry) => entry.objectPropertyInfo)
     .map((entry) => [entry.name, entry.objectPropertyInfo])
 );
+const rustClassMembers = new Map(
+  rustSurface
+    .filter((entry) => entry.classMemberInfo)
+    .map((entry) => [entry.name, entry.classMemberInfo])
+);
+const typescriptClassMembers = new Map(
+  typescriptSurface
+    .filter((entry) => entry.classMemberInfo)
+    .map((entry) => [entry.name, entry.classMemberInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust exports: ${extraRustExports.join(", ")}`);
@@ -50,6 +60,14 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
         `Rust ${JSON.stringify(rustObject.properties)}, TypeScript ${JSON.stringify(typescriptObject.properties)}`
     );
   }
+  const rustClass = rustClassMembers.get(name);
+  const typescriptClass = typescriptClassMembers.get(name);
+  if (rustClass && typescriptClass && !sameJson(rustClass.members, typescriptClass.members)) {
+    fail(
+      `runtime class member mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.members)}, TypeScript ${JSON.stringify(typescriptClass.members)}`
+    );
+  }
 }
 
 if (failures.length > 0) {
@@ -68,6 +86,9 @@ console.log(JSON.stringify({
   exportKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind])),
   objectProperties: Object.fromEntries(
     [...rustObjectProperties.entries()].map(([name, info]) => [name, info.properties])
+  ),
+  classMembers: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
   )
 }, null, 2));
 
@@ -116,7 +137,8 @@ async function readRuntimeExportSurface(path, label) {
       .map((name) => ({
         name,
         kind: runtimeExportKind(module[name]),
-        objectPropertyInfo: runtimeObjectPropertyInfo(module[name])
+        objectPropertyInfo: runtimeObjectPropertyInfo(module[name]),
+        classMemberInfo: runtimeClassMemberInfo(module[name])
       }));
   } catch (error) {
     failImmediate(`Unable to import ${label}: ${error.message}`);
@@ -145,6 +167,55 @@ function runtimeObjectPropertyInfo(value) {
       };
     });
   return { properties };
+}
+
+function runtimeClassMemberInfo(value) {
+  if (runtimeExportKind(value) !== "class") {
+    return null;
+  }
+  const staticMembers = classMemberEntries(value, "static", ["length", "name", "prototype"]);
+  const prototypeMembers = classMemberEntries(value.prototype, "prototype", ["constructor"]);
+  return { members: [...staticMembers, ...prototypeMembers].sort(compareClassMembers) };
+}
+
+function classMemberEntries(target, placement, excludedNames) {
+  return Object.getOwnPropertyNames(target)
+    .filter((name) => !excludedNames.includes(name))
+    .sort()
+    .map((name) => {
+      const descriptor = Object.getOwnPropertyDescriptor(target, name);
+      return {
+        placement,
+        name,
+        kind: descriptorRuntimeKind(descriptor),
+        value: descriptor && "value" in descriptor
+          ? runtimeComparablePropertyValue(descriptor.value)
+          : null
+      };
+    });
+}
+
+function descriptorRuntimeKind(descriptor) {
+  if (!descriptor) {
+    return "unknown";
+  }
+  if ("value" in descriptor) {
+    return runtimeExportKind(descriptor.value);
+  }
+  if (descriptor.get && descriptor.set) {
+    return "accessor";
+  }
+  if (descriptor.get) {
+    return "getter";
+  }
+  if (descriptor.set) {
+    return "setter";
+  }
+  return "unknown";
+}
+
+function compareClassMembers(left, right) {
+  return `${left.placement}:${left.name}`.localeCompare(`${right.placement}:${right.name}`);
 }
 
 function runtimeComparablePropertyValue(value) {

@@ -179,6 +179,54 @@ fn public_api_parity_verifier_should_reject_runtime_object_property_mismatch() {
     );
 }
 
+#[test]
+fn public_api_parity_verifier_should_reject_runtime_class_member_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-public-api-class-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_index = temp.join("rust-index.mjs");
+    let typescript_index = temp.join("typescript-index.mjs");
+    fs::write(
+        &rust_index,
+        "export class Shared { present() { return 1; } }\n",
+    )
+    .expect("write Rust mock index");
+    fs::write(
+        &typescript_index,
+        "export class Shared { present() { return 1; } missing() { return 2; } }\n",
+    )
+    .expect("write TypeScript mock index");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-public-api-parity.mjs")
+        .arg("--rust-index")
+        .arg(&rust_index)
+        .arg("--typescript-index")
+        .arg(&typescript_index)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run public API parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched runtime class members should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("runtime class member mismatch for Shared"),
+        "failure should identify the mismatched runtime class member\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn temp_dir(prefix: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

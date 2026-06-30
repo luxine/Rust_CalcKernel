@@ -160,6 +160,7 @@ expectIncludes(npmRelease, "enum member surface", "npm release docs");
 expectIncludes(npmRelease, "type alias surface", "npm release docs");
 expectIncludes(npmRelease, "runtime export kind", "npm release docs");
 expectIncludes(npmRelease, "runtime object property surface", "npm release docs");
+expectIncludes(npmRelease, "runtime class member surface", "npm release docs");
 expectIncludes(npmRelease, "typeSmoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");
 expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");

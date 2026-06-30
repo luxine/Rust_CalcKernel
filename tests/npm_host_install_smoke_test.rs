@@ -139,6 +139,24 @@ fn host_npm_install_verifier_should_disable_source_checkout_fallback_for_release
     );
 }
 
+#[test]
+fn host_npm_install_verifier_should_run_backend_runtime_smokes_for_release_signoff() {
+    let verifier =
+        std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
+
+    for expected in [
+        "ckc build smoke.ck -o build/smoke-c",
+        "node smoke-c-runtime.mjs",
+        "node smoke-wasm-runtime.mjs",
+        "node smoke-llvm-object-runtime.mjs",
+    ] {
+        assert!(
+            verifier.contains(expected),
+            "host npm install verifier must record backend runtime smoke command {expected}"
+        );
+    }
+}
+
 fn node_available() -> bool {
     Command::new("node")
         .arg("--version")

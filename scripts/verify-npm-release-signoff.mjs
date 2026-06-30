@@ -192,7 +192,11 @@ function requiredCommands() {
     "ckc emit-wat smoke.ck -o build/smoke.wat",
     "ckc emit-wasm smoke.ck -o build/smoke.wasm",
     "ckc emit-llvm smoke.ck -o build/smoke.ll",
-    "ckc build-llvm smoke.ck --kind object -o build/smoke.o"
+    "ckc build smoke.ck -o build/smoke-c",
+    "node smoke-c-runtime.mjs",
+    "node smoke-wasm-runtime.mjs",
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
+    "node smoke-llvm-object-runtime.mjs"
   ];
 }
 

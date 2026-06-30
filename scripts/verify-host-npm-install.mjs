@@ -9,6 +9,10 @@ import { currentPlatformBinaryName, currentTarget } from "../npm/platform.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TYPESCRIPT_COMPILER_PACKAGE = "typescript@^5.8.0";
+const C_BUILD_RUNTIME_COMMAND = "ckc build smoke.ck -o build/smoke-c";
+const C_RUNTIME_COMMAND = "node smoke-c-runtime.mjs";
+const WASM_RUNTIME_COMMAND = "node smoke-wasm-runtime.mjs";
+const LLVM_OBJECT_RUNTIME_COMMAND = "node smoke-llvm-object-runtime.mjs";
 const options = parseArgs(process.argv.slice(2));
 const keepTemp = options.keepTemp || process.env.CKC_KEEP_HOST_NPM_SMOKE === "1";
 
@@ -66,12 +70,28 @@ try {
     completedCommands.push(["ckc", ...args].join(" "));
   }
 
-  if (commandAvailable("clang")) {
-    const args = ["build-llvm", "smoke.ck", "--kind", "object", "-o", "build/smoke.o"];
-    run(installedBin, args, { cwd: smokeRoot, env: installedEnv });
-    completedCommands.push(["ckc", ...args].join(" "));
-    requireNonEmpty(join(buildRoot, "smoke.o"));
-  }
+  requireClangForRuntimeSmokes();
+
+  const buildArgs = ["build", "smoke.ck", "-o", "build/smoke-c"];
+  run(installedBin, buildArgs, { cwd: smokeRoot, env: installedEnv });
+  completedCommands.push(C_BUILD_RUNTIME_COMMAND);
+  requireNonEmpty(join(buildRoot, sharedLibraryName("smoke-c")));
+
+  writeFileSync(join(smokeRoot, "smoke-c-runtime.mjs"), cRuntimeSmokeScript());
+  writeFileSync(join(smokeRoot, "smoke-wasm-runtime.mjs"), wasmRuntimeSmokeScript());
+  writeFileSync(join(smokeRoot, "smoke-llvm-object-runtime.mjs"), llvmObjectRuntimeSmokeScript());
+
+  run(process.execPath, ["smoke-c-runtime.mjs"], { cwd: smokeRoot, env: installedEnv });
+  completedCommands.push(C_RUNTIME_COMMAND);
+  run(process.execPath, ["smoke-wasm-runtime.mjs"], { cwd: smokeRoot, env: installedEnv });
+  completedCommands.push(WASM_RUNTIME_COMMAND);
+
+  const buildLlvmArgs = ["build-llvm", "smoke.ck", "--kind", "object", "-o", "build/smoke.o"];
+  run(installedBin, buildLlvmArgs, { cwd: smokeRoot, env: installedEnv });
+  completedCommands.push(["ckc", ...buildLlvmArgs].join(" "));
+  requireNonEmpty(join(buildRoot, "smoke.o"));
+  run(process.execPath, ["smoke-llvm-object-runtime.mjs"], { cwd: smokeRoot, env: installedEnv });
+  completedCommands.push(LLVM_OBJECT_RUNTIME_COMMAND);
 
   for (const file of ["smoke.mir", "smoke.c", "smoke.h", "smoke.wat", "smoke.wasm", "smoke.ll"]) {
     requireNonEmpty(join(buildRoot, file));
@@ -169,6 +189,12 @@ function commandAvailable(command) {
   return output.status === 0;
 }
 
+function requireClangForRuntimeSmokes() {
+  if (!commandAvailable("clang")) {
+    fail("clang is required for C and LLVM release runtime smokes");
+  }
+}
+
 function runTypeSmoke(consumer, env, tsc) {
   writeFileSync(join(consumer, "tsconfig.json"), JSON.stringify({
     compilerOptions: {
@@ -231,6 +257,16 @@ function requireNonEmpty(path) {
   }
 }
 
+function sharedLibraryName(name) {
+  if (process.platform === "darwin") {
+    return `${name}.dylib`;
+  }
+  if (process.platform === "win32") {
+    return `${name}.dll`;
+  }
+  return `${name}.so`;
+}
+
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -266,6 +302,90 @@ export fn compute(items: ptr<Item>, values: ptr<f64>) -> f64 {
     return -value;
   }
   return value;
+}
+`;
+}
+
+function cRuntimeSmokeScript() {
+  return `import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+writeFileSync(join("build", "smoke-c-runtime.c"), ${JSON.stringify(cRuntimeHarnessSource())});
+const exe = join("build", process.platform === "win32" ? "smoke-c-runtime.exe" : "smoke-c-runtime");
+run("clang", [join("build", "smoke.c"), join("build", "smoke-c-runtime.c"), "-o", exe]);
+run(exe, []);
+
+function run(command, args) {
+  const output = spawnSync(command, args, { encoding: "utf8" });
+  if (output.error) {
+    throw new Error(\`\${command} \${args.join(" ")} failed to start: \${output.error.message}\`);
+  }
+  if (output.status !== 0) {
+    throw new Error(\`\${command} \${args.join(" ")} failed with status \${output.status}\\nstdout:\\n\${output.stdout}\\nstderr:\\n\${output.stderr}\`);
+  }
+}
+`;
+}
+
+function wasmRuntimeSmokeScript() {
+  return `import { readFileSync } from "node:fs";
+
+const bytes = readFileSync("build/smoke.wasm");
+const { instance } = await WebAssembly.instantiate(bytes, {});
+const { compute, memory, __ck_heap_base } = instance.exports;
+if (typeof compute !== "function") {
+  throw new Error("wasm export compute is missing");
+}
+if (!(memory instanceof WebAssembly.Memory)) {
+  throw new Error("wasm export memory is missing");
+}
+const heapBase = Number(__ck_heap_base?.value ?? __ck_heap_base ?? 64);
+const view = new DataView(memory.buffer);
+view.setFloat64(heapBase, 2.5, true);
+view.setFloat64(heapBase + 8, 1.25, true);
+const actual = compute(heapBase, heapBase + 8);
+if (actual !== -3.75) {
+  throw new Error(\`wasm runtime smoke expected -3.75, got \${actual}\`);
+}
+`;
+}
+
+function llvmObjectRuntimeSmokeScript() {
+  return `import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const object = join("build", "smoke.o");
+writeFileSync(join("build", "smoke-llvm-object-runtime.c"), ${JSON.stringify(cRuntimeHarnessSource())});
+const exe = join("build", process.platform === "win32" ? "smoke-llvm-object-runtime.exe" : "smoke-llvm-object-runtime");
+run("clang", [object, join("build", "smoke-llvm-object-runtime.c"), "-o", exe]);
+run(exe, []);
+
+function run(command, args) {
+  const output = spawnSync(command, args, { encoding: "utf8" });
+  if (output.error) {
+    throw new Error(\`\${command} \${args.join(" ")} failed to start: \${output.error.message}\`);
+  }
+  if (output.status !== 0) {
+    throw new Error(\`\${command} \${args.join(" ")} failed with status \${output.status}\\nstdout:\\n\${output.stdout}\\nstderr:\\n\${output.stderr}\`);
+  }
+}
+`;
+}
+
+function cRuntimeHarnessSource() {
+  return `typedef struct {
+  double price;
+} Item;
+
+double compute(Item* items, double* values);
+
+int main(void) {
+  Item items[1] = {{2.5}};
+  double values[1] = {1.25};
+  double actual = compute(items, values);
+  return actual == -3.75 ? 0 : 1;
 }
 `;
 }

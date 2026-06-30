@@ -26,6 +26,12 @@ const REQUIRED_COMMANDS: [&str; 8] = [
     "ckc emit-llvm smoke.ck -o build/smoke.ll",
     "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
 ];
+const REQUIRED_RUNTIME_COMMANDS: [&str; 4] = [
+    "ckc build smoke.ck -o build/smoke-c",
+    "node smoke-c-runtime.mjs",
+    "node smoke-wasm-runtime.mjs",
+    "node smoke-llvm-object-runtime.mjs",
+];
 
 #[test]
 fn release_signoff_verifier_should_reject_missing_target_smoke() {
@@ -127,6 +133,7 @@ fn release_signoff_verifier_should_reject_missing_build_llvm_smoke() {
     fs::write(&manifest, release_manifest_json()).expect("write release manifest");
     let commands_without_build_llvm = REQUIRED_COMMANDS
         .iter()
+        .chain(REQUIRED_RUNTIME_COMMANDS.iter())
         .copied()
         .filter(|command| !command.starts_with("ckc build-llvm "))
         .collect::<Vec<_>>();
@@ -158,6 +165,55 @@ fn release_signoff_verifier_should_reject_missing_build_llvm_smoke() {
         String::from_utf8_lossy(&output.stderr)
             .contains("ckc build-llvm smoke.ck --kind object -o build/smoke.o"),
         "missing build-llvm failure should identify the required command\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_verifier_should_reject_missing_backend_runtime_smoke() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-missing-runtime-smoke");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(&manifest, release_manifest_json()).expect("write release manifest");
+    let commands_without_runtime = REQUIRED_COMMANDS
+        .iter()
+        .chain(REQUIRED_RUNTIME_COMMANDS.iter())
+        .copied()
+        .filter(|command| *command != "node smoke-wasm-runtime.mjs")
+        .collect::<Vec<_>>();
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json_with_commands(target, &commands_without_runtime),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing backend runtime smoke should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("node smoke-wasm-runtime.mjs"),
+        "missing runtime smoke failure should identify the required command\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -427,7 +483,12 @@ fn release_manifest_json_with_extra_target() -> String {
 }
 
 fn signoff_json(target: &str) -> String {
-    signoff_json_with_commands(target, &REQUIRED_COMMANDS)
+    let commands = REQUIRED_COMMANDS
+        .iter()
+        .chain(REQUIRED_RUNTIME_COMMANDS.iter())
+        .copied()
+        .collect::<Vec<_>>();
+    signoff_json_with_commands(target, &commands)
 }
 
 fn signoff_json_without_package_version(target: &str) -> String {

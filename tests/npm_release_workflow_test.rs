@@ -331,6 +331,24 @@ fn npm_release_workflow_should_verify_staged_binary_matrix_before_pack() {
 }
 
 #[test]
+fn npm_release_workflow_should_restore_unix_binary_modes_after_artifact_download() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    let restore_index = workflow
+        .find("chmod 755 build/npm-binaries/ckc-darwin-* build/npm-binaries/ckc-linux-*")
+        .expect("workflow should restore Unix executable bits after artifact download");
+    let verify_index = workflow
+        .find("npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries")
+        .expect("workflow should verify staged npm binaries before pack");
+
+    assert!(
+        restore_index < verify_index,
+        "workflow must restore Unix executable bits before verifying staged binaries"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_publish_the_manifest_tarball() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

@@ -303,6 +303,17 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "scripts/audit-npm-release-workflow.mjs", "workflow self-audit");
   expectIncludes(workflow, "npm run build:npm-matrix -- --target", "matrix build command");
   expectIncludes(workflow, "npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries", "staged binary matrix verifier command");
+  expectIncludes(
+    packReleaseJob,
+    "chmod 755 build/npm-binaries/ckc-darwin-* build/npm-binaries/ckc-linux-*",
+    "pack-release Unix executable bit restoration after artifact download"
+  );
+  expectOrder(
+    packReleaseJob,
+    "chmod 755 build/npm-binaries/ckc-darwin-* build/npm-binaries/ckc-linux-*",
+    "npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries",
+    "Unix executable bit restoration before staged binary verifier"
+  );
   expectIncludes(workflow, "CKC_NPM_BINARIES_DIR=build/npm-binaries", "matrix pack environment");
   expectIncludes(workflow, "npm run verify:npm-release", "release verifier command");
   expectIncludes(workflow, "npm run verify:host-npm-install", "host install verifier command");

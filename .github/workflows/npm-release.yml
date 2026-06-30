@@ -122,6 +122,7 @@ jobs:
           pattern: binary-*
           path: build/npm-binaries
           merge-multiple: true
+      - run: chmod 755 build/npm-binaries/ckc-darwin-* build/npm-binaries/ckc-linux-*
       - run: ls -la build/npm-binaries
       - run: npm run build:npm-matrix -- --verify-staged --expect-complete --out build/npm-binaries
       - run: mkdir -p dist

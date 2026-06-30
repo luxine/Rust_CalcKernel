@@ -89,7 +89,7 @@ published JavaScript compatibility surface.
 | Frontend + type checker | `src/typeck.rs` | Checker tests plus root API parity for checked program, symbol lookup, helper metadata, and diagnostics |
 | Frontend + MIR + optimizer | `src/mir/mod.rs`, `src/opt/mod.rs` | MIR O0-O3 TS oracle output across official examples and perf fixtures |
 | C backend | `src/backend/mod.rs`, C emission sections | C/header output parity, dijkstra C dynamic-library runtime parity, f64 edge fixture C dynamic-library runtime parity, C dynamic-library runtime parity, checked/unchecked ABI checks |
-| WASM backend | `src/backend/mod.rs`, WAT/WASM sections | WAT text, WASM bytes, f64 edge fixture WASM runtime parity, Node runtime interop, package WASM helper interop |
+| WASM backend | `src/backend/mod.rs`, WAT/WASM sections | WAT text, WASM bytes, dijkstra WASM runtime parity, f64 edge fixture WASM runtime parity, Node runtime interop, package WASM helper interop |
 | LLVM backend | `src/backend/mod.rs`, LLVM sections | LLVM IR parity, object/dynamic-library runtime parity, target/clang behavior parity |
 | CLI replacement | `src/main.rs`, `npm/ckc.js` | stdout/stderr/exit-code parity, error precedence, output write failures, fresh npm install smoke |
 | npm package replacement | `package.json`, `npm/*`, `scripts/*` | strict file-surface verifier, binary matrix staging, target executable format and architecture checks, TypeScript declaration smoke |

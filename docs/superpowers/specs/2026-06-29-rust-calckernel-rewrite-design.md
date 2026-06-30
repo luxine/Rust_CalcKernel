@@ -224,7 +224,7 @@ Current oracle-covered backend generated outputs:
   `bench/perf/fixtures` pricing helpers, pricing SoA, and f64 kernels,
   including TS-compatible omission of the debug `name` custom section.
 - WASM runtime interop through Node for the official scalar, calls,
-  control-flow, memory, and short-circuit examples, plus pricing AoS,
+  control-flow, memory, short-circuit, and dijkstra examples, plus pricing AoS,
   f64-array, f64-axpy, f64-sum, pricing SoA, `tests/fixtures/f64_edges.ck`,
   and the TS `bench/perf/fixtures` pricing helpers, pricing SoA, and f64
   kernels, comparing TypeScript-emitted and Rust-emitted module behavior.

@@ -255,6 +255,7 @@ fn wasm_cli_should_match_typescript_oracle_for_official_interop_runtime_behavior
         ("wasm-control-flow", "examples/wasm_control_flow.ck"),
         ("wasm-memory", "examples/wasm_memory.ck"),
         ("wasm-short-circuit", "examples/wasm_short_circuit.ck"),
+        ("dijkstra", "examples/dijkstra.ck"),
         ("pricing-aos", "examples/pricing.ck"),
         ("f64-array", "examples/node-wasm-f64-array/f64_array.ck"),
         ("f64-axpy", "examples/wasm/f64-axpy/axpy.ck"),
@@ -690,6 +691,60 @@ function runWasmShortCircuit() {
   return `wasm-short-circuit:out=${values.join(",")}`;
 }
 
+function runDijkstra() {
+  const dijkstraMatrix = instance.exports.dijkstra_matrix;
+  if (typeof dijkstraMatrix !== "function") {
+    throw new Error("generated dijkstra WASM did not export dijkstra_matrix");
+  }
+  const view = new DataView(memory.buffer);
+  const nodeCount = 5;
+  const inf = 1000000n;
+  const configOffset = 0;
+  const weightsOffset = 64;
+  const distOffset = 512;
+  const prevOffset = 768;
+  const visitedOffset = 896;
+  const weights = [
+    0n, 2n, 5n, 0n, 0n,
+    0n, 0n, 1n, 2n, 9n,
+    0n, 0n, 0n, 1n, 0n,
+    0n, 0n, 0n, 0n, 3n,
+    0n, 0n, 0n, 0n, 0n
+  ];
+
+  view.setInt32(configOffset + 0, nodeCount, true);
+  view.setInt32(configOffset + 4, 0, true);
+  view.setBigInt64(configOffset + 8, inf, true);
+  for (const [index, weight] of weights.entries()) {
+    view.setBigInt64(weightsOffset + index * 8, weight, true);
+  }
+
+  const settled = dijkstraMatrix(configOffset, weightsOffset, distOffset, prevOffset, visitedOffset);
+  const actualDist = Array.from({ length: nodeCount }, (_, index) => view.getBigInt64(distOffset + index * 8, true));
+  const actualPrev = Array.from({ length: nodeCount }, (_, index) => view.getInt32(prevOffset + index * 4, true));
+  const actualVisited = Array.from({ length: nodeCount }, (_, index) => view.getInt32(visitedOffset + index * 4, true));
+  const expectedDist = [0n, 2n, 3n, 4n, 7n];
+  const expectedPrev = [0, 0, 1, 1, 3];
+  const expectedVisited = [1, 1, 1, 1, 1];
+  if (
+    settled !== nodeCount ||
+    actualDist.some((value, index) => value !== expectedDist[index]) ||
+    actualPrev.some((value, index) => value !== expectedPrev[index]) ||
+    actualVisited.some((value, index) => value !== expectedVisited[index])
+  ) {
+    throw new Error(
+      `dijkstra mismatch settled=${settled} dist=${actualDist.join(",")} ` +
+        `prev=${actualPrev.join(",")} visited=${actualVisited.join(",")}`
+    );
+  }
+  return (
+    `dijkstra:settled=${settled};` +
+    `dist=${actualDist.join(",")};` +
+    `prev=${actualPrev.join(",")};` +
+    `visited=${actualVisited.join(",")}`
+  );
+}
+
 function runPricingAos() {
   const calcItems = instance.exports.calc_items;
   if (typeof calcItems !== "function") {
@@ -1016,6 +1071,7 @@ const runners = {
   "wasm-control-flow": runWasmControlFlow,
   "wasm-memory": runWasmMemory,
   "wasm-short-circuit": runWasmShortCircuit,
+  "dijkstra": runDijkstra,
   "pricing-aos": runPricingAos,
   "f64-array": runF64Array,
   "f64-axpy": runF64Axpy,

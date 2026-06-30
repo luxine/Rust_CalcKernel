@@ -56,6 +56,12 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"packageVersion\": \"0.8.0\""),
+        "release signoff summary verifier should report the manifest packageVersion explicitly\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"signedTargets\": ["),
         "release signoff summary verifier should report signed target binary hashes\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

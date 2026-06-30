@@ -151,8 +151,9 @@ The workflow runs these stages:
    `verify:release-signoff-summary` against `release-manifest.json` and
    `release-signoff.json` and writes `release-signoff-summary.json` so
    publication cannot start from a missing or mismatched six-platform sign-off
-   summary or missing `sourceFallback: "disabled"` evidence. It also runs
-   `verify:publish-artifact` against `release-manifest.json` and `dist/` to
+   summary, mismatched `packageVersion`, or missing `sourceFallback` evidence
+   set to `"disabled"`. It also runs `verify:publish-artifact` against
+   `release-manifest.json` and `dist/` to
    prove the tarball SHA256 still matches the signed-off release manifest and
    that the manifest carries the formal release verifier metadata, file surface,
    and target matrix evidence. After publish, it runs `verify:registry-replacement`
@@ -169,7 +170,7 @@ The workflow runs these stages:
    must match; the publish and registry shasum values must both be sha1 shasum
    strings and must match. Finally, it runs `verify:cutover-evidence` to bind
    the release manifest, `release-signoff-summary.json`, six-platform sign-off
-   summary including signed target binary SHA256 values and
+   summary including `packageVersion`, signed target binary SHA256 values, and
    `sourceFallback: "disabled"`, pre-publish artifact verifier output, and
    post-publish result verifier output into one final evidence JSON.
 
@@ -344,7 +345,8 @@ cutover evidence 必须归档 signed target binary SHA256 值。
 同一个 tarball。发布前必须先运行 `verify:release-signoff-summary` 并输出
 `release-signoff-summary.json`，确认
 `release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
-SHA256 和六个平台；随后运行 `verify:publish-artifact`，用 `release-manifest.json`
+SHA256 和六个平台，并在摘要中显式保留 `packageVersion`；随后运行
+`verify:publish-artifact`，用 `release-manifest.json`
 校验 `dist/` 中即将发布的 tarball SHA256 仍然匹配已签核 manifest，并确认
 manifest 带有正式 release verifier 产生的 metadata、文件面和目标矩阵证据。
 默认 `publish=false` 只生成 artifact 和 sign-off evidence，不会发布。
@@ -363,5 +365,5 @@ sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串
 最终 `verify:cutover-evidence` 必须同时传入 `release-manifest.json`、
 `release-signoff.json`、`release-signoff-summary.json`、
 `npm-publish-artifact.json` 和 `npm-publish-result.json`，把发布前签核摘要、
-禁用 source checkout fallback 的证据、发布前 tarball 校验和发布后 registry 结果
-绑定成同一份最终证据。
+显式 `packageVersion`、禁用 source checkout fallback 的证据、发布前 tarball
+校验和发布后 registry 结果绑定成同一份最终证据。

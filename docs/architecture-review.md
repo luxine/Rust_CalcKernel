@@ -88,7 +88,7 @@ published JavaScript compatibility surface.
 | Lexer/parser | `src/lexer/mod.rs`, `src/parser.rs` | Unit tests plus package API parity for tokens, diagnostics, AST, and UTF-16 public offsets |
 | Frontend + type checker | `src/typeck.rs` | Checker tests plus root API parity for checked program, symbol lookup, helper metadata, and diagnostics |
 | Frontend + MIR + optimizer | `src/mir/mod.rs`, `src/opt/mod.rs` | MIR O0-O3 TS oracle output across official examples and perf fixtures |
-| C backend | `src/backend/mod.rs`, C emission sections | C/header output parity, C dynamic-library runtime parity, checked/unchecked ABI checks |
+| C backend | `src/backend/mod.rs`, C emission sections | C/header output parity, f64 edge fixture C dynamic-library runtime parity, C dynamic-library runtime parity, checked/unchecked ABI checks |
 | WASM backend | `src/backend/mod.rs`, WAT/WASM sections | WAT text, WASM bytes, Node runtime interop, package WASM helper interop |
 | LLVM backend | `src/backend/mod.rs`, LLVM sections | LLVM IR parity, object/dynamic-library runtime parity, target/clang behavior parity |
 | CLI replacement | `src/main.rs`, `npm/ckc.js` | stdout/stderr/exit-code parity, error precedence, output write failures, fresh npm install smoke |

@@ -695,6 +695,90 @@ fn build_should_match_typescript_oracle_for_perf_c_dynamic_library_runtime_behav
 }
 
 #[test]
+fn build_should_match_typescript_oracle_for_f64_edge_c_dynamic_library_runtime_behavior() {
+    let Some(ts_cli) = typescript_cli() else {
+        return;
+    };
+    if !clang_available() || !python3_available() {
+        return;
+    }
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos();
+    let dir =
+        std::env::temp_dir().join(format!("rust_calckernel_build_f64_edge_c_runtime_{unique}"));
+    fs::create_dir_all(&dir).expect("create temp dir");
+    let runner = dir.join("run_f64_edge_c_dynamic.py");
+    fs::write(&runner, official_c_dynamic_library_runner())
+        .expect("write f64 edge C dynamic library runner");
+    let source = typescript_root().join("tests/fixtures/f64_edges.ck");
+    let ts_base = dir.join("ts_c_f64_edges");
+    let rust_base = dir.join("rust_c_f64_edges");
+    let ts_args = vec![
+        os("build"),
+        os("--out"),
+        ts_base.clone().into_os_string(),
+        os("--overflow"),
+        os("unchecked"),
+        os("-O3"),
+        source.clone().into_os_string(),
+    ];
+    let rust_args = vec![
+        os("build"),
+        os("--out"),
+        rust_base.clone().into_os_string(),
+        os("--overflow"),
+        os("unchecked"),
+        os("-O3"),
+        source.clone().into_os_string(),
+    ];
+
+    let ts_build = run_typescript_cli(&ts_cli, &ts_args);
+    assert_eq!(
+        ts_build.status_code,
+        Some(0),
+        "c-f64-edges TS stderr: {}",
+        ts_build.stderr
+    );
+    let rust_build = run_rust_cli(&rust_args);
+    assert_eq!(
+        rust_build.status_code, ts_build.status_code,
+        "c-f64-edges build status"
+    );
+
+    let ts_run = run_python_official_c_dynamic_library(
+        &runner,
+        "c-f64-edges",
+        &shared_library_path(&ts_base),
+    );
+    let rust_run = run_python_official_c_dynamic_library(
+        &runner,
+        "c-f64-edges",
+        &shared_library_path(&rust_base),
+    );
+
+    assert_eq!(
+        ts_run.status_code,
+        Some(0),
+        "c-f64-edges TS runtime stderr: {}",
+        ts_run.stderr
+    );
+    assert_eq!(
+        rust_run.status_code,
+        Some(0),
+        "c-f64-edges Rust runtime stderr: {}",
+        rust_run.stderr
+    );
+    assert_eq!(
+        rust_run.status_code, ts_run.status_code,
+        "c-f64-edges runtime status"
+    );
+    assert_eq!(rust_run.stdout, ts_run.stdout, "c-f64-edges runtime stdout");
+    assert_eq!(rust_run.stderr, ts_run.stderr, "c-f64-edges runtime stderr");
+}
+
+#[test]
 fn cli_should_print_mir_optimization_debug_output_to_stderr() {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1693,6 +1777,20 @@ CK_ERR_OVERFLOW = 1
 CK_ERR_DIV_BY_ZERO = 2
 
 
+class Quote(ctypes.Structure):
+    _fields_ = [
+        ("price", ctypes.c_double),
+        ("tax", ctypes.c_double),
+    ]
+
+
+class NestedQuote(ctypes.Structure):
+    _fields_ = [
+        ("quote", Quote),
+        ("fee", ctypes.c_double),
+    ]
+
+
 def checked_i64_call(fn, *args: int) -> tuple[int, int]:
     result = ctypes.c_int64(-1)
     status = fn(*args, ctypes.byref(result))
@@ -1711,6 +1809,24 @@ def close(actual: float, expected: float) -> bool:
 
 def format_float(value: float) -> str:
     return format(value, ".17g")
+
+
+def classify_f64(value: float) -> str:
+    if math.isnan(value):
+        return "nan"
+    if math.isinf(value):
+        return "-inf" if math.copysign(1.0, value) < 0 else "+inf"
+    if value == 0.0:
+        return "-0" if math.copysign(1.0, value) < 0 else "+0"
+    return "finite"
+
+
+def class_is(value: float, expected: str) -> bool:
+    return classify_f64(value) == expected
+
+
+def ok(value: bool) -> str:
+    return "ok" if value else "fail"
 
 
 def run_c_scalar(library_path: str) -> str:
@@ -1980,6 +2096,110 @@ def run_c_perf_f64_kernels(library_path: str) -> str:
     )
 
 
+def run_c_f64_edges(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    for name in [
+        "finite_add",
+        "finite_sub",
+        "finite_mul",
+        "finite_div",
+        "tolerance_calc",
+        "negative_infinity",
+        "positive_infinity",
+        "not_a_number",
+        "negative_zero",
+        "infinity_plus_finite",
+        "infinity_minus_infinity",
+        "overflow_to_infinity",
+        "underflow_smoke",
+    ]:
+        func = getattr(lib, name)
+        func.argtypes = []
+        func.restype = ctypes.c_double
+
+    for name in [
+        "finite_less",
+        "finite_less_equal",
+        "finite_equal",
+        "zero_equals_negative_zero",
+        "nan_equals_nan",
+        "nan_not_equals_nan",
+        "nan_less_than_one",
+        "nan_less_equal_one",
+        "nan_greater_than_one",
+        "nan_greater_equal_one",
+        "infinity_greater_than_finite",
+        "negative_infinity_less_than_finite",
+    ]:
+        func = getattr(lib, name)
+        func.argtypes = []
+        func.restype = ctypes.c_bool
+
+    lib.ptr_read.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int32]
+    lib.ptr_read.restype = ctypes.c_double
+    lib.ptr_write.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int32, ctypes.c_double]
+    lib.ptr_write.restype = ctypes.c_double
+    lib.struct_read.argtypes = [ctypes.POINTER(Quote), ctypes.c_int32]
+    lib.struct_read.restype = ctypes.c_double
+    lib.struct_write.argtypes = [ctypes.POINTER(Quote), ctypes.c_int32, ctypes.c_double]
+    lib.struct_write.restype = ctypes.c_double
+    lib.nested_struct_read.argtypes = [ctypes.POINTER(NestedQuote), ctypes.c_int32]
+    lib.nested_struct_read.restype = ctypes.c_double
+    lib.nested_struct_write.argtypes = [ctypes.POINTER(NestedQuote), ctypes.c_int32, ctypes.c_double]
+    lib.nested_struct_write.restype = ctypes.c_double
+
+    values = (ctypes.c_double * 3)(1.0, 2.5, 4.0)
+    quotes = (Quote * 2)(
+        Quote(price=10.25, tax=0.75),
+        Quote(price=20.5, tax=1.25),
+    )
+    nested = (NestedQuote * 2)(
+        NestedQuote(quote=Quote(price=1.25, tax=0.75), fee=2.0),
+        NestedQuote(quote=Quote(price=10.0, tax=2.0), fee=3.0),
+    )
+    ptr_store_value = lib.ptr_write(values, ctypes.c_int32(1), ctypes.c_double(8.75))
+    struct_write_value = lib.struct_write(quotes, ctypes.c_int32(1), ctypes.c_double(0.5))
+    nested_write_value = lib.nested_struct_write(nested, ctypes.c_int32(1), ctypes.c_double(1.5))
+
+    checks = [
+        ("finite_add", close(lib.finite_add(), 4.0)),
+        ("finite_sub", close(lib.finite_sub(), 3.5)),
+        ("finite_mul", close(lib.finite_mul(), 3.75)),
+        ("finite_div", close(lib.finite_div(), 3.5)),
+        ("tolerance_calc", close(lib.tolerance_calc(), 10.0)),
+        ("finite_less", lib.finite_less() is True),
+        ("finite_less_equal", lib.finite_less_equal() is True),
+        ("finite_equal", lib.finite_equal() is True),
+        ("pos_inf", class_is(lib.positive_infinity(), "+inf")),
+        ("neg_inf", class_is(lib.negative_infinity(), "-inf")),
+        ("nan", class_is(lib.not_a_number(), "nan")),
+        ("neg_zero", class_is(lib.negative_zero(), "-0")),
+        ("zero_eq_neg_zero", lib.zero_equals_negative_zero() is True),
+        ("nan_eq_nan", lib.nan_equals_nan() is False),
+        ("nan_ne_nan", lib.nan_not_equals_nan() is True),
+        ("nan_lt_one", lib.nan_less_than_one() is False),
+        ("nan_le_one", lib.nan_less_equal_one() is False),
+        ("nan_gt_one", lib.nan_greater_than_one() is False),
+        ("nan_ge_one", lib.nan_greater_equal_one() is False),
+        ("inf_plus", class_is(lib.infinity_plus_finite(), "+inf")),
+        ("inf_minus_inf", class_is(lib.infinity_minus_infinity(), "nan")),
+        ("overflow", class_is(lib.overflow_to_infinity(), "+inf")),
+        ("underflow", class_is(lib.underflow_smoke(), "+0")),
+        ("inf_gt_finite", lib.infinity_greater_than_finite() is True),
+        ("neg_inf_lt_finite", lib.negative_infinity_less_than_finite() is True),
+        ("ptr_load", close(lib.ptr_read(values, ctypes.c_int32(2)), 4.0)),
+        ("ptr_store", close(ptr_store_value, 8.75) and close(values[1], 8.75)),
+        ("struct_read", close(lib.struct_read(quotes, ctypes.c_int32(0)), 11.0)),
+        ("struct_write", close(struct_write_value, 21.0) and close(quotes[1].tax, 0.5)),
+        ("nested_struct_read", close(lib.nested_struct_read(nested, ctypes.c_int32(0)), 4.0)),
+        (
+            "nested_struct_write",
+            close(nested_write_value, 14.5) and close(nested[1].quote.tax, 1.5),
+        ),
+    ]
+    return "c-f64-edges:" + ";".join(f"{name}={ok(passed)}" for name, passed in checks)
+
+
 RUNNERS = {
     "c-scalar": run_c_scalar,
     "c-casts": run_c_casts,
@@ -1991,6 +2211,7 @@ RUNNERS = {
     "c-perf-pricing-helpers-o2": lambda path: run_c_perf_pricing_helpers(path, "c-perf-pricing-helpers-o2"),
     "c-perf-pricing-soa-o3": run_c_perf_pricing_soa,
     "c-perf-f64-kernels-o3": run_c_perf_f64_kernels,
+    "c-f64-edges": run_c_f64_edges,
 }
 
 

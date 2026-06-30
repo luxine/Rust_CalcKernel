@@ -236,8 +236,9 @@ Current oracle-covered backend generated outputs:
 - C dynamic-library runtime interop through Python `ctypes` for unchecked
   scalar/casts, checked scalar/control-flow/logical/calls, and unchecked plus
   checked pricing examples, plus TS `bench/perf/fixtures` pricing helpers at
-  O0/O2, pricing SoA at O3, and f64 kernels at O3, comparing TypeScript-built
-  and Rust-built library behavior.
+  O0/O2, pricing SoA at O3, f64 kernels at O3, and
+  `tests/fixtures/f64_edges.ck` at O3, comparing TypeScript-built and
+  Rust-built library behavior.
 - LLVM output with explicit target for the official scalar/pricing/dijkstra,
   checked scalar, LLVM, f64-array examples, and
   `tests/fixtures/f64_edges.ck`, including TS-compatible unordered f64
@@ -263,9 +264,9 @@ cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-At this point the suite has 139 Rust tests. This is substantial coverage, and
+At this point the suite has 164 Rust tests. This is substantial coverage, and
 the local generated-output audit now requires every current `.ck` fixture under
 `examples`, `bench/perf/fixtures`, and `tests/fixtures` to appear in MIR, C,
 WASM, and LLVM oracle tests. Completion of the full replacement objective still
-requires broader runtime parity plus real target-platform npm binary sign-off
+requires remaining runtime parity plus real target-platform npm binary sign-off
 runs.

@@ -131,6 +131,8 @@ fn rust_replacement_readiness_audit_should_require_source_git_sha_evidence() {
         r#"expectIncludes(npmRelease, "sourceGitSha", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "release-manifest.json.sourceGitSha", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "GITHUB_SHA", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "clean source git worktree", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "source git worktree must be clean", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

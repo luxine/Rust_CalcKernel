@@ -278,7 +278,8 @@ node --input-type=module --eval "import { SourceFile, TokenKind, lex, parse, che
 before `npm pack`. `verify:npm-release` rejects any file outside the release file surface and
 prints a JSON manifest containing the tarball filename, tarball SHA256,
 source checkout commit (`sourceGitSha`, from `GITHUB_SHA` in CI or
-`git rev-parse HEAD` locally),
+`git rev-parse HEAD` locally after confirming a clean source git worktree;
+otherwise it fails with `source git worktree must be clean`),
 Rust package metadata (`type`, `main`, `types`, `exports`, `bin`, and empty
 dependency fields), public package identity (`description`, `keywords`,
 `license`, `engines`), explicit `consumerInstallScripts: []`,
@@ -460,7 +461,8 @@ TypeScript checkout 在重写期间保持只读 oracle；Rust 包的发布签核
 architecture、格式、大小和 SHA256，并会拒绝文件面之外的额外文件、macOS/Linux
 二进制不可执行、格式不像目标平台 executable 或架构与 npm target 不匹配的随包文件。
 manifest 还会记录 `sourceGitSha`，在 CI 中来自 `GITHUB_SHA`，本地来自
-`git rev-parse HEAD`。
+`git rev-parse HEAD`，但本地生成 manifest 前必须先确认 clean source git
+worktree；否则 verifier 会用 `source git worktree must be clean` 失败。
 它也会在发布前拒绝随包 `package.json` 中的 consumer install lifecycle scripts
 （`preinstall`、`install`、`postinstall`），并在 manifest 中记录
 `consumerInstallScripts: []`、`packageManager: null` 和固定的 `scriptNames`。

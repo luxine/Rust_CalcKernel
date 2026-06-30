@@ -158,6 +158,8 @@ expectIncludes(npmRelease, "SHA256 values", "npm release docs");
 expectIncludes(npmRelease, "sourceGitSha", "npm release docs");
 expectIncludes(npmRelease, "release-manifest.json.sourceGitSha", "npm release docs");
 expectIncludes(npmRelease, "GITHUB_SHA", "npm release docs");
+expectIncludes(npmRelease, "clean source git worktree", "npm release docs");
+expectIncludes(npmRelease, "source git worktree must be clean", "npm release docs");
 expectIncludes(npmRelease, "verify:host-npm-install", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff", "npm release docs");
 expectIncludes(npmRelease, "verify:release-signoff-summary", "npm release docs");

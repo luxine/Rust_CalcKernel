@@ -19,6 +19,16 @@ const extraRustExports = rustExports.filter((name) => !typescriptExports.include
 const missingRustExports = typescriptExports.filter((name) => !rustExports.includes(name));
 const rustExportKinds = new Map(rustSurface.map((entry) => [entry.name, entry.kind]));
 const typescriptExportKinds = new Map(typescriptSurface.map((entry) => [entry.name, entry.kind]));
+const rustObjectProperties = new Map(
+  rustSurface
+    .filter((entry) => entry.objectPropertyInfo)
+    .map((entry) => [entry.name, entry.objectPropertyInfo])
+);
+const typescriptObjectProperties = new Map(
+  typescriptSurface
+    .filter((entry) => entry.objectPropertyInfo)
+    .map((entry) => [entry.name, entry.objectPropertyInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust exports: ${extraRustExports.join(", ")}`);
@@ -31,6 +41,14 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   const typescriptKind = typescriptExportKinds.get(name);
   if (rustKind !== typescriptKind) {
     fail(`export kind mismatch for ${name}: Rust ${rustKind}, TypeScript ${typescriptKind}`);
+  }
+  const rustObject = rustObjectProperties.get(name);
+  const typescriptObject = typescriptObjectProperties.get(name);
+  if (rustObject && typescriptObject && !sameJson(rustObject.properties, typescriptObject.properties)) {
+    fail(
+      `runtime object property mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustObject.properties)}, TypeScript ${JSON.stringify(typescriptObject.properties)}`
+    );
   }
 }
 
@@ -47,7 +65,10 @@ console.log(JSON.stringify({
   typescriptIndex,
   exportCount: rustExports.length,
   exports: rustExports,
-  exportKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind]))
+  exportKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind])),
+  objectProperties: Object.fromEntries(
+    [...rustObjectProperties.entries()].map(([name, info]) => [name, info.properties])
+  )
 }, null, 2));
 
 function parseArgs(args) {
@@ -94,7 +115,8 @@ async function readRuntimeExportSurface(path, label) {
       .sort()
       .map((name) => ({
         name,
-        kind: runtimeExportKind(module[name])
+        kind: runtimeExportKind(module[name]),
+        objectPropertyInfo: runtimeObjectPropertyInfo(module[name])
       }));
   } catch (error) {
     failImmediate(`Unable to import ${label}: ${error.message}`);
@@ -106,6 +128,40 @@ function runtimeExportKind(value) {
     return "class";
   }
   return typeof value;
+}
+
+function runtimeObjectPropertyInfo(value) {
+  if (runtimeExportKind(value) !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const properties = Object.keys(value)
+    .sort()
+    .map((name) => {
+      const propertyValue = value[name];
+      return {
+        name,
+        kind: runtimeExportKind(propertyValue),
+        value: runtimeComparablePropertyValue(propertyValue)
+      };
+    });
+  return { properties };
+}
+
+function runtimeComparablePropertyValue(value) {
+  if (value === undefined) {
+    return "[[undefined]]";
+  }
+  if (typeof value === "bigint") {
+    return `${value}n`;
+  }
+  if (value === null || ["boolean", "number", "string"].includes(typeof value)) {
+    return value;
+  }
+  return null;
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function printUsage() {

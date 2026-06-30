@@ -377,7 +377,9 @@ member surface by member name and constant value. It also compares type alias
 surface with normalized declaration text and bidirectional TypeScript
 assignability. The Rust package root runtime exports exactly the same public
 JavaScript API names and runtime export kind (`class`, `function`, `object`,
-etc.) as `dist/src/index.js`.
+etc.) as `dist/src/index.js`, and object exports such as `TokenKind` must match
+the TypeScript runtime object property surface by own enumerable property name,
+property kind, and primitive property value.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
@@ -452,7 +454,9 @@ property、method、private、static 声明）以及 interface member surface（
 readonly/optional 标记和 TypeScript 结构类型兼容性）、enum member surface
 （成员名和常量值）、type alias surface（规范化声明文本和 TypeScript 双向
 assignability）对齐；同时确认 runtime exports 与
-`dist/src/index.js` 的 public JavaScript API 名称和 runtime export kind 对齐。
+`dist/src/index.js` 的 public JavaScript API 名称、runtime export kind 以及
+`TokenKind` 这类 object export 的 runtime object property surface（自有可枚举
+属性名、属性 kind 和 primitive 属性值）对齐。
 每个平台都应把该命令 stdout 保存为 `signoffs/<npm-target>.json`，再用
 `npm run verify:release-signoff -- release-manifest.json signoffs` 汇总验收。
 在 GitHub Actions 中，`verify:host-npm-install` 会在写出平台签核前拒绝缺失

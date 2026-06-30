@@ -132,6 +132,7 @@ fn rust_replacement_readiness_audit_should_require_public_api_parity_verifier() 
         "scripts/verify-public-api-parity.mjs",
         r#"expectIncludes(npmRelease, "verify:public-api-parity", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runtime export kind", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "runtime object property surface", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

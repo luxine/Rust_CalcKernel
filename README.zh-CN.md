@@ -103,6 +103,9 @@ TS oracle checkout 和已构建 CLI 存在。
 ```sh
 npm run verify:typescript-oracle
 npm run audit:typescript-test-surface
+npm run verify:declaration-parity
+npm run verify:public-api-parity
+npm run audit:release-workflow
 cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings

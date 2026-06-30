@@ -177,6 +177,26 @@ fn rust_replacement_readiness_audit_should_require_declaration_parity_verifier()
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_readme_local_gate_parity_commands() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(readme, "npm run verify:declaration-parity", "README local gate")"#,
+        r#"expectIncludes(readme, "npm run verify:public-api-parity", "README local gate")"#,
+        r#"expectIncludes(readme, "npm run audit:release-workflow", "README local gate")"#,
+        r#"expectIncludes(zhReadme, "npm run verify:declaration-parity", "Chinese README local gate")"#,
+        r#"expectIncludes(zhReadme, "npm run verify:public-api-parity", "Chinese README local gate")"#,
+        r#"expectIncludes(zhReadme, "npm run audit:release-workflow", "Chinese README local gate")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_host_signoff_type_smoke_compiler_setup() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

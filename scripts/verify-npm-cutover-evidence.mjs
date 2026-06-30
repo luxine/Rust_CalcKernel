@@ -52,6 +52,7 @@ console.log(JSON.stringify({
   targetCount: signoff.targetCount,
   targets: signoff.targets,
   registryStatus: publishResult.registryStatus,
+  registryTarball: publishResult.registryTarball,
   integrity: publishResult.integrity,
   evidence: {
     manifest: manifestPath,

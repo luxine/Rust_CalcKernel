@@ -159,11 +159,11 @@ The workflow runs these stages:
    `verify:publish-result` to bind `release-manifest.json`,
    `npm publish --json`, and the registry verifier output to the same package,
    version, tarball filename, npm integrity, and successful
-   registry replacement status. The publish and registry integrity values must
-   both be sha512 npm integrity strings and must match. Finally, it runs
-   `verify:cutover-evidence` to bind the release manifest, six-platform
-   sign-off summary, pre-publish artifact verifier output, and post-publish
-   result verifier output into one final evidence JSON.
+   registry replacement status, including the registry tarball URL. The publish
+   and registry integrity values must both be sha512 npm integrity strings and
+   must match. Finally, it runs `verify:cutover-evidence` to bind the release
+   manifest, six-platform sign-off summary, pre-publish artifact verifier
+   output, and post-publish result verifier output into one final evidence JSON.
 
 `npm run audit:release-workflow` validates that this workflow still contains
 the required jobs, target matrix entries, runners, artifact flow, and release
@@ -280,7 +280,8 @@ pass `npm run verify:publish-result -- release-manifest.json npm-publish.json
 npm-registry-replacement.json` so the manifest, publish result, registry
 replacement status, and registry metadata all prove the same npm artifact.
 The publish, registry, and final cutover evidence must carry the same
-sha512 npm integrity value.
+sha512 npm integrity value, and final cutover evidence must report the
+registry tarball URL.
 The final downloaded evidence set
 should also pass `npm run verify:cutover-evidence -- release-manifest.json
 release-signoff.json npm-publish-artifact.json npm-publish-result.json`.
@@ -340,5 +341,6 @@ registry metadata 验证已发布包暴露的是 Rust package 的 `main`、`type
 `exports` 和 `ckc` bin 路径，而不是旧 TypeScript `dist/` 路径。
 `verify:publish-result` 会同时要求 registry replacement status 为 `ok`，
 并把 npm publish JSON、registry metadata 和 release manifest 绑定到同一个
-package、version、tarball 和 integrity。publish、registry 和最终 cutover
-evidence 中的 integrity 必须是同一个 sha512 npm integrity 字符串。
+package、version、tarball、registry tarball URL 和 integrity。publish、
+registry 和最终 cutover evidence 中的 integrity 必须是同一个 sha512 npm
+integrity 字符串。

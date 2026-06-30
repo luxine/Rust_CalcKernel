@@ -68,6 +68,14 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains(
+            "\"registryTarball\": \"https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz\""
+        ),
+        "cutover evidence verifier should report the registry tarball URL\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]

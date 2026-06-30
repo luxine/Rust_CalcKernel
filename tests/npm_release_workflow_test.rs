@@ -197,6 +197,24 @@ fn npm_release_workflow_audit_should_require_publish_and_registry_source_evidenc
 }
 
 #[test]
+fn npm_release_workflow_audit_should_require_final_verifier_output_archival() {
+    let audit =
+        fs::read_to_string("scripts/audit-npm-release-workflow.mjs").expect("read workflow audit");
+
+    for expected in [
+        r#"expectIncludes(npmPublishArtifact, "release-signoff-summary.json", "npm publish artifact release signoff summary output")"#,
+        r#"expectIncludes(npmPublishArtifact, "npm-publish-artifact.json", "npm publish artifact pre-publish artifact verifier output")"#,
+        r#"expectIncludes(npmPublishArtifact, "npm-publish-result.json", "npm publish artifact publish result verifier output")"#,
+        r#"expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "workflow audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");

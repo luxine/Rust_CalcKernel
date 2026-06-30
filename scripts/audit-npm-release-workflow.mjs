@@ -109,6 +109,10 @@ if (!existsSync(workflowPath)) {
   expectIncludes(npmPublishArtifact, "release/release-signoff.json", "npm publish artifact release signoff source evidence");
   expectIncludes(npmPublishArtifact, "npm-publish.json", "npm publish artifact npm publish source evidence");
   expectIncludes(npmPublishArtifact, "npm-registry-replacement.json", "npm publish artifact registry replacement source evidence");
+  expectIncludes(npmPublishArtifact, "release-signoff-summary.json", "npm publish artifact release signoff summary output");
+  expectIncludes(npmPublishArtifact, "npm-publish-artifact.json", "npm publish artifact pre-publish artifact verifier output");
+  expectIncludes(npmPublishArtifact, "npm-publish-result.json", "npm publish artifact publish result verifier output");
+  expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output");
   expectIncludes(workflow, "cargo fmt --check", "format gate");
   expectIncludes(workflow, "cargo clippy --all-targets --all-features --locked -- -D warnings", "clippy gate");
   expectIncludes(workflow, "- run: cargo test\n", "full Rust test suite gate");

@@ -445,6 +445,51 @@ fn npm_release_workflow_audit_should_reject_publish_without_final_signoff_depend
 }
 
 #[test]
+fn npm_release_workflow_audit_should_reject_publish_guard_outside_publish_job() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_ungated = replace_in_workflow_section(
+        &workflow,
+        "publish-npm:",
+        "",
+        "if: ${{ inputs.publish }}",
+        "if: ${{ always() }}",
+    );
+    let tampered = publish_ungated.replacen(
+        "  verify-release-scripts:\n",
+        "  verify-release-scripts:\n    if: ${{ inputs.publish }}\n",
+        1,
+    );
+    let workflow_path = write_temp_workflow("publish-guard-outside-publish-job", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against misplaced publish guard workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish-npm when the publish input guard is outside that job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish job guard"),
+        "misplaced publish guard failure should identify the publish job guard\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
     if !node_available() {
         return;

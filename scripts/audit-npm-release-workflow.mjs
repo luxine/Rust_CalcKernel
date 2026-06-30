@@ -47,6 +47,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "pnpm build", "TypeScript oracle build");
   expectIncludes(workflow, "npm run verify:typescript-oracle", "TypeScript oracle readiness gate");
   expectIncludes(workflow, "if: ${{ inputs.publish }}", "publish job guard");
+  expectIncludes(publishJob, "if: ${{ inputs.publish }}", "publish job guard");
   expectIncludes(workflow, "environment: npm-production", "publish environment");
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");
   expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");

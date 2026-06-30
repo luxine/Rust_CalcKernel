@@ -481,6 +481,12 @@ fn build_llvm_object_should_match_typescript_oracle_for_official_e2e_runtime_beh
             "llvm-f64-array",
             "examples/node-wasm-f64-array/f64_array.ck",
         ),
+        ("llvm-f64-axpy", "examples/wasm/f64-axpy/axpy.ck"),
+        ("llvm-f64-sum", "examples/wasm/f64-sum/sum.ck"),
+        (
+            "llvm-pricing-soa",
+            "examples/wasm/pricing-soa/pricing_soa.ck",
+        ),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
 
@@ -701,6 +707,12 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_official_e2e_runtime_be
         (
             "llvm-f64-array",
             "examples/node-wasm-f64-array/f64_array.ck",
+        ),
+        ("llvm-f64-axpy", "examples/wasm/f64-axpy/axpy.ck"),
+        ("llvm-f64-sum", "examples/wasm/f64-sum/sum.ck"),
+        (
+            "llvm-pricing-soa",
+            "examples/wasm/pricing-soa/pricing_soa.ck",
         ),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
@@ -1155,6 +1167,9 @@ int main(void) {
         "llvm-f64-edges" => f64_edges_llvm_object_harness(),
         "llvm-perf-f64-kernels" => f64_kernels_llvm_object_harness(),
         "llvm-f64-array" => f64_array_llvm_object_harness(),
+        "llvm-f64-axpy" => f64_axpy_llvm_object_harness(),
+        "llvm-f64-sum" => f64_sum_llvm_object_harness(),
+        "llvm-pricing-soa" => pricing_soa_llvm_object_harness(),
         "llvm-dijkstra" => dijkstra_llvm_object_harness(),
         _ => panic!("missing official LLVM object harness for {case_name}"),
     }
@@ -1196,6 +1211,134 @@ int main(void) {
     y[1],
     y[2],
     y[3]);
+  return 0;
+}
+"#
+}
+
+fn f64_axpy_llvm_object_harness() -> &'static str {
+    r#"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+double axpy_f64(double a, double* x, double* y, int32_t len);
+
+static int close_f64(double actual, double expected) {
+  double diff = fabs(actual - expected);
+  double scale = fmax(fmax(fabs(actual), fabs(expected)), 1.0);
+  return diff <= 0.000000000001 * scale || diff <= 0.000000000001;
+}
+
+int main(void) {
+  double x[4] = {1.0, 2.0, 3.0, 4.0};
+  double y[4] = {0.5, -1.0, 10.0, 20.0};
+  double expected[4] = {2.5, 3.0, 16.0, 28.0};
+  double checksum = axpy_f64(2.0, x, y, 4);
+  double expected_checksum = 49.5;
+
+  if (!close_f64(checksum, expected_checksum)) {
+    return 1;
+  }
+  for (int32_t i = 0; i < 4; i += 1) {
+    if (!close_f64(y[i], expected[i])) {
+      return 2;
+    }
+  }
+
+  printf("llvm-f64-axpy:checksum=%.17g;out=%.17g,%.17g,%.17g,%.17g\n",
+    checksum,
+    y[0],
+    y[1],
+    y[2],
+    y[3]);
+  return 0;
+}
+"#
+}
+
+fn f64_sum_llvm_object_harness() -> &'static str {
+    r#"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+double sum_f64(double* values, int32_t len);
+
+static int close_f64(double actual, double expected) {
+  double diff = fabs(actual - expected);
+  double scale = fmax(fmax(fabs(actual), fabs(expected)), 1.0);
+  return diff <= 0.000000000001 * scale || diff <= 0.000000000001;
+}
+
+int main(void) {
+  double values[5] = {1.25, -2.5, 3.75, 4.5, 10.0};
+  double result = sum_f64(values, 5);
+
+  if (!close_f64(result, 17.0)) {
+    return 1;
+  }
+
+  printf("llvm-f64-sum:result=%.17g;inputLength=5\n", result);
+  return 0;
+}
+"#
+}
+
+fn pricing_soa_llvm_object_harness() -> &'static str {
+    r#"
+#include <stdint.h>
+#include <stdio.h>
+
+int32_t pricing_soa(
+  int64_t* prices,
+  int64_t* quantities,
+  int64_t* discounts,
+  int64_t* tax_rates_ppm,
+  int64_t* out_totals,
+  int32_t n
+);
+
+static int64_t expected_total(
+  int64_t price,
+  int64_t quantity,
+  int64_t discount,
+  int64_t tax_rate_ppm
+) {
+  int64_t after_discount = price * quantity - discount;
+  int64_t tax = after_discount * tax_rate_ppm / 1000000;
+  return after_discount + tax;
+}
+
+int main(void) {
+  int64_t prices[4] = {10000, 2500, 1200, 999};
+  int64_t quantities[4] = {2, 4, 5, 3};
+  int64_t discounts[4] = {1000, 0, 500, 100};
+  int64_t tax_rates[4] = {82500, 100000, 100000, 62500};
+  int64_t out[4] = {0, 0, 0, 0};
+  int32_t status = pricing_soa(prices, quantities, discounts, tax_rates, out, 4);
+  int64_t expected[4] = {
+    expected_total(prices[0], quantities[0], discounts[0], tax_rates[0]),
+    expected_total(prices[1], quantities[1], discounts[1], tax_rates[1]),
+    expected_total(prices[2], quantities[2], discounts[2], tax_rates[2]),
+    expected_total(prices[3], quantities[3], discounts[3], tax_rates[3]),
+  };
+
+  if (status != 0) {
+    return 1;
+  }
+  for (int32_t i = 0; i < 4; i += 1) {
+    if (out[i] != expected[i]) {
+      return 2;
+    }
+  }
+
+  printf("llvm-pricing-soa:status=%d;out=%lld,%lld,%lld,%lld\n",
+    status,
+    (long long)out[0],
+    (long long)out[1],
+    (long long)out[2],
+    (long long)out[3]);
   return 0;
 }
 "#
@@ -1718,6 +1861,82 @@ def run_f64_array(lib: ctypes.CDLL) -> str:
     )
 
 
+def run_f64_axpy(lib: ctypes.CDLL) -> str:
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.axpy_f64.argtypes = [ctypes.c_double, double_ptr, double_ptr, ctypes.c_int32]
+    lib.axpy_f64.restype = ctypes.c_double
+
+    x_input = [1.0, 2.0, 3.0, 4.0]
+    y_input = [0.5, -1.0, 10.0, 20.0]
+    length = len(x_input)
+    x = (ctypes.c_double * length)(*x_input)
+    y = (ctypes.c_double * length)(*y_input)
+    checksum = lib.axpy_f64(ctypes.c_double(2.0), x, y, ctypes.c_int32(length))
+    actual = list(y)
+    expected = [2.0 * value + y_input[index] for index, value in enumerate(x_input)]
+    expected_checksum = sum(expected)
+    if not close_f64(checksum, expected_checksum) or any(
+        not close_f64(value, expected[index]) for index, value in enumerate(actual)
+    ):
+        raise AssertionError(f"llvm-f64-axpy mismatch checksum={checksum} actual={actual}")
+    return (
+        f"llvm-f64-axpy:checksum={format_float(checksum)};"
+        f"out={','.join(format_float(value) for value in actual)}"
+    )
+
+
+def run_f64_sum(lib: ctypes.CDLL) -> str:
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.sum_f64.argtypes = [double_ptr, ctypes.c_int32]
+    lib.sum_f64.restype = ctypes.c_double
+
+    input_values = [1.25, -2.5, 3.75, 4.5, 10.0]
+    values = (ctypes.c_double * len(input_values))(*input_values)
+    actual = lib.sum_f64(values, ctypes.c_int32(len(input_values)))
+    expected = sum(input_values)
+    if not close_f64(actual, expected):
+        raise AssertionError(f"llvm-f64-sum mismatch actual={actual} expected={expected}")
+    return f"llvm-f64-sum:result={format_float(actual)};inputLength={len(input_values)}"
+
+
+def expected_total(price: int, quantity: int, discount: int, tax_rate_ppm: int) -> int:
+    after_discount = price * quantity - discount
+    tax = after_discount * tax_rate_ppm // 1000000
+    return after_discount + tax
+
+
+def run_pricing_soa(lib: ctypes.CDLL) -> str:
+    int64_ptr = ctypes.POINTER(ctypes.c_int64)
+    lib.pricing_soa.argtypes = [
+        int64_ptr,
+        int64_ptr,
+        int64_ptr,
+        int64_ptr,
+        int64_ptr,
+        ctypes.c_int32,
+    ]
+    lib.pricing_soa.restype = ctypes.c_int32
+
+    rows = [
+        (10000, 2, 1000, 82500),
+        (2500, 4, 0, 100000),
+        (1200, 5, 500, 100000),
+        (999, 3, 100, 62500),
+    ]
+    length = len(rows)
+    prices = (ctypes.c_int64 * length)(*(row[0] for row in rows))
+    quantities = (ctypes.c_int64 * length)(*(row[1] for row in rows))
+    discounts = (ctypes.c_int64 * length)(*(row[2] for row in rows))
+    tax_rates = (ctypes.c_int64 * length)(*(row[3] for row in rows))
+    out = (ctypes.c_int64 * length)()
+    status = lib.pricing_soa(prices, quantities, discounts, tax_rates, out, ctypes.c_int32(length))
+    actual = list(out)
+    expected = [expected_total(*row) for row in rows]
+    if status != 0 or actual != expected:
+        raise AssertionError(f"llvm-pricing-soa mismatch status={status} actual={actual} expected={expected}")
+    return f"llvm-pricing-soa:status={status};out={','.join(str(value) for value in actual)}"
+
+
 def run_dijkstra(lib: ctypes.CDLL) -> str:
     lib.dijkstra_matrix.argtypes = [
         ctypes.POINTER(DijkstraConfig),
@@ -1969,6 +2188,9 @@ RUNNERS = {
     "llvm-bool": run_bool,
     "llvm-dijkstra": run_dijkstra,
     "llvm-f64-array": run_f64_array,
+    "llvm-f64-axpy": run_f64_axpy,
+    "llvm-f64-sum": run_f64_sum,
+    "llvm-pricing-soa": run_pricing_soa,
     "llvm-f64-edges": run_f64_edges,
     "llvm-perf-f64-kernels": run_f64_kernels,
 }

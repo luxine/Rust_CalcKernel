@@ -131,6 +131,8 @@ fn rust_replacement_readiness_audit_should_require_tests_fixture_backend_coverag
         r#"expectIncludes(zhArchitectureReview, "f64 edge fixture C dynamic-library runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "f64-array C dynamic-library runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "f64-array C dynamic-library runtime parity", "Chinese architecture review")"#,
+        r#"expectIncludes(architectureReview, "f64-axpy/f64-sum/pricing-SoA C dynamic-library runtime parity", "architecture review")"#,
+        r#"expectIncludes(zhArchitectureReview, "f64-axpy/f64-sum/pricing-SoA C dynamic-library runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "dijkstra C dynamic-library runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "dijkstra C dynamic-library runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "f64 edge fixture WASM runtime parity", "architecture review")"#,
@@ -141,6 +143,8 @@ fn rust_replacement_readiness_audit_should_require_tests_fixture_backend_coverag
         r#"expectIncludes(zhArchitectureReview, "dijkstra LLVM object/dynamic runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "f64-array LLVM object/dynamic runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "f64-array LLVM object/dynamic runtime parity", "Chinese architecture review")"#,
+        r#"expectIncludes(architectureReview, "f64-axpy/f64-sum/pricing-SoA LLVM object/dynamic runtime parity", "architecture review")"#,
+        r#"expectIncludes(zhArchitectureReview, "f64-axpy/f64-sum/pricing-SoA LLVM object/dynamic runtime parity", "Chinese architecture review")"#,
     ] {
         assert!(
             audit.contains(expected),

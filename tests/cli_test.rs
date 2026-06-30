@@ -508,6 +508,13 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
             "unchecked",
             "examples/node-wasm-f64-array/f64_array.ck",
         ),
+        ("c-f64-axpy", "unchecked", "examples/wasm/f64-axpy/axpy.ck"),
+        ("c-f64-sum", "unchecked", "examples/wasm/f64-sum/sum.ck"),
+        (
+            "c-pricing-soa",
+            "unchecked",
+            "examples/wasm/pricing-soa/pricing_soa.ck",
+        ),
         ("c-scalar-checked", "checked", "examples/scalar_checked.ck"),
         (
             "c-control-checked",
@@ -1897,6 +1904,46 @@ def run_c_f64_array(library_path: str) -> str:
     )
 
 
+def run_c_f64_axpy(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.axpy_f64.argtypes = [ctypes.c_double, double_ptr, double_ptr, ctypes.c_int32]
+    lib.axpy_f64.restype = ctypes.c_double
+
+    x_input = [1.0, 2.0, 3.0, 4.0]
+    y_input = [0.5, -1.0, 10.0, 20.0]
+    length = len(x_input)
+    x = (ctypes.c_double * length)(*x_input)
+    y = (ctypes.c_double * length)(*y_input)
+    checksum = lib.axpy_f64(ctypes.c_double(2.0), x, y, ctypes.c_int32(length))
+    actual = list(y)
+    expected = [2.0 * value + y_input[index] for index, value in enumerate(x_input)]
+    expected_checksum = sum(expected)
+    if not close(checksum, expected_checksum) or any(
+        not close(value, expected[index]) for index, value in enumerate(actual)
+    ):
+        raise AssertionError(f"c-f64-axpy mismatch checksum={checksum} actual={actual}")
+    return (
+        f"c-f64-axpy:checksum={format_float(checksum)};"
+        f"out={','.join(format_float(value) for value in actual)}"
+    )
+
+
+def run_c_f64_sum(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    double_ptr = ctypes.POINTER(ctypes.c_double)
+    lib.sum_f64.argtypes = [double_ptr, ctypes.c_int32]
+    lib.sum_f64.restype = ctypes.c_double
+
+    input_values = [1.25, -2.5, 3.75, 4.5, 10.0]
+    values = (ctypes.c_double * len(input_values))(*input_values)
+    actual = lib.sum_f64(values, ctypes.c_int32(len(input_values)))
+    expected = sum(input_values)
+    if not close(actual, expected):
+        raise AssertionError(f"c-f64-sum mismatch actual={actual} expected={expected}")
+    return f"c-f64-sum:result={format_float(actual)};inputLength={len(input_values)}"
+
+
 def run_c_dijkstra(library_path: str) -> str:
     lib = ctypes.CDLL(library_path)
     lib.dijkstra_matrix.argtypes = [
@@ -2133,6 +2180,38 @@ def run_c_perf_pricing_soa(library_path: str) -> str:
     return f"c-perf-pricing-soa-o3:status={status};out={','.join(str(value) for value in actual)}"
 
 
+def run_c_pricing_soa(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.pricing_soa.argtypes = [
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.c_int32,
+    ]
+    lib.pricing_soa.restype = ctypes.c_int32
+
+    rows = [
+        (10000, 2, 1000, 82500),
+        (2500, 4, 0, 100000),
+        (1200, 5, 500, 100000),
+        (999, 3, 100, 62500),
+    ]
+    length = len(rows)
+    prices = (ctypes.c_int64 * length)(*(row[0] for row in rows))
+    quantities = (ctypes.c_int64 * length)(*(row[1] for row in rows))
+    discounts = (ctypes.c_int64 * length)(*(row[2] for row in rows))
+    tax_rates = (ctypes.c_int64 * length)(*(row[3] for row in rows))
+    out = (ctypes.c_int64 * length)()
+    status = lib.pricing_soa(prices, quantities, discounts, tax_rates, out, ctypes.c_int32(length))
+    actual = list(out)
+    expected = [expected_total(*row) for row in rows]
+    if status != 0 or actual != expected:
+        raise AssertionError(f"c-pricing-soa mismatch status={status} actual={actual} expected={expected}")
+    return f"c-pricing-soa:status={status};out={','.join(str(value) for value in actual)}"
+
+
 def run_c_perf_f64_kernels(library_path: str) -> str:
     lib = ctypes.CDLL(library_path)
     double_ptr = ctypes.POINTER(ctypes.c_double)
@@ -2299,6 +2378,9 @@ RUNNERS = {
     "c-scalar": run_c_scalar,
     "c-casts": run_c_casts,
     "c-f64-array": run_c_f64_array,
+    "c-f64-axpy": run_c_f64_axpy,
+    "c-f64-sum": run_c_f64_sum,
+    "c-pricing-soa": run_c_pricing_soa,
     "c-dijkstra": run_c_dijkstra,
     "c-scalar-checked": run_c_scalar_checked,
     "c-control-checked": run_c_control_checked,

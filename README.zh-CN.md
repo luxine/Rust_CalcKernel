@@ -106,6 +106,7 @@ npm run audit:typescript-test-surface
 npm run verify:declaration-parity
 npm run verify:public-api-parity
 npm run audit:release-workflow
+node scripts/audit-rust-replacement-readiness.mjs
 cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features --locked -- -D warnings

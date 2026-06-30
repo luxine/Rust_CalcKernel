@@ -185,9 +185,11 @@ fn rust_replacement_readiness_audit_should_require_readme_local_gate_parity_comm
         r#"expectIncludes(readme, "npm run verify:declaration-parity", "README local gate")"#,
         r#"expectIncludes(readme, "npm run verify:public-api-parity", "README local gate")"#,
         r#"expectIncludes(readme, "npm run audit:release-workflow", "README local gate")"#,
+        r#"expectIncludes(readme, "node scripts/audit-rust-replacement-readiness.mjs", "README local gate")"#,
         r#"expectIncludes(zhReadme, "npm run verify:declaration-parity", "Chinese README local gate")"#,
         r#"expectIncludes(zhReadme, "npm run verify:public-api-parity", "Chinese README local gate")"#,
         r#"expectIncludes(zhReadme, "npm run audit:release-workflow", "Chinese README local gate")"#,
+        r#"expectIncludes(zhReadme, "node scripts/audit-rust-replacement-readiness.mjs", "Chinese README local gate")"#,
     ] {
         assert!(
             audit.contains(expected),

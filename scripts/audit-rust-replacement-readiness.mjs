@@ -122,6 +122,7 @@ expectIncludes(architectureReview, "f64 edge fixture C dynamic-library runtime p
 expectIncludes(architectureReview, "f64-array C dynamic-library runtime parity", "architecture review");
 expectIncludes(architectureReview, "f64-axpy/f64-sum/pricing-SoA C dynamic-library runtime parity", "architecture review");
 expectIncludes(architectureReview, "WASM scalar/calls/control-flow/memory/short-circuit C dynamic-library runtime parity", "architecture review");
+expectIncludes(architectureReview, "LLVM scalar/calls/control-flow/memory/short-circuit/bool C dynamic-library runtime parity", "architecture review");
 expectIncludes(architectureReview, "dijkstra C dynamic-library runtime parity", "architecture review");
 expectIncludes(architectureReview, "f64 edge fixture WASM runtime parity", "architecture review");
 expectIncludes(architectureReview, "dijkstra WASM runtime parity", "architecture review");
@@ -137,6 +138,7 @@ expectIncludes(zhArchitectureReview, "f64 edge fixture C dynamic-library runtime
 expectIncludes(zhArchitectureReview, "f64-array C dynamic-library runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "f64-axpy/f64-sum/pricing-SoA C dynamic-library runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "WASM scalar/calls/control-flow/memory/short-circuit C dynamic-library runtime parity", "Chinese architecture review");
+expectIncludes(zhArchitectureReview, "LLVM scalar/calls/control-flow/memory/short-circuit/bool C dynamic-library runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "dijkstra C dynamic-library runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "f64 edge fixture WASM runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "dijkstra WASM runtime parity", "Chinese architecture review");

@@ -528,6 +528,20 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
             "unchecked",
             "examples/wasm_short_circuit.ck",
         ),
+        ("c-llvm-scalar", "unchecked", "examples/llvm_scalar.ck"),
+        ("c-llvm-calls", "unchecked", "examples/llvm_calls.ck"),
+        (
+            "c-llvm-control-flow",
+            "unchecked",
+            "examples/llvm_control_flow.ck",
+        ),
+        ("c-llvm-memory", "unchecked", "examples/llvm_memory.ck"),
+        (
+            "c-llvm-short-circuit",
+            "unchecked",
+            "examples/llvm_short_circuit.ck",
+        ),
+        ("c-llvm-bool", "unchecked", "examples/llvm_bool.ck"),
         ("c-scalar-checked", "checked", "examples/scalar_checked.ck"),
         (
             "c-control-checked",
@@ -2326,6 +2340,144 @@ def run_c_wasm_short_circuit(library_path: str) -> str:
     return f"c-wasm-short-circuit:out={encoded}"
 
 
+def run_c_llvm_scalar(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.add_i64.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.add_i64.restype = ctypes.c_int64
+    lib.mul_i32.argtypes = [ctypes.c_int32, ctypes.c_int32]
+    lib.mul_i32.restype = ctypes.c_int32
+    lib.less_i64.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.less_i64.restype = ctypes.c_bool
+    lib.div_u64.argtypes = [ctypes.c_uint64, ctypes.c_uint64]
+    lib.div_u64.restype = ctypes.c_uint64
+
+    add_i64 = lib.add_i64(1, 2)
+    mul_i32 = lib.mul_i32(3, 4)
+    less_i64 = lib.less_i64(1, 2)
+    div_u64 = lib.div_u64(10, 2)
+    if add_i64 != 3 or mul_i32 != 12 or less_i64 is not True or div_u64 != 5:
+        raise AssertionError(
+            f"c-llvm-scalar mismatch add_i64={add_i64} mul_i32={mul_i32} "
+            f"less_i64={less_i64} div_u64={div_u64}"
+        )
+    return f"c-llvm-scalar:add_i64={add_i64};mul_i32={mul_i32};less_i64={int(less_i64)};div_u64={div_u64}"
+
+
+def run_c_llvm_calls(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.calc.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.calc.restype = ctypes.c_int64
+
+    result = lib.calc(1, 2)
+    if result != 6:
+        raise AssertionError(f"c-llvm-calls mismatch result={result}")
+    return f"c-llvm-calls:calc={result}"
+
+
+def run_c_llvm_control_flow(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.max_i32.argtypes = [ctypes.c_int32, ctypes.c_int32]
+    lib.max_i32.restype = ctypes.c_int32
+    lib.sum_to_n.argtypes = [ctypes.c_int64]
+    lib.sum_to_n.restype = ctypes.c_int64
+
+    high = lib.max_i32(10, 3)
+    low = lib.max_i32(1, 3)
+    total = lib.sum_to_n(5)
+    if high != 10 or low != 3 or total != 10:
+        raise AssertionError(f"c-llvm-control-flow mismatch high={high} low={low} total={total}")
+    return f"c-llvm-control-flow:max={high},{low};sum={total}"
+
+
+def run_c_llvm_memory(library_path: str) -> str:
+    class Item(ctypes.Structure):
+        _fields_ = [
+            ("price", ctypes.c_int64),
+            ("qty", ctypes.c_int64),
+            ("discount", ctypes.c_int64),
+            ("tax_rate_ppm", ctypes.c_int64),
+        ]
+
+    lib = ctypes.CDLL(library_path)
+    lib.first_price.argtypes = [ctypes.POINTER(Item)]
+    lib.first_price.restype = ctypes.c_int64
+    lib.get_price.argtypes = [ctypes.POINTER(Item), ctypes.c_int32]
+    lib.get_price.restype = ctypes.c_int64
+    lib.write_i64.argtypes = [ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+    lib.write_i64.restype = ctypes.c_int32
+
+    items = (Item * 2)(
+        Item(price=100, qty=2, discount=5, tax_rate_ppm=100000),
+        Item(price=250, qty=3, discount=10, tax_rate_ppm=200000),
+    )
+    out = (ctypes.c_int64 * 1)(0)
+    first = lib.first_price(items)
+    indexed = lib.get_price(items, ctypes.c_int32(1))
+    status = lib.write_i64(out, ctypes.c_int64(12345))
+    stored = out[0]
+    if first != 100 or indexed != 250 or status != 0 or stored != 12345:
+        raise AssertionError(
+            f"c-llvm-memory mismatch first={first} indexed={indexed} "
+            f"status={status} stored={stored}"
+        )
+    return f"c-llvm-memory:first={first};indexed={indexed};status={status};stored={stored}"
+
+
+def run_c_llvm_short_circuit(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.and_short_circuit.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.and_short_circuit.restype = ctypes.c_bool
+    lib.or_short_circuit.argtypes = [ctypes.c_int64, ctypes.c_int64]
+    lib.or_short_circuit.restype = ctypes.c_bool
+
+    values = [
+        lib.and_short_circuit(0, 10),
+        lib.and_short_circuit(2, 10),
+        lib.or_short_circuit(0, 10),
+        lib.or_short_circuit(2, 10),
+    ]
+    expected = [False, True, True, True]
+    if values != expected:
+        raise AssertionError(f"c-llvm-short-circuit mismatch values={values} expected={expected}")
+    encoded = ",".join(str(int(value)) for value in values)
+    return f"c-llvm-short-circuit:out={encoded}"
+
+
+def run_c_llvm_bool(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.not_bool.argtypes = [ctypes.c_bool]
+    lib.not_bool.restype = ctypes.c_bool
+    lib.bool_local.argtypes = [ctypes.c_bool]
+    lib.bool_local.restype = ctypes.c_bool
+    lib.choose_bool.argtypes = [ctypes.c_bool, ctypes.c_int32, ctypes.c_int32]
+    lib.choose_bool.restype = ctypes.c_int32
+
+    not_true = lib.not_bool(True)
+    not_false = lib.not_bool(False)
+    local_true = lib.bool_local(True)
+    local_false = lib.bool_local(False)
+    choose_true = lib.choose_bool(True, 10, 20)
+    choose_false = lib.choose_bool(False, 10, 20)
+    if (
+        not_true is not False
+        or not_false is not True
+        or local_true is not False
+        or local_false is not True
+        or choose_true != 10
+        or choose_false != 20
+    ):
+        raise AssertionError(
+            "c-llvm-bool mismatch "
+            f"not={not_true},{not_false} local={local_true},{local_false} "
+            f"choose={choose_true},{choose_false}"
+        )
+    return (
+        f"c-llvm-bool:not={int(not_true)},{int(not_false)};"
+        f"local={int(local_true)},{int(local_false)};"
+        f"choose={choose_true},{choose_false}"
+    )
+
+
 def run_c_perf_f64_kernels(library_path: str) -> str:
     lib = ctypes.CDLL(library_path)
     double_ptr = ctypes.POINTER(ctypes.c_double)
@@ -2500,6 +2652,12 @@ RUNNERS = {
     "c-wasm-control-flow": run_c_wasm_control_flow,
     "c-wasm-memory": run_c_wasm_memory,
     "c-wasm-short-circuit": run_c_wasm_short_circuit,
+    "c-llvm-scalar": run_c_llvm_scalar,
+    "c-llvm-calls": run_c_llvm_calls,
+    "c-llvm-control-flow": run_c_llvm_control_flow,
+    "c-llvm-memory": run_c_llvm_memory,
+    "c-llvm-short-circuit": run_c_llvm_short_circuit,
+    "c-llvm-bool": run_c_llvm_bool,
     "c-dijkstra": run_c_dijkstra,
     "c-scalar-checked": run_c_scalar_checked,
     "c-control-checked": run_c_control_checked,

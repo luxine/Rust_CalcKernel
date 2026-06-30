@@ -236,7 +236,8 @@ Current oracle-covered backend generated outputs:
   kernels at O3.
 - C dynamic-library runtime interop through Python `ctypes` for unchecked
   scalar/casts/dijkstra/f64-array/f64-axpy/f64-sum/pricing-SoA, WASM
-  scalar/calls/control-flow/memory/short-circuit, checked
+  scalar/calls/control-flow/memory/short-circuit, LLVM
+  scalar/calls/control-flow/memory/short-circuit/bool, checked
   scalar/control-flow/logical/calls, and unchecked plus checked pricing
   examples, plus TS `bench/perf/fixtures` pricing helpers at O0/O2, pricing
   SoA at O3, f64 kernels at O3, and `tests/fixtures/f64_edges.ck` at O3,

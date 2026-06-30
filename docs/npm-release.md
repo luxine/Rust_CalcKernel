@@ -294,7 +294,9 @@ signed target `platform` / `arch`, `installedBin`, `packagedBinary`,
 `runnerOs`, and `runnerArch` entries,
 `ckcBinOverride: "unset"`,
 CLI smoke `commands`, root API `apiSymbols`, `typeSmoke: "passed"`, and
-`backendRuntimeSmokes` list to match `release-signoff.json`.
+`backendRuntimeSmokes` list to match `release-signoff.json`; they also enforce
+the same canonical `npm release artifact` / `platform-signoff` provenance on
+every signed target.
 `verify:host-npm-install` must report
 `typeSmoke: "passed"` on every sign-off target; skipped declaration smokes are
 not acceptable release evidence.
@@ -424,7 +426,8 @@ TypeScript declaration smoke 未通过的签核文件。`verify:release-signoff`
 `platform-signoff`，确保签核证据来自正式多平台发布签核 job。`release-signoff-summary.json`
 和最终 cutover verifier 还会要求 `ckcBinOverride: "unset"`、CLI smoke
 `commands`、root API `apiSymbols`、`typeSmoke: "passed"`、
-`backendRuntimeSmokes` 与 `release-signoff.json` 一致，并保留 signed target
+`backendRuntimeSmokes` 与 `release-signoff.json` 一致，并同样强制每个 signed target
+使用 canonical `npm release artifact` / `platform-signoff` provenance，保留 signed target
 的 `platform` / `arch`、`installedBin`、`packagedBinary` 和
 `packagedBinarySha256`、`nodeVersion`、`npmVersion`、`ciProvider`、
 `githubRunId`、`githubRunAttempt`、`githubSha`、`githubWorkflow`、

@@ -7,6 +7,8 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const RELEASE_WORKFLOW = "npm release artifact";
+const PLATFORM_SIGNOFF_JOB = "platform-signoff";
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: EXPECTED_PACKAGE_DESCRIPTION,
   keywords: EXPECTED_PACKAGE_KEYWORDS,
@@ -398,8 +400,12 @@ function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
   if (typeof actual?.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(actual.githubSha)) {
     fail(`${label} ${expectedTarget.name} githubSha must be a 40-character lowercase hex commit SHA`);
   }
-  requireNonEmptyString(actual?.githubWorkflow, `${label} ${expectedTarget.name} githubWorkflow`);
-  requireNonEmptyString(actual?.githubJob, `${label} ${expectedTarget.name} githubJob`);
+  if (actual?.githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`${label} ${expectedTarget.name} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
+  }
+  if (actual?.githubJob !== PLATFORM_SIGNOFF_JOB) {
+    fail(`${label} ${expectedTarget.name} githubJob must be ${JSON.stringify(PLATFORM_SIGNOFF_JOB)}`);
+  }
 
   const expectedRunnerOs = runnerOsForTarget(expectedTarget);
   const expectedRunnerArch = runnerArchForTarget(expectedTarget);

@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
+const RELEASE_WORKFLOW = "npm release artifact";
+const PLATFORM_SIGNOFF_JOB = "platform-signoff";
+
 const [manifestArg, signoffArg] = process.argv.slice(2);
 
 if (!manifestArg || !signoffArg || manifestArg === "--help" || manifestArg === "-h") {
@@ -230,8 +233,12 @@ function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
   if (typeof actual?.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(actual.githubSha)) {
     fail(`${label} ${expectedTarget.name} githubSha must be a 40-character lowercase hex commit SHA`);
   }
-  requireNonEmptyString(actual?.githubWorkflow, `${label} ${expectedTarget.name} githubWorkflow`);
-  requireNonEmptyString(actual?.githubJob, `${label} ${expectedTarget.name} githubJob`);
+  if (actual?.githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`${label} ${expectedTarget.name} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
+  }
+  if (actual?.githubJob !== PLATFORM_SIGNOFF_JOB) {
+    fail(`${label} ${expectedTarget.name} githubJob must be ${JSON.stringify(PLATFORM_SIGNOFF_JOB)}`);
+  }
 
   const expectedRunnerOs = runnerOsForTarget(expectedTarget);
   const expectedRunnerArch = runnerArchForTarget(expectedTarget);

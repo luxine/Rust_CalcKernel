@@ -672,6 +672,90 @@ fn release_signoff_summary_verifier_should_reject_missing_signed_target_ci_prove
     );
 }
 
+#[test]
+fn release_signoff_summary_verifier_should_reject_wrong_signed_target_github_workflow() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-target-workflow");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json(TARBALL_SHA256).replace(GITHUB_WORKFLOW, "unit test workflow"),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong signed target GitHub workflow should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubWorkflow")
+            && String::from_utf8_lossy(&output.stderr).contains(GITHUB_WORKFLOW),
+        "failure should identify the required GitHub workflow\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_wrong_signed_target_github_job() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-target-job");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json(TARBALL_SHA256).replace(GITHUB_JOB, "verify-release-scripts"),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong signed target GitHub job should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubJob")
+            && String::from_utf8_lossy(&output.stderr).contains(GITHUB_JOB),
+        "failure should identify the required GitHub job\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     format!(
         r#"{{

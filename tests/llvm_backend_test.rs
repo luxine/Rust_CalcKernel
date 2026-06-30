@@ -476,6 +476,7 @@ fn build_llvm_object_should_match_typescript_oracle_for_official_e2e_runtime_beh
         ("llvm-memory", "examples/llvm_memory.ck"),
         ("llvm-short-circuit", "examples/llvm_short_circuit.ck"),
         ("llvm-bool", "examples/llvm_bool.ck"),
+        ("llvm-dijkstra", "examples/dijkstra.ck"),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
 
@@ -692,6 +693,7 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_official_e2e_runtime_be
         ("llvm-memory", "examples/llvm_memory.ck"),
         ("llvm-short-circuit", "examples/llvm_short_circuit.ck"),
         ("llvm-bool", "examples/llvm_bool.ck"),
+        ("llvm-dijkstra", "examples/dijkstra.ck"),
         ("llvm-f64-edges", "tests/fixtures/f64_edges.ck"),
     ];
 
@@ -736,6 +738,18 @@ fn build_llvm_dynamic_should_match_typescript_oracle_for_official_e2e_runtime_be
         let rust_run =
             run_python_official_llvm_dynamic(&runner, case_name, &shared_library_path(&rust_base));
 
+        assert_eq!(
+            ts_run.status_code,
+            Some(0),
+            "{case_name} TS runtime stderr: {}",
+            ts_run.stderr
+        );
+        assert_eq!(
+            rust_run.status_code,
+            Some(0),
+            "{case_name} Rust runtime stderr: {}",
+            rust_run.stderr
+        );
         assert_eq!(rust_run, ts_run, "{case_name}");
     }
 }
@@ -1132,8 +1146,75 @@ int main(void) {
         }
         "llvm-f64-edges" => f64_edges_llvm_object_harness(),
         "llvm-perf-f64-kernels" => f64_kernels_llvm_object_harness(),
+        "llvm-dijkstra" => dijkstra_llvm_object_harness(),
         _ => panic!("missing official LLVM object harness for {case_name}"),
     }
+}
+
+fn dijkstra_llvm_object_harness() -> &'static str {
+    r#"
+#include <stdint.h>
+#include <stdio.h>
+
+typedef struct DijkstraConfig {
+  int32_t node_count;
+  int32_t source;
+  int64_t inf;
+} DijkstraConfig;
+
+int32_t dijkstra_matrix(
+  DijkstraConfig* configs,
+  int64_t* weights,
+  int64_t* dist_out,
+  int32_t* prev_out,
+  int32_t* visited
+);
+
+int main(void) {
+  DijkstraConfig config = {5, 0, 1000000};
+  int64_t weights[25] = {
+    0, 2, 5, 0, 0,
+    0, 0, 1, 2, 9,
+    0, 0, 0, 1, 0,
+    0, 0, 0, 0, 3,
+    0, 0, 0, 0, 0,
+  };
+  int64_t dist[5] = {0, 0, 0, 0, 0};
+  int32_t prev[5] = {0, 0, 0, 0, 0};
+  int32_t visited[5] = {0, 0, 0, 0, 0};
+  int32_t settled = dijkstra_matrix(&config, weights, dist, prev, visited);
+  int64_t expected_dist[5] = {0, 2, 3, 4, 7};
+  int32_t expected_prev[5] = {0, 0, 1, 1, 3};
+  int32_t expected_visited[5] = {1, 1, 1, 1, 1};
+
+  if (settled != 5) {
+    return 1;
+  }
+  for (int32_t i = 0; i < 5; i += 1) {
+    if (dist[i] != expected_dist[i] || prev[i] != expected_prev[i] || visited[i] != expected_visited[i]) {
+      return 2;
+    }
+  }
+  printf("llvm-dijkstra:settled=%d;dist=%lld,%lld,%lld,%lld,%lld;prev=%d,%d,%d,%d,%d;visited=%d,%d,%d,%d,%d\n",
+    settled,
+    (long long)dist[0],
+    (long long)dist[1],
+    (long long)dist[2],
+    (long long)dist[3],
+    (long long)dist[4],
+    prev[0],
+    prev[1],
+    prev[2],
+    prev[3],
+    prev[4],
+    visited[0],
+    visited[1],
+    visited[2],
+    visited[3],
+    visited[4]);
+  return 0;
+}
+"#
 }
 
 fn f64_kernels_llvm_object_harness() -> &'static str {
@@ -1408,6 +1489,7 @@ fn official_llvm_dynamic_runner() -> &'static str {
 from __future__ import annotations
 
 import ctypes
+import math
 import sys
 
 
@@ -1431,6 +1513,14 @@ class NestedQuote(ctypes.Structure):
     _fields_ = [
         ("quote", Quote),
         ("fee", ctypes.c_double),
+    ]
+
+
+class DijkstraConfig(ctypes.Structure):
+    _fields_ = [
+        ("node_count", ctypes.c_int32),
+        ("source", ctypes.c_int32),
+        ("inf", ctypes.c_int64),
     ]
 
 
@@ -1551,6 +1641,60 @@ def run_bool(lib: ctypes.CDLL) -> str:
         f"llvm-bool:not={int(not_true)},{int(not_false)};"
         f"local={int(local_true)},{int(local_false)};"
         f"choose={choose_true},{choose_false}"
+    )
+
+
+def run_dijkstra(lib: ctypes.CDLL) -> str:
+    lib.dijkstra_matrix.argtypes = [
+        ctypes.POINTER(DijkstraConfig),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int32),
+        ctypes.POINTER(ctypes.c_int32),
+    ]
+    lib.dijkstra_matrix.restype = ctypes.c_int32
+
+    node_count = 5
+    config = DijkstraConfig(node_count=node_count, source=0, inf=1_000_000)
+    weights = (ctypes.c_int64 * (node_count * node_count))(
+        0, 2, 5, 0, 0,
+        0, 0, 1, 2, 9,
+        0, 0, 0, 1, 0,
+        0, 0, 0, 0, 3,
+        0, 0, 0, 0, 0,
+    )
+    dist = (ctypes.c_int64 * node_count)()
+    prev = (ctypes.c_int32 * node_count)()
+    visited = (ctypes.c_int32 * node_count)()
+
+    settled = lib.dijkstra_matrix(
+        ctypes.byref(config),
+        weights,
+        dist,
+        prev,
+        visited,
+    )
+    actual_dist = list(dist)
+    actual_prev = list(prev)
+    actual_visited = list(visited)
+    expected_dist = [0, 2, 3, 4, 7]
+    expected_prev = [0, 0, 1, 1, 3]
+    expected_visited = [1, 1, 1, 1, 1]
+    if (
+        settled != node_count
+        or actual_dist != expected_dist
+        or actual_prev != expected_prev
+        or actual_visited != expected_visited
+    ):
+        raise AssertionError(
+            "llvm-dijkstra mismatch "
+            f"settled={settled} dist={actual_dist} prev={actual_prev} visited={actual_visited}"
+        )
+    return (
+        f"llvm-dijkstra:settled={settled};"
+        f"dist={','.join(str(value) for value in actual_dist)};"
+        f"prev={','.join(str(value) for value in actual_prev)};"
+        f"visited={','.join(str(value) for value in actual_visited)}"
     )
 
 
@@ -1749,6 +1893,7 @@ RUNNERS = {
     "llvm-memory": run_memory,
     "llvm-short-circuit": run_short_circuit,
     "llvm-bool": run_bool,
+    "llvm-dijkstra": run_dijkstra,
     "llvm-f64-edges": run_f64_edges,
     "llvm-perf-f64-kernels": run_f64_kernels,
 }

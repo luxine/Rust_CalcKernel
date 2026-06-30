@@ -122,6 +122,7 @@ expectIncludes(architectureReview, "f64 edge fixture C dynamic-library runtime p
 expectIncludes(architectureReview, "dijkstra C dynamic-library runtime parity", "architecture review");
 expectIncludes(architectureReview, "f64 edge fixture WASM runtime parity", "architecture review");
 expectIncludes(architectureReview, "dijkstra WASM runtime parity", "architecture review");
+expectIncludes(architectureReview, "dijkstra LLVM object/dynamic runtime parity", "architecture review");
 
 const zhArchitectureReview = readFileSync(join(root, "docs/zh-CN/architecture-review.md"), "utf8");
 expectIncludes(zhArchitectureReview, "TypeScript checkout 继续作为 compatibility oracle", "Chinese architecture review");
@@ -131,6 +132,7 @@ expectIncludes(zhArchitectureReview, "f64 edge fixture C dynamic-library runtime
 expectIncludes(zhArchitectureReview, "dijkstra C dynamic-library runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "f64 edge fixture WASM runtime parity", "Chinese architecture review");
 expectIncludes(zhArchitectureReview, "dijkstra WASM runtime parity", "Chinese architecture review");
+expectIncludes(zhArchitectureReview, "dijkstra LLVM object/dynamic runtime parity", "Chinese architecture review");
 
 if (existsSync(join(tsRoot, "package.json"))) {
   const tsPackageJson = readJson(join(tsRoot, "package.json"));

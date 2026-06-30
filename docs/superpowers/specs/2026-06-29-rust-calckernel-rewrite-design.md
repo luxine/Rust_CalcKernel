@@ -249,13 +249,14 @@ Current oracle-covered backend generated outputs:
 - `build-llvm --kind object` generated `.ll` parity for `examples/scalar.ck`,
   including the TS behavior that it does not infer a default target triple.
 - LLVM object runtime interop for the official scalar, calls, control-flow,
-  memory, short-circuit, bool, f64 edge fixture, TS perf f64 kernels, and
-  pricing examples, linking TypeScript-built and Rust-built objects with the
-  same C harnesses and comparing runtime output.
+  memory, short-circuit, bool, dijkstra, f64 edge fixture, TS perf f64
+  kernels, and pricing examples, linking TypeScript-built and Rust-built
+  objects with the same C harnesses and comparing runtime output.
 - LLVM dynamic-library runtime interop for the official scalar, calls,
-  control-flow, memory, short-circuit, bool, f64 edge fixture, TS perf f64
-  kernels, and pricing examples, loading the TypeScript-built and Rust-built
-  shared libraries with Python `ctypes` hosts and comparing runtime output.
+  control-flow, memory, short-circuit, bool, dijkstra, f64 edge fixture, TS
+  perf f64 kernels, and pricing examples, loading the TypeScript-built and
+  Rust-built shared libraries with Python `ctypes` hosts and comparing runtime
+  output.
 
 The latest verified Rust gate is:
 

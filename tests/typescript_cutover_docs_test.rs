@@ -135,6 +135,8 @@ fn rust_replacement_readiness_audit_should_require_tests_fixture_backend_coverag
         r#"expectIncludes(zhArchitectureReview, "f64 edge fixture WASM runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "dijkstra WASM runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "dijkstra WASM runtime parity", "Chinese architecture review")"#,
+        r#"expectIncludes(architectureReview, "dijkstra LLVM object/dynamic runtime parity", "architecture review")"#,
+        r#"expectIncludes(zhArchitectureReview, "dijkstra LLVM object/dynamic runtime parity", "Chinese architecture review")"#,
     ] {
         assert!(
             audit.contains(expected),

@@ -502,6 +502,7 @@ fn build_should_match_typescript_oracle_for_official_c_dynamic_library_runtime_b
     let cases = [
         ("c-scalar", "unchecked", "examples/scalar.ck"),
         ("c-casts", "unchecked", "examples/explicit_casts.ck"),
+        ("c-dijkstra", "unchecked", "examples/dijkstra.ck"),
         ("c-scalar-checked", "checked", "examples/scalar_checked.ck"),
         (
             "c-control-checked",
@@ -1791,6 +1792,14 @@ class NestedQuote(ctypes.Structure):
     ]
 
 
+class DijkstraConfig(ctypes.Structure):
+    _fields_ = [
+        ("node_count", ctypes.c_int32),
+        ("source", ctypes.c_int32),
+        ("inf", ctypes.c_int64),
+    ]
+
+
 def checked_i64_call(fn, *args: int) -> tuple[int, int]:
     result = ctypes.c_int64(-1)
     status = fn(*args, ctypes.byref(result))
@@ -1856,6 +1865,62 @@ def run_c_casts(library_path: str) -> str:
     if not close(avg, 3.5) or not close(ratio, 2.25):
         raise AssertionError(f"c-casts mismatch avg={avg} ratio={ratio}")
     return f"c-casts:avg={avg};ratio={ratio}"
+
+
+def run_c_dijkstra(library_path: str) -> str:
+    lib = ctypes.CDLL(library_path)
+    lib.dijkstra_matrix.argtypes = [
+        ctypes.POINTER(DijkstraConfig),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int32),
+        ctypes.POINTER(ctypes.c_int32),
+    ]
+    lib.dijkstra_matrix.restype = ctypes.c_int32
+
+    node_count = 5
+    inf = 1_000_000
+    config = DijkstraConfig(node_count=node_count, source=0, inf=inf)
+    weights = (ctypes.c_int64 * (node_count * node_count))(
+        0, 2, 5, 0, 0,
+        0, 0, 1, 2, 9,
+        0, 0, 0, 1, 0,
+        0, 0, 0, 0, 3,
+        0, 0, 0, 0, 0,
+    )
+    dist = (ctypes.c_int64 * node_count)()
+    prev = (ctypes.c_int32 * node_count)()
+    visited = (ctypes.c_int32 * node_count)()
+
+    settled = lib.dijkstra_matrix(
+        ctypes.byref(config),
+        weights,
+        dist,
+        prev,
+        visited,
+    )
+    actual_dist = list(dist)
+    actual_prev = list(prev)
+    actual_visited = list(visited)
+    expected_dist = [0, 2, 3, 4, 7]
+    expected_prev = [0, 0, 1, 1, 3]
+    expected_visited = [1, 1, 1, 1, 1]
+    if (
+        settled != node_count
+        or actual_dist != expected_dist
+        or actual_prev != expected_prev
+        or actual_visited != expected_visited
+    ):
+        raise AssertionError(
+            "c-dijkstra mismatch "
+            f"settled={settled} dist={actual_dist} prev={actual_prev} visited={actual_visited}"
+        )
+    return (
+        f"c-dijkstra:settled={settled};"
+        f"dist={','.join(str(value) for value in actual_dist)};"
+        f"prev={','.join(str(value) for value in actual_prev)};"
+        f"visited={','.join(str(value) for value in actual_visited)}"
+    )
 
 
 def run_c_scalar_checked(library_path: str) -> str:
@@ -2203,6 +2268,7 @@ def run_c_f64_edges(library_path: str) -> str:
 RUNNERS = {
     "c-scalar": run_c_scalar,
     "c-casts": run_c_casts,
+    "c-dijkstra": run_c_dijkstra,
     "c-scalar-checked": run_c_scalar_checked,
     "c-control-checked": run_c_control_checked,
     "c-logical-checked": run_c_logical_checked,

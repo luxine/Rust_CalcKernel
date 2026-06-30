@@ -129,6 +129,8 @@ fn rust_replacement_readiness_audit_should_require_tests_fixture_backend_coverag
         r#"expectIncludes(zhArchitectureReview, "tests/fixtures", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "f64 edge fixture C dynamic-library runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "f64 edge fixture C dynamic-library runtime parity", "Chinese architecture review")"#,
+        r#"expectIncludes(architectureReview, "dijkstra C dynamic-library runtime parity", "architecture review")"#,
+        r#"expectIncludes(zhArchitectureReview, "dijkstra C dynamic-library runtime parity", "Chinese architecture review")"#,
         r#"expectIncludes(architectureReview, "f64 edge fixture WASM runtime parity", "architecture review")"#,
         r#"expectIncludes(zhArchitectureReview, "f64 edge fixture WASM runtime parity", "Chinese architecture review")"#,
     ] {

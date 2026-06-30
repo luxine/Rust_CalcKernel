@@ -235,9 +235,9 @@ Current oracle-covered backend generated outputs:
   `bench/perf/fixtures` pricing helpers at O0/O2, pricing SoA at O3, and f64
   kernels at O3.
 - C dynamic-library runtime interop through Python `ctypes` for unchecked
-  scalar/casts, checked scalar/control-flow/logical/calls, and unchecked plus
-  checked pricing examples, plus TS `bench/perf/fixtures` pricing helpers at
-  O0/O2, pricing SoA at O3, f64 kernels at O3, and
+  scalar/casts/dijkstra, checked scalar/control-flow/logical/calls, and
+  unchecked plus checked pricing examples, plus TS `bench/perf/fixtures`
+  pricing helpers at O0/O2, pricing SoA at O3, f64 kernels at O3, and
   `tests/fixtures/f64_edges.ck` at O3, comparing TypeScript-built and
   Rust-built library behavior.
 - LLVM output with explicit target for the official scalar/pricing/dijkstra,

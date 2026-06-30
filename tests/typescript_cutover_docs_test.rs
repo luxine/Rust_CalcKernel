@@ -134,7 +134,9 @@ fn rust_replacement_readiness_audit_should_require_public_api_parity_verifier() 
         r#"expectIncludes(npmRelease, "runtime export kind", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runtime function metadata surface", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runtime object property surface", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "runtime class constructor metadata surface", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "runtime class member surface", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "runtime class member function metadata surface", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

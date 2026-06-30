@@ -80,6 +80,12 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   }
   const rustClass = rustClassMembers.get(name);
   const typescriptClass = typescriptClassMembers.get(name);
+  if (rustClass && typescriptClass && !sameJson(rustClass.metadata, typescriptClass.metadata)) {
+    fail(
+      `runtime class constructor metadata mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.metadata)}, TypeScript ${JSON.stringify(typescriptClass.metadata)}`
+    );
+  }
   if (rustClass && typescriptClass && !sameJson(rustClass.members, typescriptClass.members)) {
     fail(
       `runtime class member mismatch for ${name}: ` +
@@ -107,6 +113,9 @@ console.log(JSON.stringify({
   ),
   objectProperties: Object.fromEntries(
     [...rustObjectProperties.entries()].map(([name, info]) => [name, info.properties])
+  ),
+  classMetadata: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.metadata])
   ),
   classMembers: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
@@ -178,10 +187,12 @@ function runtimeFunctionMetadataInfo(value) {
   if (runtimeExportKind(value) !== "function") {
     return null;
   }
+  return { metadata: runtimeFunctionMetadata(value) };
+}
+
+function runtimeFunctionMetadata(value) {
   return {
-    metadata: {
-      length: value.length
-    }
+    length: value.length
   };
 }
 
@@ -208,7 +219,10 @@ function runtimeClassMemberInfo(value) {
   }
   const staticMembers = classMemberEntries(value, "static", ["length", "name", "prototype"]);
   const prototypeMembers = classMemberEntries(value.prototype, "prototype", ["constructor"]);
-  return { members: [...staticMembers, ...prototypeMembers].sort(compareClassMembers) };
+  return {
+    metadata: runtimeFunctionMetadata(value),
+    members: [...staticMembers, ...prototypeMembers].sort(compareClassMembers)
+  };
 }
 
 function classMemberEntries(target, placement, excludedNames) {
@@ -221,6 +235,7 @@ function classMemberEntries(target, placement, excludedNames) {
         placement,
         name,
         kind: descriptorRuntimeKind(descriptor),
+        metadata: descriptorFunctionMetadata(descriptor),
         value: descriptor && "value" in descriptor
           ? runtimeComparablePropertyValue(descriptor.value)
           : null
@@ -245,6 +260,13 @@ function descriptorRuntimeKind(descriptor) {
     return "setter";
   }
   return "unknown";
+}
+
+function descriptorFunctionMetadata(descriptor) {
+  if (!descriptor || !("value" in descriptor) || runtimeExportKind(descriptor.value) !== "function") {
+    return null;
+  }
+  return runtimeFunctionMetadata(descriptor.value);
 }
 
 function compareClassMembers(left, right) {

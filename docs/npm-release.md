@@ -381,9 +381,11 @@ etc.) as `dist/src/index.js`. Function exports must match the TypeScript
 runtime function metadata surface for observable arity (`.length`), and object
 exports such as `TokenKind` must match the TypeScript runtime object property
 surface by own enumerable property name, property kind, and primitive property
-value. Class exports must also match the TypeScript runtime class member surface
-by static/prototype own member name, member placement, member kind, and primitive
-member value where applicable.
+value. Class exports must also match the TypeScript runtime class constructor metadata surface
+for observable constructor arity (`.length`) plus the runtime class member
+surface by static/prototype own member name, member placement, member kind,
+runtime class member function metadata surface for observable member arity
+(`.length`), and primitive member value where applicable.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
@@ -461,9 +463,11 @@ assignability）对齐；同时确认 runtime exports 与
 `dist/src/index.js` 的 public JavaScript API 名称、runtime export kind、function
 export 的 runtime function metadata surface（可观察 arity / `.length`）以及
 `TokenKind` 这类 object export 的 runtime object property surface（自有可枚举
-属性名、属性 kind 和 primitive 属性值）、class export 的 runtime class member
-surface（static/prototype 自有成员名、成员位置、成员 kind，以及适用时的 primitive
-成员值）对齐。
+属性名、属性 kind 和 primitive 属性值）、class export 的 runtime class constructor metadata surface
+（可观察 constructor arity / `.length`）以及 runtime class member surface
+（static/prototype 自有成员名、成员位置、成员 kind、runtime class member function metadata surface
+的可观察 member arity / `.length`，以及适用时的
+primitive 成员值）对齐。
 每个平台都应把该命令 stdout 保存为 `signoffs/<npm-target>.json`，再用
 `npm run verify:release-signoff -- release-manifest.json signoffs` 汇总验收。
 在 GitHub Actions 中，`verify:host-npm-install` 会在写出平台签核前拒绝缺失

@@ -368,9 +368,10 @@ This confirms the read-only TypeScript oracle checkout exists, its
 oracle tests are present, every TypeScript oracle test file has an explicit
 Rust migration mapping in `docs/typescript-test-surface.json`, the Rust package
 root declaration exports match the resolved TypeScript declaration exports from
-`dist/src/index.d.ts`, and the Rust package root runtime exports exactly the
-same public JavaScript API names and runtime export kind (`class`, `function`,
-`object`, etc.) as `dist/src/index.js`.
+`dist/src/index.d.ts`, including declaration export kind (`class`, `function`,
+`interface`, `type`, `enum`, etc.), and the Rust package root runtime exports
+exactly the same public JavaScript API names and runtime export kind (`class`,
+`function`, `object`, etc.) as `dist/src/index.js`.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the

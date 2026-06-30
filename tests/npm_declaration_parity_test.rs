@@ -91,6 +91,86 @@ fn declaration_parity_verifier_should_reject_extra_or_missing_declaration_export
     );
 }
 
+#[test]
+fn declaration_parity_verifier_should_reject_declaration_export_kind_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-declaration-kind-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_dts = temp.join("rust-index.d.ts");
+    let typescript_dts = temp.join("typescript-index.d.ts");
+    fs::write(&rust_dts, "export const Shared: number;\n").expect("write Rust mock declaration");
+    fs::write(&typescript_dts, "export function Shared(): void;\n")
+        .expect("write TypeScript mock declaration");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-declaration-parity.mjs")
+        .arg("--rust-dts")
+        .arg(&rust_dts)
+        .arg("--typescript-dts")
+        .arg(&typescript_dts)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run declaration parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched declaration export kinds should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("declaration kind mismatch for Shared"),
+        "failure should identify the mismatched declaration kind\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn declaration_parity_verifier_should_resolve_reexported_declaration_kinds() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-declaration-reexport-kind-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_dts = temp.join("rust-index.d.ts");
+    let typescript_dts = temp.join("typescript-index.d.ts");
+    let typescript_source_dts = temp.join("typescript-source.d.ts");
+    fs::write(&rust_dts, "export function Shared(): void;\n").expect("write Rust mock declaration");
+    fs::write(&typescript_source_dts, "export function Shared(): void;\n")
+        .expect("write TypeScript source declaration");
+    fs::write(
+        &typescript_dts,
+        "export { Shared } from \"./typescript-source.js\";\n",
+    )
+    .expect("write TypeScript re-export declaration");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-declaration-parity.mjs")
+        .arg("--rust-dts")
+        .arg(&rust_dts)
+        .arg("--typescript-dts")
+        .arg(&typescript_dts)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run declaration parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        output.status.success(),
+        "re-exported declaration kinds should resolve before comparison\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn temp_dir(prefix: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

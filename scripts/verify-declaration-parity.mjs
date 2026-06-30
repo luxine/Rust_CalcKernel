@@ -13,16 +13,27 @@ const typescriptDts = options.typescriptDts ?? join(tsRoot, "dist", "src", "inde
 const ts = loadTypescript(options.typescriptModule);
 const failures = [];
 
-const rustExports = readDeclarationExports(rustDts, "Rust declaration file");
-const typescriptExports = readDeclarationExports(typescriptDts, "TypeScript oracle declaration file");
+const rustSurface = readDeclarationExportSurface(rustDts, "Rust declaration file");
+const typescriptSurface = readDeclarationExportSurface(typescriptDts, "TypeScript oracle declaration file");
+const rustExports = rustSurface.map((entry) => entry.name);
+const typescriptExports = typescriptSurface.map((entry) => entry.name);
 const extraRustExports = rustExports.filter((name) => !typescriptExports.includes(name));
 const missingRustExports = typescriptExports.filter((name) => !rustExports.includes(name));
+const rustDeclarationKinds = new Map(rustSurface.map((entry) => [entry.name, entry.kind]));
+const typescriptDeclarationKinds = new Map(typescriptSurface.map((entry) => [entry.name, entry.kind]));
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
 }
 if (missingRustExports.length > 0) {
   fail(`missing Rust declaration exports: ${missingRustExports.join(", ")}`);
+}
+for (const name of rustExports.filter((exportName) => typescriptExports.includes(exportName))) {
+  const rustKind = rustDeclarationKinds.get(name);
+  const typescriptKind = typescriptDeclarationKinds.get(name);
+  if (rustKind !== typescriptKind) {
+    fail(`declaration kind mismatch for ${name}: Rust ${rustKind}, TypeScript ${typescriptKind}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -37,7 +48,8 @@ console.log(JSON.stringify({
   rustDts,
   typescriptDts,
   exportCount: rustExports.length,
-  exports: rustExports
+  exports: rustExports,
+  declarationKinds: Object.fromEntries(rustSurface.map((entry) => [entry.name, entry.kind]))
 }, null, 2));
 
 function parseArgs(args) {
@@ -101,7 +113,7 @@ function loadTypescript(explicitPath) {
   }
 }
 
-function readDeclarationExports(path, label) {
+function readDeclarationExportSurface(path, label) {
   if (!existsSync(path)) {
     failImmediate(`${label} does not exist: ${path}`);
   }
@@ -132,8 +144,25 @@ function readDeclarationExports(path, label) {
 
   return checker
     .getExportsOfModule(moduleSymbol)
-    .map((symbol) => symbol.getName())
-    .sort();
+    .map((symbol) => ({
+      name: symbol.getName(),
+      kind: declarationExportKind(symbol, checker, label)
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function declarationExportKind(symbol, checker, label) {
+  const resolvedSymbol = symbol.flags & ts.SymbolFlags.Alias
+    ? checker.getAliasedSymbol(symbol)
+    : symbol;
+  const declarations = resolvedSymbol.getDeclarations() ?? [];
+  if (declarations.length === 0) {
+    failImmediate(`${label} export ${symbol.getName()} has no declarations`);
+  }
+  return declarations
+    .map((declaration) => ts.SyntaxKind[declaration.kind])
+    .sort()
+    .join("+");
 }
 
 function formatDiagnostics(diagnostics) {

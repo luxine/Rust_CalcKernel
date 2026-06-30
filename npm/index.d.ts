@@ -41,56 +41,55 @@ export interface Diagnostic {
 export declare function formatDiagnostic(sourceFile: SourceFile, diagnostic: Diagnostic): string;
 export declare function formatDiagnostics(sourceFile: SourceFile, diagnostics: Diagnostic[]): string;
 
-export declare const TokenKind: Readonly<{
-  Eof: "Eof";
-  Identifier: "Identifier";
-  Integer: "Integer";
-  Float: "Float";
-  Struct: "Struct";
-  Export: "Export";
-  Fn: "Fn";
-  Let: "Let";
-  Return: "Return";
-  If: "If";
-  Else: "Else";
-  While: "While";
-  True: "True";
-  False: "False";
-  I32: "I32";
-  I64: "I64";
-  U32: "U32";
-  U64: "U64";
-  F64: "F64";
-  Bool: "Bool";
-  Ptr: "Ptr";
-  LeftParen: "LeftParen";
-  RightParen: "RightParen";
-  LeftBrace: "LeftBrace";
-  RightBrace: "RightBrace";
-  LeftBracket: "LeftBracket";
-  RightBracket: "RightBracket";
-  Comma: "Comma";
-  Colon: "Colon";
-  Semicolon: "Semicolon";
-  Dot: "Dot";
-  Arrow: "Arrow";
-  Plus: "Plus";
-  Minus: "Minus";
-  Star: "Star";
-  Slash: "Slash";
-  Percent: "Percent";
-  Equal: "Equal";
-  EqualEqual: "EqualEqual";
-  Bang: "Bang";
-  BangEqual: "BangEqual";
-  Less: "Less";
-  LessEqual: "LessEqual";
-  Greater: "Greater";
-  GreaterEqual: "GreaterEqual";
-  AmpAmp: "AmpAmp";
-  PipePipe: "PipePipe";
-}>;
-export type TokenKind = (typeof TokenKind)[keyof typeof TokenKind];
+export declare enum TokenKind {
+  Eof = "Eof",
+  Identifier = "Identifier",
+  Integer = "Integer",
+  Float = "Float",
+  Struct = "Struct",
+  Export = "Export",
+  Fn = "Fn",
+  Let = "Let",
+  Return = "Return",
+  If = "If",
+  Else = "Else",
+  While = "While",
+  True = "True",
+  False = "False",
+  I32 = "I32",
+  I64 = "I64",
+  U32 = "U32",
+  U64 = "U64",
+  F64 = "F64",
+  Bool = "Bool",
+  Ptr = "Ptr",
+  LeftParen = "LeftParen",
+  RightParen = "RightParen",
+  LeftBrace = "LeftBrace",
+  RightBrace = "RightBrace",
+  LeftBracket = "LeftBracket",
+  RightBracket = "RightBracket",
+  Comma = "Comma",
+  Colon = "Colon",
+  Semicolon = "Semicolon",
+  Dot = "Dot",
+  Arrow = "Arrow",
+  Plus = "Plus",
+  Minus = "Minus",
+  Star = "Star",
+  Slash = "Slash",
+  Percent = "Percent",
+  Equal = "Equal",
+  EqualEqual = "EqualEqual",
+  Bang = "Bang",
+  BangEqual = "BangEqual",
+  Less = "Less",
+  LessEqual = "LessEqual",
+  Greater = "Greater",
+  GreaterEqual = "GreaterEqual",
+  AmpAmp = "AmpAmp",
+  PipePipe = "PipePipe"
+}
 
 export interface Token {
   kind: TokenKind;

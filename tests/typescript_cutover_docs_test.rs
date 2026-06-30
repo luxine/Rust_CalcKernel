@@ -149,6 +149,7 @@ fn rust_replacement_readiness_audit_should_require_declaration_parity_verifier()
         r#"packageJson.scripts?.["verify:declaration-parity"]"#,
         "scripts/verify-declaration-parity.mjs",
         r#"expectIncludes(npmRelease, "verify:declaration-parity", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "declaration export kind", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

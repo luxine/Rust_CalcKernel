@@ -69,6 +69,9 @@ console.log(JSON.stringify({
   targets: verifiedTargets,
   signedTargets,
   sourceFallback: "disabled",
+  ckcBinOverride: "unset",
+  commands: requiredCommands(),
+  apiSymbols: requiredApiSymbols(),
   typeSmoke: "passed",
   backendRuntimeSmokes: backendRuntimeSmokes()
 }, null, 2));

@@ -88,6 +88,27 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"ckcBinOverride\": \"unset\""),
+        "release signoff summary verifier should preserve CKC_BIN unset evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"commands\": [")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("\"ckc emit-llvm smoke.ck -o build/smoke.ll\""),
+        "release signoff summary verifier should preserve CLI smoke command evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"apiSymbols\": [")
+            && String::from_utf8_lossy(&output.stdout).contains("\"emitCSource\""),
+        "release signoff summary verifier should preserve package root API smoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"typeSmoke\": \"passed\""),
         "release signoff summary verifier should preserve TypeScript declaration smoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -219,6 +240,129 @@ fn release_signoff_summary_verifier_should_reject_missing_type_smoke_evidence() 
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("typeSmoke"),
         "failure should identify missing typeSmoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_ckc_bin_override_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-ckc-bin");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_ckc_bin_override(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing CKC_BIN override evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("ckcBinOverride"),
+        "failure should identify missing ckcBinOverride evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_cli_smoke_commands() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-commands");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_commands(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing CLI smoke commands should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("commands"),
+        "failure should identify missing commands evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn release_signoff_summary_verifier_should_reject_missing_api_symbol_evidence() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-api-symbols");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(
+        &signoff,
+        release_signoff_json_without_api_symbols(TARBALL_SHA256),
+    )
+    .expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing package root API symbol evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("apiSymbols"),
+        "failure should identify missing apiSymbols evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -404,6 +548,48 @@ fn release_signoff_json_without_type_smoke(tarball_sha256: &str) -> String {
     )
 }
 
+fn release_signoff_json_without_ckc_bin_override(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        Some("passed"),
+        true,
+        false,
+        true,
+        true,
+    )
+}
+
+fn release_signoff_json_without_commands(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        Some("passed"),
+        true,
+        true,
+        false,
+        true,
+    )
+}
+
+fn release_signoff_json_without_api_symbols(tarball_sha256: &str) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        BINARY_SHA256,
+        Some("disabled"),
+        true,
+        Some("passed"),
+        true,
+        true,
+        true,
+        false,
+    )
+}
+
 fn release_signoff_json_without_source_fallback(tarball_sha256: &str) -> String {
     release_signoff_json_with_signed_target_sha256_source_fallback_and_runtime_smokes(
         tarball_sha256,
@@ -465,6 +651,32 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
     type_smoke: Option<&str>,
     include_platform_arch: bool,
 ) -> String {
+    release_signoff_json_with_evidence(
+        tarball_sha256,
+        signed_target_sha256,
+        source_fallback,
+        include_runtime_smokes,
+        type_smoke,
+        include_platform_arch,
+        true,
+        true,
+        true,
+    )
+}
+
+// Test fixture builder keeps each release evidence toggle explicit at call sites.
+#[expect(clippy::too_many_arguments)]
+fn release_signoff_json_with_evidence(
+    tarball_sha256: &str,
+    signed_target_sha256: &str,
+    source_fallback: Option<&str>,
+    include_runtime_smokes: bool,
+    type_smoke: Option<&str>,
+    include_platform_arch: bool,
+    include_ckc_bin_override: bool,
+    include_commands: bool,
+    include_api_symbols: bool,
+) -> String {
     let source_fallback = source_fallback
         .map(|value| {
             format!(
@@ -491,6 +703,48 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
             )
         })
         .unwrap_or_default();
+    let ckc_bin_override = if include_ckc_bin_override {
+        r#",
+  "ckcBinOverride": "unset""#
+    } else {
+        ""
+    };
+    let commands = if include_commands {
+        r#",
+  "commands": [
+    "ckc --help",
+    "ckc check smoke.ck",
+    "ckc emit-mir smoke.ck -o build/smoke.mir",
+    "ckc emit-c smoke.ck -o build/smoke.c",
+    "ckc emit-wat smoke.ck -o build/smoke.wat",
+    "ckc emit-wasm smoke.ck -o build/smoke.wasm",
+    "ckc emit-llvm smoke.ck -o build/smoke.ll",
+    "ckc build smoke.ck -o build/smoke-c",
+    "node smoke-c-runtime.mjs",
+    "node smoke-wasm-runtime.mjs",
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
+    "node smoke-llvm-object-runtime.mjs"
+  ]"#
+    } else {
+        ""
+    };
+    let api_symbols = if include_api_symbols {
+        r#",
+  "apiSymbols": [
+    "SourceFile",
+    "TokenKind",
+    "lex",
+    "parse",
+    "check",
+    "getFunctionInfo",
+    "emitCHeader",
+    "emitCSource",
+    "CKWasmArena",
+    "createCKWasmArena"
+  ]"#
+    } else {
+        ""
+    };
     let signed_targets = signed_targets_json(signed_target_sha256, include_platform_arch);
     format!(
         r#"{{
@@ -510,7 +764,7 @@ fn release_signoff_json_with_signed_target_sha256_source_fallback_runtime_smokes
   ],
   "signedTargets": [
 {signed_targets}
-  ]{source_fallback}{type_smoke}{runtime_smokes}
+  ]{source_fallback}{ckc_bin_override}{commands}{api_symbols}{type_smoke}{runtime_smokes}
 }}"#
     )
 }

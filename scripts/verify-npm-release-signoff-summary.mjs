@@ -40,6 +40,9 @@ console.log(JSON.stringify({
   targets: signoff.targets,
   signedTargets: signoff.signedTargets,
   sourceFallback: signoff.sourceFallback,
+  ckcBinOverride: signoff.ckcBinOverride,
+  commands: signoff.commands,
+  apiSymbols: signoff.apiSymbols,
   typeSmoke: signoff.typeSmoke,
   backendRuntimeSmokes: signoff.backendRuntimeSmokes,
   evidence: {
@@ -69,7 +72,10 @@ function validateReleaseSignoff(value, manifest) {
   expectEqual(value.tarball, manifest.tarball, "release sign-off tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off tarballSha256");
   expectEqual(value.sourceFallback, "disabled", "release sign-off sourceFallback");
+  expectEqual(value.ckcBinOverride, "unset", "release sign-off ckcBinOverride");
   expectEqual(value.typeSmoke, "passed", "release sign-off typeSmoke");
+  validateCommands(value.commands, "release sign-off commands");
+  validateApiSymbols(value.apiSymbols, "release sign-off apiSymbols");
 
   const expectedTargets = supportedTargetNames();
   if (value.targetCount !== expectedTargets.length) {
@@ -98,11 +104,56 @@ function validateBackendRuntimeSmokes(actual, label) {
   }
 }
 
+function validateCommands(actual, label) {
+  const expected = requiredCommands();
+  if (!sameStringArray(actual, expected)) {
+    fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function requiredCommands() {
+  return [
+    "ckc --help",
+    "ckc check smoke.ck",
+    "ckc emit-mir smoke.ck -o build/smoke.mir",
+    "ckc emit-c smoke.ck -o build/smoke.c",
+    "ckc emit-wat smoke.ck -o build/smoke.wat",
+    "ckc emit-wasm smoke.ck -o build/smoke.wasm",
+    "ckc emit-llvm smoke.ck -o build/smoke.ll",
+    "ckc build smoke.ck -o build/smoke-c",
+    ...backendRuntimeSmokes().slice(0, 2),
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
+    backendRuntimeSmokes()[2]
+  ];
+}
+
 function backendRuntimeSmokes() {
   return [
     "node smoke-c-runtime.mjs",
     "node smoke-wasm-runtime.mjs",
     "node smoke-llvm-object-runtime.mjs"
+  ];
+}
+
+function validateApiSymbols(actual, label) {
+  const expected = requiredApiSymbols();
+  if (!sameStringArray(actual, expected)) {
+    fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function requiredApiSymbols() {
+  return [
+    "SourceFile",
+    "TokenKind",
+    "lex",
+    "parse",
+    "check",
+    "getFunctionInfo",
+    "emitCHeader",
+    "emitCSource",
+    "CKWasmArena",
+    "createCKWasmArena"
   ];
 }
 

@@ -507,6 +507,27 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"ckcBinOverride\": \"unset\""),
+        "complete target signoff should preserve CKC_BIN unset evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"commands\": [")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("\"ckc emit-llvm smoke.ck -o build/smoke.ll\""),
+        "complete target signoff should preserve CLI smoke command evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"apiSymbols\": [")
+            && String::from_utf8_lossy(&output.stdout).contains("\"emitCSource\""),
+        "complete target signoff should preserve package root API smoke evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"typeSmoke\": \"passed\""),
         "complete target signoff should preserve aggregate TypeScript declaration smoke evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),

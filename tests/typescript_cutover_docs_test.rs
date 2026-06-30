@@ -55,6 +55,28 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
 }
 
 #[test]
+fn rust_replacement_readiness_audit_should_require_self_contained_cutover_artifact_docs() {
+    let audit =
+        fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");
+
+    for expected in [
+        r#"expectIncludes(npmRelease, "release-manifest/release-manifest.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "release/release-signoff.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-publish.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-registry-replacement.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "release-signoff-summary.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-publish-artifact.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-publish-result.json", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "npm-cutover-evidence.json", "npm release docs")"#,
+    ] {
+        assert!(
+            audit.contains(expected),
+            "readiness audit must require {expected}"
+        );
+    }
+}
+
+#[test]
 fn rust_replacement_readiness_audit_should_require_final_manifest_evidence_surface() {
     let audit =
         fs::read_to_string("scripts/audit-rust-replacement-readiness.mjs").expect("read audit");

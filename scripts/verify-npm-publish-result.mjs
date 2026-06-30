@@ -6,6 +6,27 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
+  "audit:release-workflow",
+  "audit:typescript-test-surface",
+  "build",
+  "build:npm-matrix",
+  "ckc",
+  "postpack",
+  "prepack",
+  "test",
+  "verify:cutover-evidence",
+  "verify:declaration-parity",
+  "verify:host-npm-install",
+  "verify:npm-release",
+  "verify:public-api-parity",
+  "verify:publish-artifact",
+  "verify:publish-result",
+  "verify:registry-replacement",
+  "verify:release-signoff",
+  "verify:release-signoff-summary",
+  "verify:typescript-oracle"
+]);
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: EXPECTED_PACKAGE_DESCRIPTION,
   keywords: EXPECTED_PACKAGE_KEYWORDS,
@@ -22,7 +43,9 @@ const EXPECTED_PACKAGE_METADATA = Object.freeze({
   },
   bin: { ckc: "./npm/ckc.js" },
   dependencyFields: {},
-  consumerInstallScripts: []
+  consumerInstallScripts: [],
+  packageManager: null,
+  scriptNames: EXPECTED_PACKAGE_SCRIPT_NAMES
 });
 const RELEASE_WORKFLOW = "npm release artifact";
 const PUBLISH_JOB = "publish-npm";

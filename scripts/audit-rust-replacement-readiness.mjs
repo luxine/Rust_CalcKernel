@@ -106,6 +106,8 @@ expectIncludes(npmRelease, "npm-publish-result.json", "npm release docs");
 expectIncludes(npmRelease, "sha512 npm integrity", "npm release docs");
 expectIncludes(npmRelease, "sha1 shasum", "npm release docs");
 expectIncludes(npmRelease, "consumer install lifecycle scripts", "npm release docs");
+expectIncludes(npmRelease, "scriptNames", "npm release docs");
+expectIncludes(npmRelease, "packageManager", "npm release docs");
 expectIncludes(npmRelease, "publishArtifactTarballPath", "npm release docs");
 expectIncludes(npmRelease, "publishId", "npm release docs");
 expectIncludes(npmRelease, "publishFilename", "npm release docs");

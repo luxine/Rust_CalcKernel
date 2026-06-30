@@ -9,6 +9,27 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
+  "audit:release-workflow",
+  "audit:typescript-test-surface",
+  "build",
+  "build:npm-matrix",
+  "ckc",
+  "postpack",
+  "prepack",
+  "test",
+  "verify:cutover-evidence",
+  "verify:declaration-parity",
+  "verify:host-npm-install",
+  "verify:npm-release",
+  "verify:public-api-parity",
+  "verify:publish-artifact",
+  "verify:publish-result",
+  "verify:registry-replacement",
+  "verify:release-signoff",
+  "verify:release-signoff-summary",
+  "verify:typescript-oracle"
+]);
 const tarballArg = process.argv[2];
 
 if (!tarballArg || tarballArg === "--help" || tarballArg === "-h") {
@@ -255,7 +276,11 @@ function validatePackageMetadata(packageJson) {
       fail(`package/package.json must not declare ${field}`);
     }
   }
+  if (Object.hasOwn(packageJson, "packageManager")) {
+    fail("package/package.json packageManager must be absent");
+  }
   const consumerInstallScripts = readConsumerInstallScripts(packageJson);
+  const scriptNames = readPackageScriptNames(packageJson);
 
   return {
     description: EXPECTED_PACKAGE_DESCRIPTION,
@@ -268,8 +293,25 @@ function validatePackageMetadata(packageJson) {
     exports: expectedExports,
     bin: expectedBin,
     dependencyFields,
-    consumerInstallScripts
+    consumerInstallScripts,
+    packageManager: null,
+    scriptNames
   };
+}
+
+function readPackageScriptNames(packageJson) {
+  const scripts = packageJson.scripts;
+  if (!scripts || typeof scripts !== "object" || Array.isArray(scripts)) {
+    fail(`package/package.json scripts must be an object, found ${JSON.stringify(scripts)}`);
+  }
+  const scriptNames = Object.keys(scripts).sort();
+  if (!sameStringArray(scriptNames, EXPECTED_PACKAGE_SCRIPT_NAMES)) {
+    fail(
+      `package/package.json scriptNames must be ${JSON.stringify(EXPECTED_PACKAGE_SCRIPT_NAMES)}, ` +
+        `found ${JSON.stringify(scriptNames)}`
+    );
+  }
+  return scriptNames;
 }
 
 function readConsumerInstallScripts(packageJson) {

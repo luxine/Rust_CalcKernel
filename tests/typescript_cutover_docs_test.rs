@@ -40,6 +40,8 @@ fn rust_replacement_readiness_audit_should_require_final_publish_evidence_verifi
         r#"expectIncludes(npmRelease, "sha512 npm integrity", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "sha1 shasum", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "consumer install lifecycle scripts", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "scriptNames", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "packageManager", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publishArtifactTarballPath", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publishId", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "publishFilename", "npm release docs")"#,

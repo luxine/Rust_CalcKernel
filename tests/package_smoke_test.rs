@@ -604,7 +604,29 @@ try {
         ckc: "./npm/ckc.js"
       },
       dependencyFields: {},
-      consumerInstallScripts: []
+      consumerInstallScripts: [],
+      packageManager: null,
+      scriptNames: [
+        "audit:release-workflow",
+        "audit:typescript-test-surface",
+        "build",
+        "build:npm-matrix",
+        "ckc",
+        "postpack",
+        "prepack",
+        "test",
+        "verify:cutover-evidence",
+        "verify:declaration-parity",
+        "verify:host-npm-install",
+        "verify:npm-release",
+        "verify:public-api-parity",
+        "verify:publish-artifact",
+        "verify:publish-result",
+        "verify:registry-replacement",
+        "verify:release-signoff",
+        "verify:release-signoff-summary",
+        "verify:typescript-oracle"
+      ]
     });
     assert.deepEqual(manifest.fileSurface.packageJsonFiles, [
       "npm",
@@ -807,6 +829,63 @@ try {
       assert.match(verifyMutated.stderr, /consumer install lifecycle scripts.*postinstall/);
     } finally {
       rmSync(mutatedInstallScriptRoot, { recursive: true, force: true });
+    }
+
+    const mutatedTypecheckScriptRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-mutated-typecheck-script-"));
+    try {
+      const unpack = spawnSync("tar", ["-xzf", matrixTarball, "-C", mutatedTypecheckScriptRoot], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(unpack.status, 0, unpack.stderr || unpack.stdout);
+      const packageJsonPath = join(mutatedTypecheckScriptRoot, "package", "package.json");
+      const mutatedPackageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      mutatedPackageJson.scripts = {
+        ...(mutatedPackageJson.scripts ?? {}),
+        typecheck: "tsc -p tsconfig.json --noEmit"
+      };
+      writeFileSync(packageJsonPath, `${JSON.stringify(mutatedPackageJson, null, 2)}\n`);
+      const mutatedTarball = join(mutatedTypecheckScriptRoot, "calckernel-mutated-typecheck-script.tgz");
+      const repack = spawnSync("tar", ["-czf", mutatedTarball, "-C", mutatedTypecheckScriptRoot, "package"], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(repack.status, 0, repack.stderr || repack.stdout);
+      const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
+      assert.match(verifyMutated.stderr, /package\/package\.json scriptNames.*typecheck/);
+    } finally {
+      rmSync(mutatedTypecheckScriptRoot, { recursive: true, force: true });
+    }
+
+    const mutatedPackageManagerRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-mutated-package-manager-"));
+    try {
+      const unpack = spawnSync("tar", ["-xzf", matrixTarball, "-C", mutatedPackageManagerRoot], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(unpack.status, 0, unpack.stderr || unpack.stdout);
+      const packageJsonPath = join(mutatedPackageManagerRoot, "package", "package.json");
+      const mutatedPackageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      mutatedPackageJson.packageManager = "pnpm@9.15.9";
+      writeFileSync(packageJsonPath, `${JSON.stringify(mutatedPackageJson, null, 2)}\n`);
+      const mutatedTarball = join(mutatedPackageManagerRoot, "calckernel-mutated-package-manager.tgz");
+      const repack = spawnSync("tar", ["-czf", mutatedTarball, "-C", mutatedPackageManagerRoot, "package"], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.equal(repack.status, 0, repack.stderr || repack.stdout);
+      const verifyMutated = spawnSync(process.execPath, ["scripts/verify-npm-release.mjs", mutatedTarball], {
+        cwd: root,
+        encoding: "utf8"
+      });
+      assert.notEqual(verifyMutated.status, 0, verifyMutated.stdout);
+      assert.match(verifyMutated.stderr, /package\/package\.json packageManager must be absent/);
+    } finally {
+      rmSync(mutatedPackageManagerRoot, { recursive: true, force: true });
     }
   } finally {
     rmSync(matrixPackRoot, { recursive: true, force: true });

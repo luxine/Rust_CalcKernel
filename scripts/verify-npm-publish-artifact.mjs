@@ -4,6 +4,27 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames } from "../npm/platform.js";
 
+const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
+  "audit:release-workflow",
+  "audit:typescript-test-surface",
+  "build",
+  "build:npm-matrix",
+  "ckc",
+  "postpack",
+  "prepack",
+  "test",
+  "verify:cutover-evidence",
+  "verify:declaration-parity",
+  "verify:host-npm-install",
+  "verify:npm-release",
+  "verify:public-api-parity",
+  "verify:publish-artifact",
+  "verify:publish-result",
+  "verify:registry-replacement",
+  "verify:release-signoff",
+  "verify:release-signoff-summary",
+  "verify:typescript-oracle"
+]);
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
   keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
@@ -20,7 +41,9 @@ const EXPECTED_PACKAGE_METADATA = Object.freeze({
   },
   bin: { ckc: "./npm/ckc.js" },
   dependencyFields: {},
-  consumerInstallScripts: []
+  consumerInstallScripts: [],
+  packageManager: null,
+  scriptNames: EXPECTED_PACKAGE_SCRIPT_NAMES
 });
 const EXPECTED_PACKAGE_JSON_FILES = Object.freeze([
   "npm",

@@ -750,7 +750,9 @@ fn release_manifest_json_with_description(tarball: &str, description: &str) -> S
       "ckc": "./npm/ckc.js"
     }},
     "dependencyFields": {{}},
-    "consumerInstallScripts": []
+    "consumerInstallScripts": [],
+    "packageManager": null,
+    "scriptNames": ["audit:release-workflow", "audit:typescript-test-surface", "build", "build:npm-matrix", "ckc", "postpack", "prepack", "test", "verify:cutover-evidence", "verify:declaration-parity", "verify:host-npm-install", "verify:npm-release", "verify:public-api-parity", "verify:publish-artifact", "verify:publish-result", "verify:registry-replacement", "verify:release-signoff", "verify:release-signoff-summary", "verify:typescript-oracle"]
   }},
   "tarball": "{tarball}",
   "tarballSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

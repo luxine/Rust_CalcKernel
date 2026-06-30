@@ -136,6 +136,53 @@ fn publish_artifact_verifier_should_reject_incomplete_release_manifest() {
 }
 
 #[test]
+fn publish_artifact_verifier_should_reject_missing_package_script_surface() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-artifact-script-surface");
+    let dist = temp.join("dist");
+    fs::create_dir_all(&dist).expect("create dist");
+    let tarball = dist.join("calckernel-0.8.0.tgz");
+    fs::write(&tarball, b"release tarball bytes").expect("write tarball");
+    let manifest = temp.join("release-manifest.json");
+    fs::write(
+        &manifest,
+        release_manifest_json("calckernel-0.8.0.tgz", &sha256_file(&tarball)).replace(
+            r#",
+    "packageManager": null,
+    "scriptNames": ["audit:release-workflow", "audit:typescript-test-surface", "build", "build:npm-matrix", "ckc", "postpack", "prepack", "test", "verify:cutover-evidence", "verify:declaration-parity", "verify:host-npm-install", "verify:npm-release", "verify:public-api-parity", "verify:publish-artifact", "verify:publish-result", "verify:registry-replacement", "verify:release-signoff", "verify:release-signoff-summary", "verify:typescript-oracle"]"#,
+            "",
+        ),
+    )
+    .expect("write release manifest without package script surface");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-artifact.mjs")
+        .arg(&manifest)
+        .arg(&dist)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run publish artifact verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing package script surface evidence should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("release manifest packageMetadata"),
+        "failure should identify packageMetadata script surface\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn publish_artifact_verifier_should_reject_wrong_target_binary_format() {
     if !node_available() {
         return;
@@ -298,7 +345,9 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "ckc": "./npm/ckc.js"
     }},
     "dependencyFields": {{}},
-    "consumerInstallScripts": []
+    "consumerInstallScripts": [],
+    "packageManager": null,
+    "scriptNames": ["audit:release-workflow", "audit:typescript-test-surface", "build", "build:npm-matrix", "ckc", "postpack", "prepack", "test", "verify:cutover-evidence", "verify:declaration-parity", "verify:host-npm-install", "verify:npm-release", "verify:public-api-parity", "verify:publish-artifact", "verify:publish-result", "verify:registry-replacement", "verify:release-signoff", "verify:release-signoff-summary", "verify:typescript-oracle"]
   }},
   "tarball": "{tarball}",
   "tarballSha256": "{tarball_sha256}",

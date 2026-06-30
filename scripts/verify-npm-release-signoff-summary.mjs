@@ -39,6 +39,7 @@ console.log(JSON.stringify({
   version: manifest.packageVersion,
   tarball: manifest.tarball,
   tarballSha256: manifest.tarballSha256,
+  sourceGitSha: manifest.sourceGitSha,
   targetCount: signoff.targetCount,
   targets: signoff.targets,
   signedTargets: signoff.signedTargets,
@@ -65,6 +66,9 @@ function validateManifest(value) {
   if (!isSha256(value.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(value.tarballSha256)}`);
   }
+  if (!isGitSha(value.sourceGitSha)) {
+    fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(value.sourceGitSha)}`);
+  }
   validateManifestTargets(value.targets, "release manifest targets");
 }
 
@@ -74,6 +78,7 @@ function validateReleaseSignoff(value, manifest) {
   expectEqual(value.packageVersion, manifest.packageVersion, "release sign-off packageVersion");
   expectEqual(value.tarball, manifest.tarball, "release sign-off tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "release sign-off tarballSha256");
+  expectEqual(value.sourceGitSha, manifest.sourceGitSha, "release sign-off sourceGitSha");
   expectEqual(value.sourceFallback, "disabled", "release sign-off sourceFallback");
   expectEqual(value.ckcBinOverride, "unset", "release sign-off ckcBinOverride");
   expectEqual(value.typeSmoke, "passed", "release sign-off typeSmoke");
@@ -96,6 +101,9 @@ function validateReleaseSignoff(value, manifest) {
       fail(
         `release sign-off signedTargets ${target.name} sha256 must match release manifest target sha256`
       );
+    }
+    if (target.githubSha !== manifest.sourceGitSha) {
+      fail(`release sign-off signedTargets ${target.name} githubSha must match release manifest sourceGitSha`);
     }
   }
 }
@@ -318,6 +326,10 @@ function requirePathSuffix(actual, expectedSuffix, label) {
 
 function isSha256(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

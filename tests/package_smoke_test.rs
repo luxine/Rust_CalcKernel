@@ -586,6 +586,7 @@ try {
     assert.equal(manifest.packageName, "calckernel");
     assert.equal(manifest.packageVersion, "0.8.0");
     assert.match(manifest.tarballSha256, /^[0-9a-f]{64}$/);
+    assert.match(manifest.sourceGitSha, /^[0-9a-f]{40}$/);
     assert.deepEqual(manifest.packageMetadata, {
       description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
       keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],

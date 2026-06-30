@@ -81,6 +81,7 @@ console.log(JSON.stringify({
   packageVersion: manifest.packageVersion,
   tarball: manifest.tarball,
   tarballSha256: manifest.tarballSha256,
+  sourceGitSha: manifest.sourceGitSha,
   targetCount: verifiedTargets.length,
   targets: verifiedTargets,
   signedTargets,
@@ -104,6 +105,9 @@ function validateManifest(manifest) {
   }
   if (!isSha256(manifest.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(manifest.tarballSha256)}`);
+  }
+  if (!isGitSha(manifest.sourceGitSha)) {
+    fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
   }
   if (!Array.isArray(manifest.targets)) {
     fail("release manifest targets must be an array");
@@ -145,6 +149,9 @@ function validateSignoff(signoff, target, manifest, manifestTarget) {
   }
   validateRuntimeEnvironmentEvidence(signoff, target);
   validateCiProvenance(signoff, target);
+  if (signoff.githubSha !== manifest.sourceGitSha) {
+    fail(`${target.name} githubSha must match release manifest sourceGitSha`);
+  }
   validateBinaryEvidence(signoff, target, manifestTarget);
   if (signoff.typeSmoke !== "passed") {
     fail(`${target.name} sign-off must pass TypeScript declaration smoke`);
@@ -321,6 +328,10 @@ function requiredApiSymbols() {
 
 function isSha256(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

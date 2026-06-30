@@ -129,7 +129,7 @@ JavaScript compatibility surface。
    `build:npm-matrix --verify-staged --expect-complete` 检查完整性，并通过
    `CKC_NPM_BINARIES_DIR` 打包。
 7. `npm run verify:npm-release -- <tarball>` 通过，并记录 tarball SHA256、
-   Rust package metadata、`consumerInstallScripts: []`、每个 binary 的 file mode、
+   `sourceGitSha`、Rust package metadata、`consumerInstallScripts: []`、每个 binary 的 file mode、
    architecture、格式、大小、SHA256 和 strict file-surface manifest 数据。
 8. 每个支持平台都 fresh-install 同一个 tarball，关闭 install scripts，并运行随包的
    `node_modules/.bin/ckc`，不能依赖本地 checkout fallback，并且 TypeScript
@@ -138,7 +138,8 @@ JavaScript compatibility surface。
 9. `npm run verify:release-signoff -- release-manifest.json signoffs` 对每个
    支持平台保存的 `verify:host-npm-install` JSON 通过，并确认所有签核使用同一个
    package version 和 tarball SHA256，且 `sourceFallback: "disabled"`，同时保留
-   GitHub Actions run provenance，并证明 runner OS/arch 与 signed target 匹配。
+   `githubSha` 匹配 `release-manifest.json.sourceGitSha` 的 GitHub Actions run
+   provenance，并证明 runner OS/arch 与 signed target 匹配。
 10. `npm run audit:release-workflow` 通过，证明 checked-in
    `workflow_dispatch` release workflow 会通过 `typescript_oracle_repository` /
    `typescript_oracle_ref` checkout 并构建只读 TypeScript oracle，为 parity

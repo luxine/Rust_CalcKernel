@@ -101,6 +101,9 @@ if (!isSha256(manifest.tarballSha256)) {
   fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(manifest.tarballSha256)}`);
 }
 validateReleaseManifestEvidence(manifest);
+if (!isGitSha(manifest.sourceGitSha)) {
+  fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
+}
 
 const tarballPath = join(distDir, manifest.tarball);
 if (!existsSync(tarballPath) || !statSync(tarballPath).isFile()) {
@@ -122,7 +125,8 @@ console.log(JSON.stringify({
   packageVersion: manifest.packageVersion,
   tarball: manifest.tarball,
   tarballPath,
-  tarballSha256
+  tarballSha256,
+  sourceGitSha: manifest.sourceGitSha
 }, null, 2));
 
 function readJson(path) {
@@ -251,6 +255,10 @@ function sameStringArray(actual, expected) {
 
 function isSha256(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

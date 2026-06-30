@@ -71,6 +71,13 @@ const failures = [];
 
 validateManifest(manifest);
 const publishProvenance = collectPublishProvenance();
+if (publishProvenance.ciProvider === "github-actions") {
+  expectEqual(
+    publishProvenance.githubSha,
+    manifest.sourceGitSha,
+    "publish provenance githubSha from release manifest sourceGitSha"
+  );
+}
 expectEqual(publish.name, manifest.packageName, "publish package name");
 expectEqual(publish.version, manifest.packageVersion, "publish package version");
 expectEqual(publish.id, `${manifest.packageName}@${manifest.packageVersion}`, "publish id");
@@ -144,6 +151,7 @@ console.log(JSON.stringify({
   packageVersion: manifest.packageVersion,
   version: manifest.packageVersion,
   tarball: manifest.tarball,
+  sourceGitSha: manifest.sourceGitSha,
   publishPackage: publish.name,
   publishVersion: publish.version,
   publishId: publish.id,
@@ -193,6 +201,9 @@ function validateManifest(manifest) {
   }
   if (!isSha256(manifest.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(manifest.tarballSha256)}`);
+  }
+  if (!isGitSha(manifest.sourceGitSha)) {
+    fail(`release manifest sourceGitSha must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(manifest.sourceGitSha)}`);
   }
   if (
     !manifest.packageMetadata
@@ -328,6 +339,10 @@ function isSha1(value) {
 
 function isSha256(value) {
   return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function fail(message) {

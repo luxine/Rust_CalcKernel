@@ -138,6 +138,7 @@ const manifest = {
   packageMetadata,
   tarball: basename(tarballPath),
   tarballSha256: sha256(readFileSync(tarballPath)),
+  sourceGitSha: readSourceGitSha(),
   requiredFiles,
   fileSurface: {
     packageJsonFiles: packageJson.files,
@@ -214,6 +215,35 @@ function sameStringArray(actual, expected) {
   return Array.isArray(actual)
     && actual.length === expected.length
     && actual.every((value, index) => value === expected[index]);
+}
+
+function readSourceGitSha() {
+  const githubSha = process.env.GITHUB_SHA;
+  if (githubSha) {
+    if (!isGitSha(githubSha)) {
+      fail(`GITHUB_SHA must be a 40-character lowercase hex commit SHA, found ${JSON.stringify(githubSha)}`);
+    }
+    return githubSha;
+  }
+
+  const output = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" });
+  if (output.error) {
+    fail(`Unable to read source git SHA: ${output.error.message}`);
+  }
+  if (output.status !== 0) {
+    const stderr = output.stderr.trim();
+    const stdout = output.stdout.trim();
+    fail(`Unable to read source git SHA${stderr || stdout ? `: ${stderr || stdout}` : ""}`);
+  }
+  const sourceGitSha = output.stdout.trim();
+  if (!isGitSha(sourceGitSha)) {
+    fail(`git rev-parse HEAD returned invalid source git SHA: ${JSON.stringify(sourceGitSha)}`);
+  }
+  return sourceGitSha;
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 }
 
 function validatePackageMetadata(packageJson) {

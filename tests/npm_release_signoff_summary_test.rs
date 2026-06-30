@@ -110,6 +110,13 @@ fn release_signoff_summary_verifier_should_accept_matching_manifest_and_summary(
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sourceGitSha\": \"{GITHUB_SHA}\"")),
+        "release signoff summary verifier should report manifest source checkout SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"installedBin\":")
             && String::from_utf8_lossy(&output.stdout).contains("node_modules/.bin/ckc"),
         "release signoff summary verifier should preserve installed CLI path evidence\nstdout:\n{}\nstderr:\n{}",
@@ -756,6 +763,50 @@ fn release_signoff_summary_verifier_should_reject_wrong_signed_target_github_job
     );
 }
 
+#[test]
+fn release_signoff_summary_verifier_should_reject_signed_target_source_sha_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-summary-source-sha");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    fs::write(
+        &manifest,
+        release_manifest_json(TARBALL_SHA256).replace(
+            &format!("\"sourceGitSha\": \"{GITHUB_SHA}\""),
+            "\"sourceGitSha\": \"1111111111111111111111111111111111111111\"",
+        ),
+    )
+    .expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff-summary.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff summary verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "signed target source SHA mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceGitSha"),
+        "failure should identify manifest source SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn release_manifest_json(tarball_sha256: &str) -> String {
     format!(
         r#"{{
@@ -763,6 +814,7 @@ fn release_manifest_json(tarball_sha256: &str) -> String {
   "packageVersion": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
+  "sourceGitSha": "{GITHUB_SHA}",
   "targets": [
     {{"name": "darwin-arm64", "sha256": "{BINARY_SHA256}"}},
     {{"name": "darwin-x64", "sha256": "{BINARY_SHA256}"}},
@@ -1095,6 +1147,7 @@ fn release_signoff_json_with_evidence(
   "packageVersion": "0.8.0",
   "tarball": "calckernel-0.8.0.tgz",
   "tarballSha256": "{tarball_sha256}",
+  "sourceGitSha": "{GITHUB_SHA}",
   "targetCount": 6,
   "targets": [
     "darwin-arm64",

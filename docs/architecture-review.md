@@ -137,7 +137,7 @@ these gates are true in the current checkout:
    `build:npm-matrix --verify-staged --expect-complete`, and packed through
    `CKC_NPM_BINARIES_DIR`.
 7. `npm run verify:npm-release -- <tarball>` passes and records tarball SHA256,
-   Rust package metadata, `consumerInstallScripts: []`, binary file mode,
+   `sourceGitSha`, Rust package metadata, `consumerInstallScripts: []`, binary file mode,
    binary architecture, binary format, binary size, binary SHA256s, and strict
    file-surface manifest data.
 8. Each supported target platform fresh-installs the same tarball with scripts
@@ -148,7 +148,8 @@ these gates are true in the current checkout:
    against the saved `verify:host-npm-install` JSON from every supported
    platform and confirms all sign-offs used the same package version and
    tarball SHA256 with `sourceFallback: "disabled"`, GitHub Actions run
-   provenance, and runner OS/arch matching the signed target.
+   provenance whose `githubSha` matches `release-manifest.json.sourceGitSha`,
+   and runner OS/arch matching the signed target.
 10. `npm run audit:release-workflow` passes, proving the checked-in
    `workflow_dispatch` release workflow checks out and builds the read-only
    TypeScript oracle through `typescript_oracle_repository` /

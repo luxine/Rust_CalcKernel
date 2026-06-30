@@ -623,6 +623,56 @@ fn release_signoff_verifier_should_reject_runner_platform_mismatch() {
 }
 
 #[test]
+fn release_signoff_verifier_should_reject_signoff_sha_that_differs_from_manifest_source_sha() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-release-signoff-source-sha-mismatch");
+    let manifest = temp.join("release-manifest.json");
+    let signoffs = temp.join("signoffs");
+    fs::create_dir_all(&signoffs).expect("create signoff dir");
+    fs::write(
+        &manifest,
+        release_manifest_json().replace(
+            &format!("\"sourceGitSha\":\"{GITHUB_SHA}\""),
+            "\"sourceGitSha\":\"1111111111111111111111111111111111111111\"",
+        ),
+    )
+    .expect("write release manifest");
+    for target in TARGETS {
+        fs::write(
+            signoffs.join(format!("{target}.json")),
+            signoff_json(target),
+        )
+        .expect("write signoff");
+    }
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-release-signoff.mjs")
+        .arg(&manifest)
+        .arg(&signoffs)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run release signoff verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "source SHA mismatch should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sourceGitSha"),
+        "source SHA mismatch should identify manifest source SHA\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn release_signoff_verifier_should_reject_source_checkout_fallback_smokes() {
     if !node_available() {
         return;
@@ -816,6 +866,13 @@ fn release_signoff_verifier_should_accept_complete_target_smokes() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains(&format!("\"sourceGitSha\": \"{GITHUB_SHA}\"")),
+        "complete target signoff should preserve manifest source checkout SHA evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"sourceFallback\": \"disabled\""),
         "complete target signoff should report disabled source fallback evidence\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -869,7 +926,7 @@ fn release_manifest_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"targets\":[{targets}]}}"
+        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"targets\":[{targets}]}}"
     )
 }
 
@@ -882,7 +939,7 @@ fn release_manifest_json_with_extra_target() -> String {
         "{{\"name\":\"freebsd-x64\",\"sha256\":\"{BINARY_SHA256}\"}}"
     ));
     format!(
-        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"targets\":[{}]}}",
+        "{{\"packageName\":\"calckernel\",\"packageVersion\":\"0.8.0\",\"tarball\":\"calckernel-0.8.0.tgz\",\"tarballSha256\":\"{TARBALL_SHA256}\",\"sourceGitSha\":\"{GITHUB_SHA}\",\"targets\":[{}]}}",
         targets.join(",")
     )
 }

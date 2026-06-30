@@ -6,6 +6,24 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const EXPECTED_PACKAGE_METADATA = Object.freeze({
+  description: EXPECTED_PACKAGE_DESCRIPTION,
+  keywords: EXPECTED_PACKAGE_KEYWORDS,
+  license: EXPECTED_PACKAGE_LICENSE,
+  engines: EXPECTED_PACKAGE_ENGINES,
+  type: "module",
+  main: "./npm/index.js",
+  types: "./npm/index.d.ts",
+  exports: {
+    ".": {
+      types: "./npm/index.d.ts",
+      import: "./npm/index.js"
+    }
+  },
+  bin: { ckc: "./npm/ckc.js" },
+  dependencyFields: {},
+  consumerInstallScripts: []
+});
 const [manifestArg, publishArg, registryArg] = process.argv.slice(2);
 
 if (!manifestArg || !publishArg || !registryArg || manifestArg === "--help" || manifestArg === "-h") {
@@ -39,6 +57,26 @@ expectEqual(registry.description, EXPECTED_PACKAGE_DESCRIPTION, "registry descri
 expectJson(registry.keywords, EXPECTED_PACKAGE_KEYWORDS, "registry keywords");
 expectEqual(registry.license, EXPECTED_PACKAGE_LICENSE, "registry license");
 expectJson(registry.engines, EXPECTED_PACKAGE_ENGINES, "registry engines");
+expectEqual(
+  registry.description,
+  manifest.packageMetadata?.description,
+  "registry description from release manifest packageMetadata"
+);
+expectJson(
+  registry.keywords,
+  manifest.packageMetadata?.keywords,
+  "registry keywords from release manifest packageMetadata"
+);
+expectEqual(
+  registry.license,
+  manifest.packageMetadata?.license,
+  "registry license from release manifest packageMetadata"
+);
+expectJson(
+  registry.engines,
+  manifest.packageMetadata?.engines,
+  "registry engines from release manifest packageMetadata"
+);
 
 if (!isSha512Integrity(publish.integrity)) {
   fail(`publish integrity must be a sha512 npm integrity string, found ${JSON.stringify(publish.integrity)}`);
@@ -120,6 +158,15 @@ function validateManifest(manifest) {
   }
   if (!isSha256(manifest.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(manifest.tarballSha256)}`);
+  }
+  if (
+    !manifest.packageMetadata
+    || typeof manifest.packageMetadata !== "object"
+    || Array.isArray(manifest.packageMetadata)
+  ) {
+    fail("release manifest packageMetadata is missing");
+  } else {
+    expectJson(manifest.packageMetadata, EXPECTED_PACKAGE_METADATA, "release manifest packageMetadata");
   }
 }
 

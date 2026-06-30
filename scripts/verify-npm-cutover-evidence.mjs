@@ -7,6 +7,24 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const EXPECTED_PACKAGE_METADATA = Object.freeze({
+  description: EXPECTED_PACKAGE_DESCRIPTION,
+  keywords: EXPECTED_PACKAGE_KEYWORDS,
+  license: EXPECTED_PACKAGE_LICENSE,
+  engines: EXPECTED_PACKAGE_ENGINES,
+  type: "module",
+  main: "./npm/index.js",
+  types: "./npm/index.d.ts",
+  exports: {
+    ".": {
+      types: "./npm/index.d.ts",
+      import: "./npm/index.js"
+    }
+  },
+  bin: { ckc: "./npm/ckc.js" },
+  dependencyFields: {},
+  consumerInstallScripts: []
+});
 const [manifestArg, signoffArg, signoffSummaryArg, publishArtifactArg, publishResultArg] = process.argv.slice(2);
 
 if (
@@ -91,6 +109,15 @@ function validateManifest(value) {
   }
   if (!isSha256(value.tarballSha256)) {
     fail(`release manifest tarballSha256 is invalid: ${JSON.stringify(value.tarballSha256)}`);
+  }
+  if (
+    !value.packageMetadata
+    || typeof value.packageMetadata !== "object"
+    || Array.isArray(value.packageMetadata)
+  ) {
+    fail("release manifest packageMetadata is missing");
+  } else {
+    expectJson(value.packageMetadata, EXPECTED_PACKAGE_METADATA, "release manifest packageMetadata");
   }
   validateSignedTargets(value.targets, "release manifest targets");
 }
@@ -177,6 +204,26 @@ function validatePublishResult(value, manifest) {
   expectJson(value.keywords, EXPECTED_PACKAGE_KEYWORDS, "publish result keywords");
   expectEqual(value.license, EXPECTED_PACKAGE_LICENSE, "publish result license");
   expectJson(value.engines, EXPECTED_PACKAGE_ENGINES, "publish result engines");
+  expectEqual(
+    value.description,
+    manifest.packageMetadata?.description,
+    "publish result description from release manifest packageMetadata"
+  );
+  expectJson(
+    value.keywords,
+    manifest.packageMetadata?.keywords,
+    "publish result keywords from release manifest packageMetadata"
+  );
+  expectEqual(
+    value.license,
+    manifest.packageMetadata?.license,
+    "publish result license from release manifest packageMetadata"
+  );
+  expectJson(
+    value.engines,
+    manifest.packageMetadata?.engines,
+    "publish result engines from release manifest packageMetadata"
+  );
   expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
 }
 

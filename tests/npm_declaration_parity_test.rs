@@ -307,6 +307,54 @@ fn declaration_parity_verifier_should_reject_interface_member_mismatch() {
     );
 }
 
+#[test]
+fn declaration_parity_verifier_should_reject_enum_member_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-declaration-enum-member-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_dts = temp.join("rust-index.d.ts");
+    let typescript_dts = temp.join("typescript-index.d.ts");
+    fs::write(
+        &rust_dts,
+        "export declare enum Shared { Present = \"Present\" }\n",
+    )
+    .expect("write Rust mock declaration");
+    fs::write(
+        &typescript_dts,
+        "export declare enum Shared { Present = \"Present\", Missing = \"Missing\" }\n",
+    )
+    .expect("write TypeScript mock declaration");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-declaration-parity.mjs")
+        .arg("--rust-dts")
+        .arg(&rust_dts)
+        .arg("--typescript-dts")
+        .arg(&typescript_dts)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run declaration parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched declaration enum members should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("declaration enum member mismatch for Shared"),
+        "failure should identify the mismatched declaration enum member\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn temp_dir(prefix: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

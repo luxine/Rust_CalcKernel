@@ -58,6 +58,16 @@ const typescriptInterfaceMembers = new Map(
     .filter((entry) => entry.interfaceMemberInfo)
     .map((entry) => [entry.name, entry.interfaceMemberInfo])
 );
+const rustEnumMembers = new Map(
+  rustSurface
+    .filter((entry) => entry.enumMemberInfo)
+    .map((entry) => [entry.name, entry.enumMemberInfo])
+);
+const typescriptEnumMembers = new Map(
+  typescriptSurface
+    .filter((entry) => entry.enumMemberInfo)
+    .map((entry) => [entry.name, entry.enumMemberInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
@@ -100,7 +110,15 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   ) {
     fail(
       `declaration interface member mismatch for ${name}: ` +
-        `Rust ${JSON.stringify(rustInterface.members)}, TypeScript ${JSON.stringify(typescriptInterface.members)}`
+      `Rust ${JSON.stringify(rustInterface.members)}, TypeScript ${JSON.stringify(typescriptInterface.members)}`
+    );
+  }
+  const rustEnum = rustEnumMembers.get(name);
+  const typescriptEnum = typescriptEnumMembers.get(name);
+  if (rustEnum && typescriptEnum && !sameJson(rustEnum.members, typescriptEnum.members)) {
+    fail(
+      `declaration enum member mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustEnum.members)}, TypeScript ${JSON.stringify(typescriptEnum.members)}`
     );
   }
 }
@@ -127,6 +145,9 @@ console.log(JSON.stringify({
   ),
   interfaceMembers: Object.fromEntries(
     [...rustInterfaceMembers.entries()].map(([name, info]) => [name, info.members])
+  ),
+  enumMembers: Object.fromEntries(
+    [...rustEnumMembers.entries()].map(([name, info]) => [name, info.members])
   )
 }, null, 2));
 
@@ -229,7 +250,8 @@ function readDeclarationExportSurface(program, checker, path, label) {
       kind: declarationExportKind(symbol, checker, label),
       functionInfo: declarationFunctionInfo(symbol, checker),
       classMemberInfo: declarationClassMemberInfo(symbol, checker),
-      interfaceMemberInfo: declarationInterfaceMemberInfo(symbol, checker)
+      interfaceMemberInfo: declarationInterfaceMemberInfo(symbol, checker),
+      enumMemberInfo: declarationEnumMemberInfo(symbol, checker)
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -290,6 +312,32 @@ function declarationInterfaceMemberInfo(symbol, checker) {
   const members = memberEntries.map((property) => property.text).sort();
   const memberMap = new Map(memberEntries.map((property) => [property.name, property]));
   return { members, memberMap };
+}
+
+function declarationEnumMemberInfo(symbol, checker) {
+  const resolvedSymbol = resolveAliasedSymbol(symbol, checker);
+  const enumDeclarations = (resolvedSymbol.getDeclarations() ?? []).filter(ts.isEnumDeclaration);
+  if (enumDeclarations.length === 0) {
+    return null;
+  }
+  const members = enumDeclarations
+    .flatMap((declaration) =>
+      declaration.members.map((member) => enumMemberText(member, declaration, checker))
+    )
+    .sort();
+  return { members };
+}
+
+function enumMemberText(member, declaration, checker) {
+  const name = member.name.getText(declaration.getSourceFile()).replace(/^["']|["']$/g, "");
+  const constantValue = checker.getConstantValue(member);
+  if (constantValue !== undefined) {
+    return `${name}: ${JSON.stringify(constantValue)}`;
+  }
+  const fallbackValue = member.initializer
+    ? member.initializer.getText(declaration.getSourceFile())
+    : null;
+  return `${name}: ${JSON.stringify(fallbackValue)}`;
 }
 
 function interfacePropertyInfo(property, anchor, checker) {

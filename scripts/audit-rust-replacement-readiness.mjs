@@ -111,6 +111,8 @@ expectIncludes(npmRelease, "publishId", "npm release docs");
 expectIncludes(npmRelease, "publishFilename", "npm release docs");
 expectIncludes(npmRelease, "publishShasum", "npm release docs");
 expectIncludes(npmRelease, "publishIntegrity", "npm release docs");
+expectIncludes(npmRelease, "publishProvenance", "npm release docs");
+expectIncludes(npmRelease, "publish-npm", "npm release docs");
 expectIncludes(npmRelease, "fileSurface", "npm release docs");
 expectIncludes(npmRelease, "required/forbidden/allowed file lists", "npm release docs");
 expectIncludes(npmRelease, "target Rust triples", "npm release docs");

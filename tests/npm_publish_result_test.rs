@@ -7,6 +7,13 @@ use std::{
 
 const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+const GITHUB_RUN_ID: &str = "1234567890";
+const GITHUB_RUN_ATTEMPT: &str = "2";
+const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
+const GITHUB_WORKFLOW: &str = "npm release artifact";
+const GITHUB_JOB: &str = "publish-npm";
+const RUNNER_OS: &str = "Linux";
+const RUNNER_ARCH: &str = "X64";
 
 #[test]
 fn publish_result_verifier_should_be_registered_as_npm_script() {
@@ -126,6 +133,185 @@ fn publish_result_verifier_should_accept_matching_manifest_publish_and_registry_
     assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"keywords\": ["),
         "publish result verifier should report the public package keywords\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_result_verifier_should_preserve_github_actions_publish_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-github-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
+        .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
+        .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
+        .env("GITHUB_JOB", GITHUB_JOB)
+        .env("RUNNER_OS", RUNNER_OS)
+        .env("RUNNER_ARCH", RUNNER_ARCH)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier with GitHub Actions provenance");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        output.status.success(),
+        "matching publish result with GitHub Actions provenance should pass\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"publishProvenance\": {")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("\"ciProvider\": \"github-actions\"")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubRunId\": \"{GITHUB_RUN_ID}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubJob\": \"{GITHUB_JOB}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"runnerOs\": \"{RUNNER_OS}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"runnerArch\": \"{RUNNER_ARCH}\"")),
+        "publish result verifier should preserve npm publish job provenance\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_result_verifier_should_reject_incomplete_github_actions_publish_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-incomplete-github-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .env("GITHUB_ACTIONS", "true")
+        .env_remove("GITHUB_RUN_ID")
+        .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
+        .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_WORKFLOW", GITHUB_WORKFLOW)
+        .env("GITHUB_JOB", GITHUB_JOB)
+        .env("RUNNER_OS", RUNNER_OS)
+        .env("RUNNER_ARCH", RUNNER_ARCH)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier with incomplete GitHub provenance");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "incomplete GitHub Actions publish provenance should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubRunId"),
+        "failure should identify the missing publish GitHub run id\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn publish_result_verifier_should_reject_wrong_publish_workflow_job_in_github_actions() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-publish-result-wrong-github-job");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let publish = temp.join("npm-publish.json");
+    let registry = temp.join("npm-registry-replacement.json");
+    fs::write(&manifest, release_manifest_json("calckernel-0.8.0.tgz")).expect("write manifest");
+    fs::write(
+        &publish,
+        npm_publish_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write publish output");
+    fs::write(
+        &registry,
+        registry_replacement_json("calckernel-0.8.0.tgz", VALID_INTEGRITY),
+    )
+    .expect("write registry output");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-publish-result.mjs")
+        .arg(&manifest)
+        .arg(&publish)
+        .arg(&registry)
+        .env("GITHUB_ACTIONS", "true")
+        .env("GITHUB_RUN_ID", GITHUB_RUN_ID)
+        .env("GITHUB_RUN_ATTEMPT", GITHUB_RUN_ATTEMPT)
+        .env("GITHUB_SHA", GITHUB_SHA)
+        .env("GITHUB_WORKFLOW", "unit test workflow")
+        .env("GITHUB_JOB", "verify-release-scripts")
+        .env("RUNNER_OS", RUNNER_OS)
+        .env("RUNNER_ARCH", RUNNER_ARCH)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm publish result verifier with wrong GitHub workflow/job");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "wrong GitHub Actions workflow/job should fail publish result verification\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("githubWorkflow")
+            || String::from_utf8_lossy(&output.stderr).contains("githubJob"),
+        "failure should identify the publish workflow/job mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );

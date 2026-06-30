@@ -9,6 +9,9 @@ const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const RELEASE_WORKFLOW = "npm release artifact";
 const PLATFORM_SIGNOFF_JOB = "platform-signoff";
+const PUBLISH_JOB = "publish-npm";
+const PUBLISH_RUNNER_OS = "Linux";
+const PUBLISH_RUNNER_ARCH = "X64";
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: EXPECTED_PACKAGE_DESCRIPTION,
   keywords: EXPECTED_PACKAGE_KEYWORDS,
@@ -129,6 +132,7 @@ console.log(JSON.stringify({
   engines: publishResult.engines,
   consumerInstallScripts: publishResult.consumerInstallScripts,
   integrity: publishResult.integrity,
+  publishProvenance: publishResult.publishProvenance,
   evidence: {
     manifest: manifestPath,
     releaseSignoff: signoffPath,
@@ -317,6 +321,7 @@ function validatePublishResult(value, manifest) {
     "publish result engines from release manifest packageMetadata"
   );
   expectEmptyArray(value.consumerInstallScripts, "publish result consumerInstallScripts");
+  validatePublishProvenance(value.publishProvenance, "publish result publishProvenance");
 }
 
 function readJsonFile(path, label) {
@@ -532,6 +537,33 @@ function validateSignedTargetCiProvenance(actual, expectedTarget, label) {
   }
   if (actual?.runnerArch !== expectedRunnerArch) {
     fail(`${label} ${expectedTarget.name} runnerArch must be ${expectedRunnerArch}`);
+  }
+}
+
+function validatePublishProvenance(actual, label) {
+  if (!actual || typeof actual !== "object" || Array.isArray(actual)) {
+    fail(`${label} is missing`);
+    return;
+  }
+  if (actual.ciProvider !== "github-actions") {
+    fail(`${label} ciProvider must be "github-actions"`);
+  }
+  requireDigits(actual.githubRunId, `${label} githubRunId`);
+  requireDigits(actual.githubRunAttempt, `${label} githubRunAttempt`);
+  if (typeof actual.githubSha !== "string" || !/^[0-9a-f]{40}$/.test(actual.githubSha)) {
+    fail(`${label} githubSha must be a 40-character lowercase hex commit SHA`);
+  }
+  if (actual.githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`${label} githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}`);
+  }
+  if (actual.githubJob !== PUBLISH_JOB) {
+    fail(`${label} githubJob must be ${JSON.stringify(PUBLISH_JOB)}`);
+  }
+  if (actual.runnerOs !== PUBLISH_RUNNER_OS) {
+    fail(`${label} runnerOs must be ${JSON.stringify(PUBLISH_RUNNER_OS)}`);
+  }
+  if (actual.runnerArch !== PUBLISH_RUNNER_ARCH) {
+    fail(`${label} runnerArch must be ${JSON.stringify(PUBLISH_RUNNER_ARCH)}`);
   }
 }
 

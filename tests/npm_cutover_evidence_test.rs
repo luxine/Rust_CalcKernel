@@ -15,6 +15,9 @@ const GITHUB_RUN_ATTEMPT: &str = "2";
 const GITHUB_SHA: &str = "abcdef0123456789abcdef0123456789abcdef01";
 const GITHUB_WORKFLOW: &str = "npm release artifact";
 const GITHUB_JOB: &str = "platform-signoff";
+const PUBLISH_GITHUB_JOB: &str = "publish-npm";
+const PUBLISH_RUNNER_OS: &str = "Linux";
+const PUBLISH_RUNNER_ARCH: &str = "X64";
 const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
@@ -268,6 +271,120 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
     assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"keywords\": ["),
         "cutover evidence verifier should report the public package keywords\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_preserve_publish_job_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        output.status.success(),
+        "matching cutover evidence with publish provenance should pass\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"publishProvenance\": {")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains("\"ciProvider\": \"github-actions\"")
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"githubJob\": \"{PUBLISH_GITHUB_JOB}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"runnerOs\": \"{PUBLISH_RUNNER_OS}\""))
+            && String::from_utf8_lossy(&output.stdout)
+                .contains(&format!("\"runnerArch\": \"{PUBLISH_RUNNER_ARCH}\"")),
+        "cutover evidence verifier should preserve npm publish job provenance\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_publish_result_provenance() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-missing-publish-provenance");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(&publish_artifact, publish_artifact_json(TARBALL_SHA256))
+        .expect("write publish artifact");
+    fs::write(
+        &publish_result,
+        publish_result_json_without_publish_provenance(),
+    )
+    .expect("write publish result without provenance");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing publish result provenance should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publishProvenance"),
+        "failure should identify missing publishProvenance\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -2654,29 +2771,43 @@ fn publish_result_json() -> String {
 }
 
 fn publish_result_json_with_shasum(shasum: &str) -> String {
-    publish_result_json_with_package_version_shasum_and_publish_side_evidence(true, shasum, true)
+    publish_result_json_with_package_version_shasum_publish_side_evidence_and_provenance(
+        true, shasum, true, true,
+    )
 }
 
 fn publish_result_json_without_package_version() -> String {
-    publish_result_json_with_package_version_shasum_and_publish_side_evidence(
+    publish_result_json_with_package_version_shasum_publish_side_evidence_and_provenance(
         false,
         VALID_SHASUM,
+        true,
         true,
     )
 }
 
 fn publish_result_json_without_publish_side_evidence() -> String {
-    publish_result_json_with_package_version_shasum_and_publish_side_evidence(
+    publish_result_json_with_package_version_shasum_publish_side_evidence_and_provenance(
         true,
         VALID_SHASUM,
+        false,
+        true,
+    )
+}
+
+fn publish_result_json_without_publish_provenance() -> String {
+    publish_result_json_with_package_version_shasum_publish_side_evidence_and_provenance(
+        true,
+        VALID_SHASUM,
+        true,
         false,
     )
 }
 
-fn publish_result_json_with_package_version_shasum_and_publish_side_evidence(
+fn publish_result_json_with_package_version_shasum_publish_side_evidence_and_provenance(
     include_package_version: bool,
     shasum: &str,
     include_publish_side_evidence: bool,
+    include_publish_provenance: bool,
 ) -> String {
     let package_version = if include_package_version {
         r#",
@@ -2691,6 +2822,23 @@ fn publish_result_json_with_package_version_shasum_and_publish_side_evidence(
   "publishFilename": "calckernel-0.8.0.tgz",
   "publishShasum": "{shasum}",
   "publishIntegrity": "{VALID_INTEGRITY}""#
+        )
+    } else {
+        String::new()
+    };
+    let publish_provenance = if include_publish_provenance {
+        format!(
+            r#",
+  "publishProvenance": {{
+    "ciProvider": "github-actions",
+    "githubRunId": "{GITHUB_RUN_ID}",
+    "githubRunAttempt": "{GITHUB_RUN_ATTEMPT}",
+    "githubSha": "{GITHUB_SHA}",
+    "githubWorkflow": "{GITHUB_WORKFLOW}",
+    "githubJob": "{PUBLISH_GITHUB_JOB}",
+    "runnerOs": "{PUBLISH_RUNNER_OS}",
+    "runnerArch": "{PUBLISH_RUNNER_ARCH}"
+  }}"#
         )
     } else {
         String::new()
@@ -2712,7 +2860,7 @@ fn publish_result_json_with_package_version_shasum_and_publish_side_evidence(
   "engines": {{
     "node": ">=20"
   }},
-  "consumerInstallScripts": [],
+  "consumerInstallScripts": []{publish_provenance},
   "integrity": "{VALID_INTEGRITY}"
 }}"#
     )

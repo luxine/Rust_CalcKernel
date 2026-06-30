@@ -201,7 +201,11 @@ The workflow runs these stages:
    `packageVersion`, tarball filename, npm integrity, sha1 shasum, and
    successful registry replacement status, including the registry tarball URL
    and the public package identity recorded in
-   `release-manifest.json.packageMetadata`.
+   `release-manifest.json.packageMetadata`. In GitHub Actions, this verifier
+   also records and validates `publishProvenance` for the canonical
+   `npm release artifact` workflow, `publish-npm` job, and Linux/X64 publish
+   runner so registry replacement evidence is tied to the protected publish
+   job that held `NPM_TOKEN`.
    The publish and registry integrity values must both be sha512 npm integrity
    strings and must match; the publish and registry shasum values must both be
    sha1 shasum strings and must match. Finally, it runs `verify:cutover-evidence`
@@ -215,7 +219,8 @@ The workflow runs these stages:
    verifier output including
    `publishArtifactTarballPath`, public
    package identity from `release-manifest.json.packageMetadata`, and
-   post-publish result verifier output into one final evidence JSON.
+   post-publish result verifier output, including the publish job
+   `publishProvenance`, into one final evidence JSON.
    The final `npm-publish` artifact archives the source
    `release-manifest/release-manifest.json`, `release/release-signoff.json`,
    `npm-publish.json`, `npm-registry-replacement.json`,
@@ -323,7 +328,8 @@ source checkout fallback, CKC_BIN unset execution, signed target installed and
 packaged binary paths, signed target Node/npm runtime environment, signed target
 GitHub Actions provenance and runner evidence, CLI smoke commands, root API smoke, TypeScript
 declaration smoke, platform sign-offs, pre-publish artifact check, publish-side
-`publishId`, `publishFilename`, `publishShasum`, and `publishIntegrity`, and
+`publishId`, `publishFilename`, `publishShasum`, `publishIntegrity`, publish
+job `publishProvenance` for the `publish-npm` GitHub Actions job, and
 registry publish result all refer to the same replacement package version.
 Before `npm publish`, run
 `npm run verify:release-signoff-summary -- release-manifest.json release-signoff.json`
@@ -380,8 +386,8 @@ scripts all prove the same npm artifact, explicit `packageVersion`, and public
 package identity.
 The publish, registry, and final cutover evidence must carry the same
 sha512 npm integrity value and sha1 shasum, and final cutover evidence must
-report the registry tarball URL, `publishArtifactTarballPath`, and public
-package identity. It must also validate the formal release manifest
+report the registry tarball URL, `publishArtifactTarballPath`,
+`publishProvenance`, and public package identity. It must also validate the formal release manifest
 `fileSurface`, required/forbidden/allowed file lists, target Rust triples,
 binary paths, file modes, binary formats, architectures, sizes, and SHA256
 values before accepting the final bundle.

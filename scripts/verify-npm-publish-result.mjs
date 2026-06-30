@@ -24,6 +24,10 @@ const EXPECTED_PACKAGE_METADATA = Object.freeze({
   dependencyFields: {},
   consumerInstallScripts: []
 });
+const RELEASE_WORKFLOW = "npm release artifact";
+const PUBLISH_JOB = "publish-npm";
+const PUBLISH_RUNNER_OS = "Linux";
+const PUBLISH_RUNNER_ARCH = "X64";
 const [manifestArg, publishArg, registryArg] = process.argv.slice(2);
 
 if (!manifestArg || !publishArg || !registryArg || manifestArg === "--help" || manifestArg === "-h") {
@@ -43,6 +47,7 @@ const registry = readJsonFile(registryPath, "npm registry replacement result");
 const failures = [];
 
 validateManifest(manifest);
+const publishProvenance = collectPublishProvenance();
 expectEqual(publish.name, manifest.packageName, "publish package name");
 expectEqual(publish.version, manifest.packageVersion, "publish package version");
 expectEqual(publish.id, `${manifest.packageName}@${manifest.packageVersion}`, "publish id");
@@ -130,7 +135,8 @@ console.log(JSON.stringify({
   license: registry.license,
   engines: registry.engines,
   consumerInstallScripts: registry.consumerInstallScripts,
-  integrity: registry.integrity
+  integrity: registry.integrity,
+  publishProvenance
 }, null, 2));
 
 function readJsonFile(path, label) {
@@ -198,6 +204,94 @@ function expectRegistryTarball(tarball, packageName, tarballFile) {
 function expectEmptyArray(actual, label) {
   if (!Array.isArray(actual) || actual.length !== 0) {
     fail(`${label} must be an empty array, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function collectPublishProvenance() {
+  if (process.env.GITHUB_ACTIONS !== "true") {
+    return {
+      ciProvider: "local",
+      githubRunId: "",
+      githubRunAttempt: "",
+      githubSha: "",
+      githubWorkflow: "",
+      githubJob: "",
+      runnerOs: localRunnerOs(),
+      runnerArch: localRunnerArch()
+    };
+  }
+
+  const githubRunId = requireGithubEnv("GITHUB_RUN_ID", "githubRunId");
+  const githubRunAttempt = requireGithubEnv("GITHUB_RUN_ATTEMPT", "githubRunAttempt");
+  const githubSha = requireGithubEnv("GITHUB_SHA", "githubSha");
+  const githubWorkflow = requireGithubEnv("GITHUB_WORKFLOW", "githubWorkflow");
+  const githubJob = requireGithubEnv("GITHUB_JOB", "githubJob");
+  const runnerOs = requireGithubEnv("RUNNER_OS", "runnerOs");
+  const runnerArch = requireGithubEnv("RUNNER_ARCH", "runnerArch");
+
+  if (!/^\d+$/.test(githubRunId)) {
+    fail("githubRunId must be a non-empty decimal string");
+  }
+  if (!/^\d+$/.test(githubRunAttempt)) {
+    fail("githubRunAttempt must be a non-empty decimal string");
+  }
+  if (!/^[0-9a-f]{40}$/.test(githubSha)) {
+    fail("githubSha must be a 40-character lowercase hex commit SHA");
+  }
+  if (githubWorkflow !== RELEASE_WORKFLOW) {
+    fail(`githubWorkflow must be ${JSON.stringify(RELEASE_WORKFLOW)}, found ${JSON.stringify(githubWorkflow)}`);
+  }
+  if (githubJob !== PUBLISH_JOB) {
+    fail(`githubJob must be ${JSON.stringify(PUBLISH_JOB)}, found ${JSON.stringify(githubJob)}`);
+  }
+  if (runnerOs !== PUBLISH_RUNNER_OS) {
+    fail(`runnerOs must be ${JSON.stringify(PUBLISH_RUNNER_OS)}, found ${JSON.stringify(runnerOs)}`);
+  }
+  if (runnerArch !== PUBLISH_RUNNER_ARCH) {
+    fail(`runnerArch must be ${JSON.stringify(PUBLISH_RUNNER_ARCH)}, found ${JSON.stringify(runnerArch)}`);
+  }
+
+  return {
+    ciProvider: "github-actions",
+    githubRunId,
+    githubRunAttempt,
+    githubSha,
+    githubWorkflow,
+    githubJob,
+    runnerOs,
+    runnerArch
+  };
+}
+
+function requireGithubEnv(envName, evidenceName) {
+  const value = process.env[envName];
+  if (typeof value !== "string" || value.length === 0) {
+    fail(`${evidenceName} is required when GITHUB_ACTIONS=true`);
+  }
+  return value;
+}
+
+function localRunnerOs() {
+  switch (process.platform) {
+    case "darwin":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    case "win32":
+      return "Windows";
+    default:
+      return process.platform;
+  }
+}
+
+function localRunnerArch() {
+  switch (process.arch) {
+    case "arm64":
+      return "ARM64";
+    case "x64":
+      return "X64";
+    default:
+      return process.arch;
   }
 }
 

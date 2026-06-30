@@ -180,6 +180,110 @@ fn public_api_parity_verifier_should_reject_runtime_object_property_mismatch() {
 }
 
 #[test]
+fn public_api_parity_verifier_should_reject_non_enumerable_runtime_object_property_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-public-api-object-own-property-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_index = temp.join("rust-index.mjs");
+    let typescript_index = temp.join("typescript-index.mjs");
+    fs::write(
+        &rust_index,
+        "export const shared = { Present: \"Present\" };\n",
+    )
+    .expect("write Rust mock index");
+    fs::write(
+        &typescript_index,
+        [
+            "const shared = { Present: \"Present\" };",
+            "Object.defineProperty(shared, \"Hidden\", { value: \"Hidden\", enumerable: false, configurable: true, writable: true });",
+            "export { shared };",
+            "",
+        ]
+        .join("\n"),
+    )
+    .expect("write TypeScript mock index");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-public-api-parity.mjs")
+        .arg("--rust-index")
+        .arg(&rust_index)
+        .arg("--typescript-index")
+        .arg(&typescript_index)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run public API parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched runtime object own properties should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("runtime object property mismatch for shared"),
+        "failure should identify the mismatched runtime object own property\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn public_api_parity_verifier_should_reject_runtime_object_metadata_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-public-api-object-metadata-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_index = temp.join("rust-index.mjs");
+    let typescript_index = temp.join("typescript-index.mjs");
+    fs::write(&rust_index, "export const shared = {};\n").expect("write Rust mock index");
+    fs::write(
+        &typescript_index,
+        [
+            "const shared = {};",
+            "Object.preventExtensions(shared);",
+            "export { shared };",
+            "",
+        ]
+        .join("\n"),
+    )
+    .expect("write TypeScript mock index");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-public-api-parity.mjs")
+        .arg("--rust-index")
+        .arg(&rust_index)
+        .arg("--typescript-index")
+        .arg(&typescript_index)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run public API parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched runtime object metadata should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("runtime object metadata mismatch for shared"),
+        "failure should identify the mismatched runtime object metadata\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn public_api_parity_verifier_should_reject_runtime_object_property_descriptor_mismatch() {
     if !node_available() {
         return;
@@ -384,6 +488,56 @@ fn public_api_parity_verifier_should_reject_runtime_class_constructor_metadata_m
         String::from_utf8_lossy(&output.stderr)
             .contains("runtime class constructor metadata mismatch for Shared"),
         "failure should identify the mismatched runtime class constructor metadata\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn public_api_parity_verifier_should_reject_runtime_class_object_metadata_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-public-api-class-object-metadata-parity");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let rust_index = temp.join("rust-index.mjs");
+    let typescript_index = temp.join("typescript-index.mjs");
+    fs::write(&rust_index, "export class Shared {}\n").expect("write Rust mock index");
+    fs::write(
+        &typescript_index,
+        [
+            "class Shared {}",
+            "Object.preventExtensions(Shared.prototype);",
+            "export { Shared };",
+            "",
+        ]
+        .join("\n"),
+    )
+    .expect("write TypeScript mock index");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-public-api-parity.mjs")
+        .arg("--rust-index")
+        .arg(&rust_index)
+        .arg("--typescript-index")
+        .arg(&typescript_index)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run public API parity verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched runtime class object metadata should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("runtime class object metadata mismatch for Shared"),
+        "failure should identify the mismatched runtime class object metadata\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );

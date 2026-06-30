@@ -72,6 +72,12 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   }
   const rustObject = rustObjectProperties.get(name);
   const typescriptObject = typescriptObjectProperties.get(name);
+  if (rustObject && typescriptObject && !sameJson(rustObject.metadata, typescriptObject.metadata)) {
+    fail(
+      `runtime object metadata mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustObject.metadata)}, TypeScript ${JSON.stringify(typescriptObject.metadata)}`
+    );
+  }
   if (rustObject && typescriptObject && !sameJson(rustObject.properties, typescriptObject.properties)) {
     fail(
       `runtime object property mismatch for ${name}: ` +
@@ -83,7 +89,13 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
   if (rustClass && typescriptClass && !sameJson(rustClass.metadata, typescriptClass.metadata)) {
     fail(
       `runtime class constructor metadata mismatch for ${name}: ` +
-        `Rust ${JSON.stringify(rustClass.metadata)}, TypeScript ${JSON.stringify(typescriptClass.metadata)}`
+      `Rust ${JSON.stringify(rustClass.metadata)}, TypeScript ${JSON.stringify(typescriptClass.metadata)}`
+    );
+  }
+  if (rustClass && typescriptClass && !sameJson(rustClass.objectMetadata, typescriptClass.objectMetadata)) {
+    fail(
+      `runtime class object metadata mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustClass.objectMetadata)}, TypeScript ${JSON.stringify(typescriptClass.objectMetadata)}`
     );
   }
   if (rustClass && typescriptClass && !sameJson(rustClass.members, typescriptClass.members)) {
@@ -111,11 +123,17 @@ console.log(JSON.stringify({
   functionMetadata: Object.fromEntries(
     [...rustFunctionMetadata.entries()].map(([name, info]) => [name, info.metadata])
   ),
+  objectMetadata: Object.fromEntries(
+    [...rustObjectProperties.entries()].map(([name, info]) => [name, info.metadata])
+  ),
   objectProperties: Object.fromEntries(
     [...rustObjectProperties.entries()].map(([name, info]) => [name, info.properties])
   ),
   classMetadata: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.metadata])
+  ),
+  classObjectMetadata: Object.fromEntries(
+    [...rustClassMembers.entries()].map(([name, info]) => [name, info.objectMetadata])
   ),
   classMembers: Object.fromEntries(
     [...rustClassMembers.entries()].map(([name, info]) => [name, info.members])
@@ -200,7 +218,7 @@ function runtimeObjectPropertyInfo(value) {
   if (runtimeExportKind(value) !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const properties = Object.keys(value)
+  const properties = Object.getOwnPropertyNames(value)
     .sort()
     .map((name) => {
       const descriptor = Object.getOwnPropertyDescriptor(value, name);
@@ -212,7 +230,10 @@ function runtimeObjectPropertyInfo(value) {
         value: runtimeComparablePropertyValue(propertyValue)
       };
     });
-  return { properties };
+  return {
+    metadata: runtimeObjectMetadata(value),
+    properties
+  };
 }
 
 function runtimeClassMemberInfo(value) {
@@ -223,6 +244,10 @@ function runtimeClassMemberInfo(value) {
   const prototypeMembers = classMemberEntries(value.prototype, "prototype", ["constructor"]);
   return {
     metadata: runtimeFunctionMetadata(value),
+    objectMetadata: {
+      constructor: runtimeObjectMetadata(value),
+      prototype: runtimeObjectMetadata(value.prototype)
+    },
     members: [...staticMembers, ...prototypeMembers].sort(compareClassMembers)
   };
 }
@@ -277,6 +302,14 @@ function descriptorAttributes(descriptor) {
     attributes.writable = descriptor.writable;
   }
   return attributes;
+}
+
+function runtimeObjectMetadata(value) {
+  return {
+    extensible: Object.isExtensible(value),
+    sealed: Object.isSealed(value),
+    frozen: Object.isFrozen(value)
+  };
 }
 
 function descriptorFunctionMetadata(descriptor) {

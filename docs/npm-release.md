@@ -379,16 +379,18 @@ assignability. The Rust package root runtime exports exactly the same public
 JavaScript API names and runtime export kind (`class`, `function`, `object`,
 etc.) as `dist/src/index.js`. Function exports must match the TypeScript
 runtime function metadata surface for observable arity (`.length`), and object
-exports such as `TokenKind` must match the TypeScript runtime object property
-surface by own enumerable property name, property kind, and primitive property
-value, plus the runtime object property descriptor surface for
+exports such as `TokenKind` must match the TypeScript runtime object metadata surface
+for extensible/sealed/frozen state, runtime object own property surface by own
+property name, runtime object property surface by property kind and primitive
+property value, plus the runtime object property descriptor surface for
 enumerable/configurable/writable flags. Class exports must also match the
 TypeScript runtime class constructor metadata surface for observable constructor
-arity (`.length`) plus the runtime class member surface by static/prototype own
-member name, member placement, member kind, runtime class member descriptor surface
-for enumerable/configurable/writable flags, runtime class member function metadata surface
-for observable member arity (`.length`), and primitive member value where
-applicable.
+arity (`.length`), runtime class object metadata surface for constructor and
+prototype extensible/sealed/frozen state, plus the runtime class member surface
+by static/prototype own member name, member placement, member kind, runtime
+class member descriptor surface for enumerable/configurable/writable flags,
+runtime class member function metadata surface for observable member arity
+(`.length`), and primitive member value where applicable.
 
 Cutover is complete only after the release tarball contains every supported
 binary, each target platform has passed `verify:host-npm-install`, and the
@@ -465,10 +467,13 @@ readonly/optional 标记和 TypeScript 结构类型兼容性）、enum member su
 assignability）对齐；同时确认 runtime exports 与
 `dist/src/index.js` 的 public JavaScript API 名称、runtime export kind、function
 export 的 runtime function metadata surface（可观察 arity / `.length`）以及
-`TokenKind` 这类 object export 的 runtime object property surface（自有可枚举
-属性名、属性 kind、primitive 属性值，以及 runtime object property descriptor surface
-的 enumerable/configurable/writable flags）、class export 的 runtime class constructor metadata surface
-（可观察 constructor arity / `.length`）以及 runtime class member surface
+`TokenKind` 这类 object export 的 runtime object metadata surface
+（extensible/sealed/frozen 状态）、runtime object own property surface（自有属性名）、
+runtime object property surface（属性 kind、primitive 属性值，以及
+runtime object property descriptor surface 的 enumerable/configurable/writable
+flags）、class export 的 runtime class constructor metadata surface
+（可观察 constructor arity / `.length`）、runtime class object metadata surface
+（constructor/prototype extensible/sealed/frozen 状态）以及 runtime class member surface
 （static/prototype 自有成员名、成员位置、成员 kind、runtime class member descriptor surface
 的 enumerable/configurable/writable flags、runtime class member function metadata surface
 的可观察 member arity / `.length`，以及适用时的

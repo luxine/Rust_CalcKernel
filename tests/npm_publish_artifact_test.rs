@@ -162,6 +162,7 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
     "packageJsonFiles": [
       "npm",
       "README.md",
+      "README.zh-CN.md",
       "docs/npm-release.md",
       "docs/architecture-review.md",
       "docs/zh-CN/architecture-review.md"
@@ -175,7 +176,8 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
       "package/docs/npm-release.md",
       "package/docs/architecture-review.md",
       "package/docs/zh-CN/architecture-review.md",
-      "package/README.md"
+      "package/README.md",
+      "package/README.zh-CN.md"
     ],
     "forbiddenPrefixes": [
       "package/docs/superpowers/",
@@ -184,6 +186,7 @@ fn release_manifest_json(tarball: &str, tarball_sha256: &str) -> String {
     ],
     "allowedEntries": [
       "package/README.md",
+      "package/README.zh-CN.md",
       "package/docs/architecture-review.md",
       "package/docs/npm-release.md",
       "package/docs/zh-CN/architecture-review.md",

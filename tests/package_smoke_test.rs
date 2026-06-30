@@ -598,6 +598,7 @@ try {
     assert.deepEqual(manifest.fileSurface.packageJsonFiles, [
       "npm",
       "README.md",
+      "README.zh-CN.md",
       "docs/npm-release.md",
       "docs/architecture-review.md",
       "docs/zh-CN/architecture-review.md"
@@ -611,7 +612,8 @@ try {
       "package/docs/npm-release.md",
       "package/docs/architecture-review.md",
       "package/docs/zh-CN/architecture-review.md",
-      "package/README.md"
+      "package/README.md",
+      "package/README.zh-CN.md"
     ]);
     assert.deepEqual(manifest.fileSurface.forbiddenPrefixes, [
       "package/docs/superpowers/",
@@ -864,6 +866,7 @@ assert(files.includes("npm/index.d.ts"));
 assert(files.includes("npm/ckc.js"));
 assert(files.includes("npm/platform.js"));
 assert(files.includes("README.md"));
+assert(files.includes("README.zh-CN.md"));
 assert(files.includes("docs/npm-release.md"));
 assert(files.includes("docs/architecture-review.md"));
 assert(files.includes("docs/zh-CN/architecture-review.md"));

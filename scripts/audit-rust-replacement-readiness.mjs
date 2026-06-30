@@ -19,6 +19,7 @@ expectJson(
   [
     "npm",
     "README.md",
+    "README.zh-CN.md",
     "docs/npm-release.md",
     "docs/architecture-review.md",
     "docs/zh-CN/architecture-review.md"
@@ -63,6 +64,8 @@ for (const path of [
   "scripts/verify-typescript-oracle.mjs",
   "docs/typescript-test-surface.json",
   "docs/npm-release.md",
+  "README.md",
+  "README.zh-CN.md",
   "docs/architecture-review.md",
   "docs/zh-CN/architecture-review.md"
 ]) {
@@ -70,6 +73,10 @@ for (const path of [
 }
 
 const npmRelease = readFileSync(join(root, "docs/npm-release.md"), "utf8");
+const readme = readFileSync(join(root, "README.md"), "utf8");
+const zhReadme = readFileSync(join(root, "README.zh-CN.md"), "utf8");
+expectIncludes(readme, "README.zh-CN.md", "README language link");
+expectIncludes(zhReadme, "README.md", "Chinese README language link");
 expectIncludes(npmRelease, "CKC_NPM_BINARIES_DIR", "npm release docs");
 expectIncludes(npmRelease, "--expect-complete", "npm release docs");
 expectIncludes(npmRelease, "verify:npm-release", "npm release docs");

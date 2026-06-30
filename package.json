@@ -17,6 +17,7 @@
   "files": [
     "npm",
     "README.md",
+    "README.zh-CN.md",
     "docs/npm-release.md",
     "docs/architecture-review.md",
     "docs/zh-CN/architecture-review.md"

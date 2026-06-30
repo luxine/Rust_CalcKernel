@@ -17,7 +17,7 @@ keeping the public package name, CLI name, and JavaScript helper API stable.
 - A published release tarball contains the full supported binary matrix under
   `npm/bin/`.
 - The package file surface is intentionally narrow: `README.md`,
-  `docs/npm-release.md`, `docs/architecture-review.md`,
+  `README.zh-CN.md`, `docs/npm-release.md`, `docs/architecture-review.md`,
   `docs/zh-CN/architecture-review.md`, `package.json`, and the `npm/`
   runtime files.
 - Published packages must not include internal `docs/superpowers/` planning or
@@ -218,7 +218,8 @@ before `npm pack`. `verify:npm-release` rejects any file outside the release fil
 prints a JSON manifest containing the tarball filename, tarball SHA256,
 Rust package metadata (`type`, `main`, `types`, `exports`, `bin`, and empty
 dependency fields), explicit `consumerInstallScripts: []` evidence,
-`package.json` `files` whitelist, allowed tarball entries,
+`package.json` `files` whitelist including `README.zh-CN.md`,
+allowed tarball entries,
 required package files, forbidden internal prefixes, every packaged binary file mode,
 architecture, format, size, and SHA256. It also rejects staged target binaries
 that do not look like their expected executable format and architecture, or

@@ -678,41 +678,50 @@ try {
       assert.equal(target.fileMode[3], expectedTarget.platform === "win32" ? "-" : "x");
     }
 
-    const dirtyGitRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-dirty-release-git-"));
+    const externalVerifierSource = createReleaseVerifierSourceRoot("release-verifier-source");
+    const externalCaller = createGitRepo("release-verifier-caller");
     try {
-      writeFileSync(join(dirtyGitRoot, "tracked.txt"), "committed\n");
-      const init = spawnSync("git", ["init"], { cwd: dirtyGitRoot, encoding: "utf8" });
-      assert.equal(init.status, 0, init.stderr || init.stdout);
-      const add = spawnSync("git", ["add", "tracked.txt"], { cwd: dirtyGitRoot, encoding: "utf8" });
-      assert.equal(add.status, 0, add.stderr || add.stdout);
-      const commit = spawnSync("git", [
-        "-c",
-        "user.name=CalcKernel Test",
-        "-c",
-        "user.email=calckernel@example.invalid",
-        "commit",
-        "-m",
-        "initial"
-      ], {
-        cwd: dirtyGitRoot,
-        encoding: "utf8"
-      });
-      assert.equal(commit.status, 0, commit.stderr || commit.stdout);
-      writeFileSync(join(dirtyGitRoot, "tracked.txt"), "dirty\n");
-      const dirtyReleaseEnv = { ...process.env };
-      delete dirtyReleaseEnv.GITHUB_SHA;
-      const verifyDirtySource = spawnSync(process.execPath, [
-        join(root, "scripts/verify-npm-release.mjs"),
+      const localReleaseEnv = { ...process.env };
+      delete localReleaseEnv.GITHUB_SHA;
+      const verifyFromOtherRepo = spawnSync(process.execPath, [
+        join(externalVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"),
         matrixTarball
       ], {
-        cwd: dirtyGitRoot,
-        env: dirtyReleaseEnv,
+        cwd: externalCaller.repoRoot,
+        env: localReleaseEnv,
+        encoding: "utf8"
+      });
+      assert.equal(verifyFromOtherRepo.status, 0, verifyFromOtherRepo.stderr || verifyFromOtherRepo.stdout);
+      const externalManifest = JSON.parse(verifyFromOtherRepo.stdout);
+      assert.equal(externalManifest.sourceGitSha, externalVerifierSource.gitSha);
+      assert.notEqual(externalManifest.sourceGitSha, externalCaller.gitSha);
+    } finally {
+      rmSync(externalVerifierSource.repoRoot, { recursive: true, force: true });
+      rmSync(externalCaller.repoRoot, { recursive: true, force: true });
+    }
+
+    const dirtyVerifierSource = createReleaseVerifierSourceRoot("dirty-release-verifier-source");
+    const cleanCaller = createGitRepo("dirty-release-verifier-caller");
+    try {
+      writeFileSync(
+        join(dirtyVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"),
+        `${readFileSync(join(dirtyVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"), "utf8")}\n// dirty source\n`
+      );
+      const localReleaseEnv = { ...process.env };
+      delete localReleaseEnv.GITHUB_SHA;
+      const verifyDirtySource = spawnSync(process.execPath, [
+        join(dirtyVerifierSource.repoRoot, "scripts", "verify-npm-release.mjs"),
+        matrixTarball
+      ], {
+        cwd: cleanCaller.repoRoot,
+        env: localReleaseEnv,
         encoding: "utf8"
       });
       assert.notEqual(verifyDirtySource.status, 0, verifyDirtySource.stdout);
       assert.match(verifyDirtySource.stderr, /source git worktree must be clean/);
     } finally {
-      rmSync(dirtyGitRoot, { recursive: true, force: true });
+      rmSync(dirtyVerifierSource.repoRoot, { recursive: true, force: true });
+      rmSync(cleanCaller.repoRoot, { recursive: true, force: true });
     }
 
     const mutatedBinaryRoot = mkdtempSync(join(tmpdir(), "rust-calckernel-mutated-binary-pack-"));
@@ -974,6 +983,56 @@ function expectedBinaryFormat(target) {
   if (target.platform === "linux") return "ELF";
   if (target.platform === "win32") return "PE";
   throw new Error(`unsupported test target ${target.name}`);
+}
+
+function createReleaseVerifierSourceRoot(name) {
+  const repoRoot = mkdtempSync(join(tmpdir(), `rust-calckernel-${name}-`));
+  mkdirSync(join(repoRoot, "scripts"), { recursive: true });
+  mkdirSync(join(repoRoot, "npm"), { recursive: true });
+  writeFileSync(
+    join(repoRoot, "scripts", "verify-npm-release.mjs"),
+    readFileSync(join(root, "scripts", "verify-npm-release.mjs"))
+  );
+  writeFileSync(
+    join(repoRoot, "npm", "platform.js"),
+    readFileSync(join(root, "npm", "platform.js"))
+  );
+  return {
+    repoRoot,
+    gitSha: commitGitRepo(repoRoot, "README.md", "release verifier source\n")
+  };
+}
+
+function createGitRepo(name) {
+  const repoRoot = mkdtempSync(join(tmpdir(), `rust-calckernel-${name}-`));
+  return {
+    repoRoot,
+    gitSha: commitGitRepo(repoRoot, "tracked.txt", "committed\n")
+  };
+}
+
+function commitGitRepo(repoRoot, fileName, contents) {
+  writeFileSync(join(repoRoot, fileName), contents);
+  const init = spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr || init.stdout);
+  const add = spawnSync("git", ["add", "."], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(add.status, 0, add.stderr || add.stdout);
+  const commit = spawnSync("git", [
+    "-c",
+    "user.name=CalcKernel Test",
+    "-c",
+    "user.email=calckernel@example.invalid",
+    "commit",
+    "-m",
+    "initial"
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(commit.status, 0, commit.stderr || commit.stdout);
+  const revParse = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(revParse.status, 0, revParse.stderr || revParse.stdout);
+  return revParse.stdout.trim();
 }
 
 const memory = new WebAssembly.Memory({ initial: 1 });

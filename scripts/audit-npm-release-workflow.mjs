@@ -160,12 +160,19 @@ if (!existsSync(workflowPath)) {
   expectIncludes(npmPublishArtifact, "npm-publish-result.json", "npm publish artifact publish result verifier output");
   expectIncludes(npmPublishArtifact, "npm-cutover-evidence.json", "npm publish artifact final cutover evidence output");
   expectIncludes(releaseVerifier, "sourceGitSha: readSourceGitSha()", "release manifest sourceGitSha emission");
+  expectIncludes(releaseVerifier, "fileURLToPath(import.meta.url)", "release manifest source root from verifier script");
+  expectIncludes(releaseVerifier, "const sourceRoot =", "release manifest source root binding");
   expectIncludes(releaseVerifier, "const githubSha = process.env.GITHUB_SHA;", "release manifest GITHUB_SHA input");
   expectIncludes(releaseVerifier, "requireCleanGitWorktree();", "release manifest clean source worktree check");
   expectIncludes(
     releaseVerifier,
-    "spawnSync(\"git\", [\"rev-parse\", \"HEAD\"]",
+    "spawnSync(\"git\", [\"rev-parse\", \"HEAD\"], { cwd: sourceRoot",
     "release manifest local git source SHA fallback"
+  );
+  expectIncludes(
+    releaseVerifier,
+    "spawnSync(\"git\", [\"status\", \"--porcelain\"], { cwd: sourceRoot",
+    "release manifest clean source worktree root"
   );
   expectIncludes(
     hostInstallVerifier,

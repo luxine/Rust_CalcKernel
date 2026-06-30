@@ -2,7 +2,8 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platform.js";
 
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
@@ -31,6 +32,7 @@ const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
   "verify:typescript-oracle"
 ]);
 const tarballArg = process.argv[2];
+const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 if (!tarballArg || tarballArg === "--help" || tarballArg === "-h") {
   console.error("Usage: node scripts/verify-npm-release.mjs <calckernel-version.tgz>");
@@ -228,7 +230,7 @@ function readSourceGitSha() {
 
   requireCleanGitWorktree();
 
-  const output = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" });
+  const output = spawnSync("git", ["rev-parse", "HEAD"], { cwd: sourceRoot, encoding: "utf8" });
   if (output.error) {
     fail(`Unable to read source git SHA: ${output.error.message}`);
   }
@@ -245,7 +247,7 @@ function readSourceGitSha() {
 }
 
 function requireCleanGitWorktree() {
-  const output = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+  const output = spawnSync("git", ["status", "--porcelain"], { cwd: sourceRoot, encoding: "utf8" });
   if (output.error) {
     fail(`Unable to verify clean source git worktree: ${output.error.message}`);
   }

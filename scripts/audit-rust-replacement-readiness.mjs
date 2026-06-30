@@ -157,6 +157,7 @@ expectIncludes(npmRelease, "function signature compatibility", "npm release docs
 expectIncludes(npmRelease, "class member surface", "npm release docs");
 expectIncludes(npmRelease, "interface member surface", "npm release docs");
 expectIncludes(npmRelease, "enum member surface", "npm release docs");
+expectIncludes(npmRelease, "type alias surface", "npm release docs");
 expectIncludes(npmRelease, "runtime export kind", "npm release docs");
 expectIncludes(npmRelease, "typeSmoke", "npm release docs");
 expectIncludes(npmRelease, "typescript@^5.8.0", "npm release docs");

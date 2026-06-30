@@ -154,6 +154,7 @@ fn rust_replacement_readiness_audit_should_require_declaration_parity_verifier()
         r#"expectIncludes(npmRelease, "class member surface", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "interface member surface", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "enum member surface", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "type alias surface", "npm release docs")"#,
     ] {
         assert!(
             audit.contains(expected),

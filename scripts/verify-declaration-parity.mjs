@@ -68,6 +68,16 @@ const typescriptEnumMembers = new Map(
     .filter((entry) => entry.enumMemberInfo)
     .map((entry) => [entry.name, entry.enumMemberInfo])
 );
+const rustTypeAliases = new Map(
+  rustSurface
+    .filter((entry) => entry.typeAliasInfo)
+    .map((entry) => [entry.name, entry.typeAliasInfo])
+);
+const typescriptTypeAliases = new Map(
+  typescriptSurface
+    .filter((entry) => entry.typeAliasInfo)
+    .map((entry) => [entry.name, entry.typeAliasInfo])
+);
 
 if (extraRustExports.length > 0) {
   fail(`extra Rust declaration exports: ${extraRustExports.join(", ")}`);
@@ -121,6 +131,18 @@ for (const name of rustExports.filter((exportName) => typescriptExports.includes
         `Rust ${JSON.stringify(rustEnum.members)}, TypeScript ${JSON.stringify(typescriptEnum.members)}`
     );
   }
+  const rustTypeAlias = rustTypeAliases.get(name);
+  const typescriptTypeAlias = typescriptTypeAliases.get(name);
+  if (
+    rustTypeAlias
+    && typescriptTypeAlias
+    && !typeAliasesAreCompatible(rustTypeAlias, typescriptTypeAlias, checker)
+  ) {
+    fail(
+      `declaration type alias mismatch for ${name}: ` +
+        `Rust ${JSON.stringify(rustTypeAlias.texts)}, TypeScript ${JSON.stringify(typescriptTypeAlias.texts)}`
+    );
+  }
 }
 
 if (failures.length > 0) {
@@ -148,6 +170,9 @@ console.log(JSON.stringify({
   ),
   enumMembers: Object.fromEntries(
     [...rustEnumMembers.entries()].map(([name, info]) => [name, info.members])
+  ),
+  typeAliases: Object.fromEntries(
+    [...rustTypeAliases.entries()].map(([name, info]) => [name, info.texts])
   )
 }, null, 2));
 
@@ -251,7 +276,8 @@ function readDeclarationExportSurface(program, checker, path, label) {
       functionInfo: declarationFunctionInfo(symbol, checker),
       classMemberInfo: declarationClassMemberInfo(symbol, checker),
       interfaceMemberInfo: declarationInterfaceMemberInfo(symbol, checker),
-      enumMemberInfo: declarationEnumMemberInfo(symbol, checker)
+      enumMemberInfo: declarationEnumMemberInfo(symbol, checker),
+      typeAliasInfo: declarationTypeAliasInfo(symbol, checker)
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -328,6 +354,28 @@ function declarationEnumMemberInfo(symbol, checker) {
   return { members };
 }
 
+function declarationTypeAliasInfo(symbol, checker) {
+  const resolvedSymbol = resolveAliasedSymbol(symbol, checker);
+  const typeAliasDeclarations = (resolvedSymbol.getDeclarations() ?? []).filter(ts.isTypeAliasDeclaration);
+  if (typeAliasDeclarations.length === 0) {
+    return null;
+  }
+  const anchor = typeAliasDeclarations[0];
+  const printer = ts.createPrinter({ removeComments: true });
+  const type = checker.getDeclaredTypeOfSymbol(resolvedSymbol);
+  const texts = typeAliasDeclarations
+    .map((declaration) => typeAliasText(declaration, printer))
+    .sort();
+  return { type, texts };
+}
+
+function typeAliasText(declaration, printer) {
+  return printer
+    .printNode(ts.EmitHint.Unspecified, declaration, declaration.getSourceFile())
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function enumMemberText(member, declaration, checker) {
   const name = member.name.getText(declaration.getSourceFile()).replace(/^["']|["']$/g, "");
   const constantValue = checker.getConstantValue(member);
@@ -390,6 +438,14 @@ function interfaceMemberTypesAreCompatible(rustMember, typescriptMember, checker
   }
   return checker.isTypeAssignableTo(rustMember.type, typescriptMember.type)
     && checker.isTypeAssignableTo(typescriptMember.type, rustMember.type);
+}
+
+function typeAliasesAreCompatible(rustTypeAlias, typescriptTypeAlias, checker) {
+  if (sameJson(rustTypeAlias.texts, typescriptTypeAlias.texts)) {
+    return true;
+  }
+  return checker.isTypeAssignableTo(rustTypeAlias.type, typescriptTypeAlias.type)
+    && checker.isTypeAssignableTo(typescriptTypeAlias.type, rustTypeAlias.type);
 }
 
 function resolveAliasedSymbol(symbol, checker) {

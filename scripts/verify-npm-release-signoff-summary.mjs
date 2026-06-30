@@ -40,6 +40,7 @@ console.log(JSON.stringify({
   targets: signoff.targets,
   signedTargets: signoff.signedTargets,
   sourceFallback: signoff.sourceFallback,
+  backendRuntimeSmokes: signoff.backendRuntimeSmokes,
   evidence: {
     manifest: manifestPath,
     releaseSignoff: signoffPath
@@ -76,6 +77,7 @@ function validateReleaseSignoff(value, manifest) {
     fail(`release sign-off targets must be ${JSON.stringify(expectedTargets)}, found ${JSON.stringify(value.targets)}`);
   }
   validateSignedTargets(value.signedTargets, "release sign-off signedTargets");
+  validateBackendRuntimeSmokes(value.backendRuntimeSmokes, "release sign-off backendRuntimeSmokes");
 
   const manifestTargetShaByName = new Map(manifest.targets.map((target) => [target.name, target.sha256]));
   for (const target of value.signedTargets ?? []) {
@@ -85,6 +87,21 @@ function validateReleaseSignoff(value, manifest) {
       );
     }
   }
+}
+
+function validateBackendRuntimeSmokes(actual, label) {
+  const expected = backendRuntimeSmokes();
+  if (!sameStringArray(actual, expected)) {
+    fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function backendRuntimeSmokes() {
+  return [
+    "node smoke-c-runtime.mjs",
+    "node smoke-wasm-runtime.mjs",
+    "node smoke-llvm-object-runtime.mjs"
+  ];
 }
 
 function readJsonFile(path, label) {

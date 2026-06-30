@@ -110,6 +110,7 @@ expectIncludes(npmRelease, "packagedBinarySha256", "npm release docs");
 expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs");
 expectIncludes(npmRelease, "sourceFallback", "npm release docs");
 expectIncludes(npmRelease, "backend runtime smoke", "npm release docs");
+expectIncludes(npmRelease, "backendRuntimeSmokes", "npm release docs");
 expectIncludes(npmRelease, "node smoke-c-runtime.mjs", "npm release docs");
 expectIncludes(npmRelease, "node smoke-wasm-runtime.mjs", "npm release docs");
 expectIncludes(npmRelease, "node smoke-llvm-object-runtime.mjs", "npm release docs");

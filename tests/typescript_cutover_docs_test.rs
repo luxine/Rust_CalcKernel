@@ -95,6 +95,7 @@ fn rust_replacement_readiness_audit_should_require_host_signoff_type_smoke_compi
         r#"expectIncludes(npmRelease, "signed target binary SHA256", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "sourceFallback", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "backend runtime smoke", "npm release docs")"#,
+        r#"expectIncludes(npmRelease, "backendRuntimeSmokes", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "node smoke-c-runtime.mjs", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "node smoke-wasm-runtime.mjs", "npm release docs")"#,
         r#"expectIncludes(npmRelease, "node smoke-llvm-object-runtime.mjs", "npm release docs")"#,

@@ -74,7 +74,11 @@ tarball SHA256, installed `node_modules/.bin/ckc` path, packaged
 `packagedBinarySha256` for that Rust binary, command list, API symbols,
 TypeScript smoke status, `ckcBinOverride: "unset"`, and
 `sourceFallback: "disabled"` so it can be archived as a platform sign-off that
-cannot be satisfied by a local source checkout fallback.
+cannot be satisfied by a local source checkout fallback. The aggregate
+`release-signoff.json`, `release-signoff-summary.json`, and final
+`npm-cutover-evidence.json` also carry `backendRuntimeSmokes` so the final
+cutover bundle preserves the C/WASM/LLVM runtime smoke commands, not just the
+target SHA256s.
 To verify an already generated tarball instead of repacking, pass its path:
 
 ```sh
@@ -249,6 +253,8 @@ evidence, missing backend runtime smoke commands (`node smoke-c-runtime.mjs`,
 missing public API symbols, missing installed/package binary path evidence,
 enabled source checkout fallbacks, mismatched
 `packagedBinarySha256` values, and TypeScript declaration smoke failures.
+The release sign-off summary and final cutover verifier require the same
+`backendRuntimeSmokes` list to match `release-signoff.json`.
 `verify:host-npm-install` must report
 `typeSmoke: "passed"` on every sign-off target; skipped declaration smokes are
 not acceptable release evidence.
@@ -361,8 +367,10 @@ smoke evidence 缺失、backend runtime smoke 命令
 `node smoke-c-runtime.mjs`、`node smoke-wasm-runtime.mjs`、
 `node smoke-llvm-object-runtime.mjs` 缺失、公开 API symbol 缺失、
 `packagedBinarySha256` 与 release manifest target SHA256 不一致，以及
-TypeScript declaration smoke 未通过的签核文件。最终
-cutover evidence 必须归档 signed target binary SHA256 值。
+TypeScript declaration smoke 未通过的签核文件。`release-signoff-summary.json`
+和最终 cutover verifier 还会要求 `backendRuntimeSmokes` 与
+`release-signoff.json` 一致。最终 cutover evidence 必须归档 signed target
+binary SHA256 值和 backend runtime smoke 清单。
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的

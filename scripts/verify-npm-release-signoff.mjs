@@ -63,7 +63,8 @@ console.log(JSON.stringify({
   targetCount: verifiedTargets.length,
   targets: verifiedTargets,
   signedTargets,
-  sourceFallback: "disabled"
+  sourceFallback: "disabled",
+  backendRuntimeSmokes: backendRuntimeSmokes()
 }, null, 2));
 
 function validateManifest(manifest) {
@@ -193,9 +194,16 @@ function requiredCommands() {
     "ckc emit-wasm smoke.ck -o build/smoke.wasm",
     "ckc emit-llvm smoke.ck -o build/smoke.ll",
     "ckc build smoke.ck -o build/smoke-c",
+    ...backendRuntimeSmokes().slice(0, 2),
+    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
+    backendRuntimeSmokes()[2]
+  ];
+}
+
+function backendRuntimeSmokes() {
+  return [
     "node smoke-c-runtime.mjs",
     "node smoke-wasm-runtime.mjs",
-    "ckc build-llvm smoke.ck --kind object -o build/smoke.o",
     "node smoke-llvm-object-runtime.mjs"
   ];
 }

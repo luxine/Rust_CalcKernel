@@ -178,7 +178,9 @@ The workflow runs these stages:
 7. When publication is intentionally approved, rerun or dispatch the workflow
    with `publish=true`. The `publish-npm` job requires the protected
    `npm-production` environment, `secrets.NPM_TOKEN`, and npm provenance
-   (`npm publish --provenance --access public`). Before publishing, it runs
+   (`npm publish --provenance --access public`). It fails fast when
+   `secrets.NPM_TOKEN` is empty before invoking `npm publish`. Before
+   publishing, it runs
    `verify:release-signoff-summary` against `release-manifest.json` and
    `release-signoff.json` and writes `release-signoff-summary.json` so
    publication cannot start from a missing or mismatched six-platform sign-off
@@ -451,8 +453,10 @@ TypeScript declaration smoke、backend runtime smoke 清单，以及 publish-sid
 真正替换 npm registry 上的包时，必须显式用 `publish=true` 触发 workflow 的
 `publish-npm` job；该 job 需要受保护的 `npm-production` environment、
 `NPM_TOKEN`，并用 `npm publish --provenance --access public` 发布已经签核的
-同一个 tarball。`audit-npm-release-workflow` 会拒绝被破坏的 release job
-依赖链，尤其是 `publish-npm` 不再依赖 `finalize-signoff` 的 workflow。发布前必须先运行 `verify:release-signoff-summary` 并输出
+同一个 tarball。该 job 会在调用 `npm publish` 前先做 `NPM_TOKEN` 非空预检。
+`audit-npm-release-workflow` 会拒绝被破坏的 release job
+依赖链，尤其是 `publish-npm` 不再依赖 `finalize-signoff` 的 workflow；也会拒绝
+缺失 `NPM_TOKEN` 预检的 workflow。发布前必须先运行 `verify:release-signoff-summary` 并输出
 `release-signoff-summary.json`，确认
 `release-signoff.json` 和 `release-manifest.json` 指向同一个包、版本、tarball、
 SHA256 和六个平台，并在摘要中显式保留 `packageVersion`；随后运行

@@ -216,6 +216,24 @@ fn npm_release_workflow_should_verify_release_signoff_summary_before_publish() {
 }
 
 #[test]
+fn npm_release_workflow_should_fail_fast_when_npm_token_is_missing() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    let token_check_index = workflow
+        .find("test -n \"${NODE_AUTH_TOKEN}\"")
+        .expect("publish job should verify NPM_TOKEN before npm publish");
+    let publish_index = workflow
+        .find("npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json")
+        .expect("publish job should publish the manifest tarball");
+
+    assert!(
+        token_check_index < publish_index,
+        "publish job must verify NODE_AUTH_TOKEN is populated before npm publish"
+    );
+}
+
+#[test]
 fn npm_release_workflow_should_verify_staged_binary_matrix_before_pack() {
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
@@ -387,6 +405,43 @@ fn npm_release_workflow_audit_should_reject_publish_without_final_signoff_depend
         String::from_utf8_lossy(&output.stderr).contains("publish-npm")
             && String::from_utf8_lossy(&output.stderr).contains("finalize-signoff"),
         "dependency failure should identify publish-npm and finalize-signoff\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn npm_release_workflow_audit_should_reject_publish_without_npm_token_preflight() {
+    if !node_available() {
+        return;
+    }
+
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let tampered = workflow.replace(
+        "      - run: test -n \"${NODE_AUTH_TOKEN}\"\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n",
+        "",
+    );
+    let workflow_path = write_temp_workflow("publish-without-npm-token-preflight", &tampered);
+
+    let output = Command::new("node")
+        .arg("scripts/audit-npm-release-workflow.mjs")
+        .env("CKC_NPM_RELEASE_WORKFLOW", &workflow_path)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm release workflow audit against missing token preflight workflow");
+
+    let _ = fs::remove_file(&workflow_path);
+
+    assert!(
+        !output.status.success(),
+        "audit should reject publish job without an NPM_TOKEN preflight\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("NPM_TOKEN preflight"),
+        "missing token preflight failure should identify the expected guard\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );

@@ -51,6 +51,13 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "id-token: write", "npm provenance token permission");
   expectIncludes(workflow, "registry-url: \"https://registry.npmjs.org\"", "npm registry URL");
   expectIncludes(workflow, "NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}", "npm token secret");
+  expectIncludes(publishJob, "test -n \"${NODE_AUTH_TOKEN}\"", "NPM_TOKEN preflight");
+  expectOrder(
+    publishJob,
+    "test -n \"${NODE_AUTH_TOKEN}\"",
+    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "NPM_TOKEN preflight before npm publish"
+  );
   expectIncludes(workflow, "name: release-manifest", "publish release manifest artifact");
   expectIncludes(workflow, "path: release-manifest", "publish release manifest path");
   expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");

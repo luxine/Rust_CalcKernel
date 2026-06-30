@@ -82,6 +82,7 @@ console.log(JSON.stringify({
   signedTargets: signoff.signedTargets,
   sourceFallback: signoff.sourceFallback,
   backendRuntimeSmokes: signoff.backendRuntimeSmokes,
+  publishArtifactTarballPath: publishArtifact.tarballPath,
   registryStatus: publishResult.registryStatus,
   registryTarball: publishResult.registryTarball,
   shasum: publishResult.shasum,
@@ -188,6 +189,14 @@ function validatePublishArtifact(value, manifest) {
   expectEqual(value.packageVersion, manifest.packageVersion, "publish artifact packageVersion");
   expectEqual(value.tarball, manifest.tarball, "publish artifact tarball");
   expectEqual(value.tarballSha256, manifest.tarballSha256, "publish artifact tarballSha256");
+  if (typeof value.tarballPath !== "string" || value.tarballPath.length === 0) {
+    fail("publish artifact tarballPath is missing");
+  } else if (basename(value.tarballPath) !== manifest.tarball) {
+    fail(
+      `publish artifact tarballPath must end with ${manifest.tarball}, ` +
+        `found ${JSON.stringify(value.tarballPath)}`
+    );
+  }
 }
 
 function validatePublishResult(value, manifest) {

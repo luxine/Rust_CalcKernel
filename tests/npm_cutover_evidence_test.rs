@@ -97,6 +97,13 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
+        String::from_utf8_lossy(&output.stdout)
+            .contains("\"publishArtifactTarballPath\": \"/tmp/dist/calckernel-0.8.0.tgz\""),
+        "cutover evidence verifier should preserve the pre-publish tarball path evidence\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
         String::from_utf8_lossy(&output.stdout).contains("\"registryStatus\": \"ok\""),
         "cutover evidence verifier should report successful registry replacement status\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -466,6 +473,114 @@ fn cutover_evidence_verifier_should_reject_invalid_publish_result_shasum() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("publish result shasum"),
         "failure should identify publish result shasum\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_missing_publish_artifact_tarball_path() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-artifact-path");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(
+        &publish_artifact,
+        publish_artifact_json_without_tarball_path(TARBALL_SHA256),
+    )
+    .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "missing publish artifact tarballPath should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish artifact tarballPath"),
+        "failure should identify publish artifact tarballPath\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cutover_evidence_verifier_should_reject_publish_artifact_tarball_path_mismatch() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-cutover-evidence-publish-artifact-path-mismatch");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let manifest = temp.join("release-manifest.json");
+    let signoff = temp.join("release-signoff.json");
+    let release_signoff_summary = temp.join("release-signoff-summary.json");
+    let publish_artifact = temp.join("npm-publish-artifact.json");
+    let publish_result = temp.join("npm-publish-result.json");
+    fs::write(&manifest, release_manifest_json(TARBALL_SHA256)).expect("write manifest");
+    fs::write(&signoff, release_signoff_json(TARBALL_SHA256)).expect("write signoff");
+    fs::write(
+        &release_signoff_summary,
+        release_signoff_summary_json(TARBALL_SHA256),
+    )
+    .expect("write release signoff summary");
+    fs::write(
+        &publish_artifact,
+        publish_artifact_json_with_tarball_path(TARBALL_SHA256, Some("/tmp/dist/other.tgz")),
+    )
+    .expect("write publish artifact");
+    fs::write(&publish_result, publish_result_json()).expect("write publish result");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-cutover-evidence.mjs")
+        .arg(&manifest)
+        .arg(&signoff)
+        .arg(&release_signoff_summary)
+        .arg(&publish_artifact)
+        .arg(&publish_result)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run cutover evidence verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        !output.status.success(),
+        "mismatched publish artifact tarballPath should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("publish artifact tarballPath"),
+        "failure should identify publish artifact tarballPath mismatch\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -872,13 +987,29 @@ fn release_signoff_summary_json_with_package_version_source_fallback_and_runtime
 }
 
 fn publish_artifact_json(tarball_sha256: &str) -> String {
+    publish_artifact_json_with_tarball_path(tarball_sha256, Some("/tmp/dist/calckernel-0.8.0.tgz"))
+}
+
+fn publish_artifact_json_without_tarball_path(tarball_sha256: &str) -> String {
+    publish_artifact_json_with_tarball_path(tarball_sha256, None)
+}
+
+fn publish_artifact_json_with_tarball_path(
+    tarball_sha256: &str,
+    tarball_path: Option<&str>,
+) -> String {
+    let tarball_path = tarball_path.map_or_else(String::new, |path| {
+        format!(
+            r#",
+  "tarballPath": "{path}""#
+        )
+    });
     format!(
         r#"{{
   "status": "ok",
   "package": "calckernel",
   "packageVersion": "0.8.0",
-  "tarball": "calckernel-0.8.0.tgz",
-  "tarballPath": "/tmp/dist/calckernel-0.8.0.tgz",
+  "tarball": "calckernel-0.8.0.tgz"{tarball_path},
   "tarballSha256": "{tarball_sha256}"
 }}"#
     )

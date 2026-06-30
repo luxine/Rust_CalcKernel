@@ -184,7 +184,8 @@ The workflow runs these stages:
    to bind the release manifest, `release-signoff-summary.json`,
    six-platform sign-off summary including `packageVersion`, signed target
    binary SHA256 values, and
-   `sourceFallback: "disabled"`, pre-publish artifact verifier output, public
+   `sourceFallback: "disabled"`, pre-publish artifact verifier output including
+   `publishArtifactTarballPath`, public
    package identity from `release-manifest.json.packageMetadata`, and
    post-publish result verifier output into one final evidence JSON.
 
@@ -318,7 +319,8 @@ scripts all prove the same npm artifact, explicit `packageVersion`, and public
 package identity.
 The publish, registry, and final cutover evidence must carry the same
 sha512 npm integrity value and sha1 shasum, and final cutover evidence must
-report the registry tarball URL and public package identity.
+report the registry tarball URL, `publishArtifactTarballPath`, and public
+package identity.
 The final downloaded evidence set
 should also pass `npm run verify:cutover-evidence -- release-manifest.json
 release-signoff.json release-signoff-summary.json npm-publish-artifact.json
@@ -400,5 +402,5 @@ sha512 npm integrity 字符串，shasum 必须是同一个 sha1 shasum 字符串
 `release-signoff.json`、`release-signoff-summary.json`、
 `npm-publish-artifact.json` 和 `npm-publish-result.json`，把发布前签核摘要、
 显式 `packageVersion`、禁用 source checkout fallback 的证据、发布前 tarball
-校验、来自 `release-manifest.json.packageMetadata` 的 public package identity
+校验和 `publishArtifactTarballPath`、来自 `release-manifest.json.packageMetadata` 的 public package identity
 和发布后 registry 结果绑定成同一份最终证据。

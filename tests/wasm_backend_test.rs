@@ -1,7 +1,7 @@
 use calckernel::{
-    MirPassContext, MirPassOverflowMode, MirPassTargetBackend, SourceFile,
-    build_mir_optimization_pipeline, check, emit_wasm_module, emit_wat_module, lower_to_mir,
-    run_mir_pass_pipeline,
+    EmitWasmOptions, MirPassContext, MirPassOverflowMode, MirPassTargetBackend, SourceFile,
+    build_mir_optimization_pipeline, check, emit_wasm_module, emit_wat_module_with_options,
+    lower_to_mir, run_mir_pass_pipeline,
 };
 use std::{
     fs,
@@ -26,7 +26,7 @@ fn emit_wat(source_text: &str, opt_level: u8) -> String {
         },
     );
     assert_eq!(optimized.validation_errors, []);
-    emit_wat_module(&optimized.module)
+    emit_wat_module_with_options(&optimized.module, EmitWasmOptions { opt_level })
 }
 
 #[test]
@@ -89,6 +89,32 @@ fn wasm_backend_should_compile_wat_to_wasm_bytes() {
 
     assert_eq!(&bytes[..4], b"\0asm");
     assert_eq!(&bytes[4..8], &[1, 0, 0, 0]);
+}
+
+#[test]
+fn wat_backend_should_emit_structured_while_at_o3_without_dispatcher() {
+    let wat = emit_wat(
+        r#"
+      export fn sum_to_n(n: i64) -> i64 {
+        let i: i64 = 0;
+        let sum: i64 = 0;
+        while i < n {
+          sum = sum + i;
+          i = i + 1;
+        }
+        return sum;
+      }
+    "#,
+        3,
+    );
+
+    assert!(wat.contains("block $ik_exit"));
+    assert!(wat.contains("loop $ik_loop"));
+    assert!(wat.contains("br_if $ik_exit"));
+    assert!(wat.contains("br $ik_loop"));
+    assert!(!wat.contains("(local $ik_bb i32)"));
+    assert!(!wat.contains("loop $ik_dispatch"));
+    assert!(!wat.contains("br_table"));
 }
 
 #[test]

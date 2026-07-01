@@ -7,10 +7,10 @@ use std::{
 };
 
 use calckernel::{
-    EmitCOptions, EmitLlvmOptions, MirModule, MirPassContext, MirPassOverflowMode,
+    EmitCOptions, EmitLlvmOptions, EmitWasmOptions, MirModule, MirPassContext, MirPassOverflowMode,
     MirPassTargetBackend, OverflowMode, SourceFile, build_mir_optimization_pipeline, check,
-    emit_c_module, emit_llvm_module, emit_wasm_module, emit_wat_module, format_diagnostics,
-    lower_to_mir, print_mir_module, run_mir_pass_pipeline,
+    emit_c_module, emit_llvm_module, emit_wasm_module_with_options, emit_wat_module_with_options,
+    format_diagnostics, lower_to_mir, print_mir_module, run_mir_pass_pipeline,
 };
 
 const USAGE: &str = "cargo bench --bench ckc_perf -- [--quick] [--case <name>] [--task <name>] [--iterations <n>] [--warmup <n>] [--out-dir <path>]\n\nDefault outputs: build/perf/latest.summary.json and build/perf/latest.summary.md";
@@ -353,12 +353,12 @@ fn run_emit_c_o3(input: &CaseInput) -> Result<usize, String> {
 
 fn run_emit_wat_o3(input: &CaseInput) -> Result<usize, String> {
     let module = optimized_module(input, 3, MirPassTargetBackend::Wasm)?;
-    Ok(emit_wat_module(&module).len())
+    Ok(emit_wat_module_with_options(&module, EmitWasmOptions { opt_level: 3 }).len())
 }
 
 fn run_emit_wasm_o3(input: &CaseInput) -> Result<usize, String> {
     let module = optimized_module(input, 3, MirPassTargetBackend::Wasm)?;
-    Ok(emit_wasm_module(&module)?.len())
+    Ok(emit_wasm_module_with_options(&module, EmitWasmOptions { opt_level: 3 })?.len())
 }
 
 fn run_emit_llvm_o3(input: &CaseInput) -> Result<usize, String> {

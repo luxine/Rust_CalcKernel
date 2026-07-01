@@ -187,8 +187,18 @@ pub fn emit_llvm_module(module: &MirModule, options: &EmitLlvmOptions) -> String
     out
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EmitWasmOptions {
+    pub opt_level: u8,
+}
+
 #[must_use]
 pub fn emit_wat_module(module: &MirModule) -> String {
+    emit_wat_module_with_options(module, EmitWasmOptions::default())
+}
+
+#[must_use]
+pub fn emit_wat_module_with_options(module: &MirModule, options: EmitWasmOptions) -> String {
     let layout = WasmStructLayout::new(module);
     let mut out = String::new();
     out.push_str("(module\n");
@@ -196,14 +206,22 @@ pub fn emit_wat_module(module: &MirModule) -> String {
     out.push_str("  (global (export \"__ck_heap_base\") i32 (i32.const 0))\n");
     for function in &module.functions {
         out.push('\n');
-        emit_wat_function(&mut out, function, &layout);
+        emit_wat_function(&mut out, function, &layout, options);
     }
     out.push_str(")\n");
     out
 }
 
 pub fn emit_wasm_module(module: &MirModule) -> Result<Vec<u8>, String> {
-    let bytes = wat::parse_str(emit_wat_module(module)).map_err(|error| error.to_string())?;
+    emit_wasm_module_with_options(module, EmitWasmOptions::default())
+}
+
+pub fn emit_wasm_module_with_options(
+    module: &MirModule,
+    options: EmitWasmOptions,
+) -> Result<Vec<u8>, String> {
+    let bytes = wat::parse_str(emit_wat_module_with_options(module, options))
+        .map_err(|error| error.to_string())?;
     strip_wasm_name_section(&bytes)
 }
 
@@ -319,7 +337,12 @@ impl WasmStructLayout {
     }
 }
 
-fn emit_wat_function(out: &mut String, function: &MirFunction, layout: &WasmStructLayout) {
+fn emit_wat_function(
+    out: &mut String,
+    function: &MirFunction,
+    layout: &WasmStructLayout,
+    options: EmitWasmOptions,
+) {
     let export = if function.exported {
         format!(" (export \"{}\")", function.name)
     } else {
@@ -359,45 +382,194 @@ fn emit_wat_function(out: &mut String, function: &MirFunction, layout: &WasmStru
             emit_wat_instruction(out, instruction, layout, 4);
         }
         emit_wat_terminator(out, &function.blocks[0].terminator, None, 4);
+    } else if let Some(loop_context) = (options.opt_level >= 3)
+        .then(|| detect_simple_wasm_while(function))
+        .flatten()
+    {
+        emit_structured_wasm_while(out, &loop_context, layout);
     } else {
-        out.push_str("    (local $ik_bb i32)\n");
-        out.push_str(&format!(
-            "    (local $ik_ret {})\n",
-            wasm_type(&function.return_type)
-        ));
-        out.push_str("    i32.const 0\n");
-        out.push_str("    local.set $ik_bb\n");
-        out.push_str("    block $ik_exit\n");
-        out.push_str("      loop $ik_dispatch\n");
-        for index in 0..function.blocks.len() {
-            out.push_str(&format!(
-                "{}block $ik_case{index}\n",
-                " ".repeat(8 + index * 2)
-            ));
-        }
-        let case_labels = (0..function.blocks.len())
-            .map(|index| format!("$ik_case{index}"))
-            .collect::<Vec<_>>()
-            .join(" ");
-        let dispatch_indent = " ".repeat(8 + function.blocks.len() * 2);
-        out.push_str(&format!("{dispatch_indent}local.get $ik_bb\n"));
-        out.push_str(&format!(
-            "{dispatch_indent}br_table {case_labels} $ik_case0\n"
-        ));
-        for index in (0..function.blocks.len()).rev() {
-            let block_indent = 8 + index * 2;
-            out.push_str(&format!("{}end\n", " ".repeat(block_indent)));
-            let block = &function.blocks[index];
-            for instruction in &block.instructions {
-                emit_wat_instruction(out, instruction, layout, block_indent);
-            }
-            emit_wat_terminator(out, &block.terminator, Some(function), block_indent);
-        }
-        out.push_str("      end\n");
-        out.push_str("    end\n");
-        out.push_str("    local.get $ik_ret\n");
+        emit_dispatched_wasm_function(out, function, layout);
     }
     out.push_str("  )\n");
+}
+
+struct StructuredWasmWhile<'a> {
+    entry: &'a MirBlock,
+    header: &'a MirBlock,
+    body: &'a MirBlock,
+    exit: &'a MirBlock,
+    loop_label: String,
+    exit_label: String,
+}
+
+fn detect_simple_wasm_while(function: &MirFunction) -> Option<StructuredWasmWhile<'_>> {
+    if function.blocks.len() != 4 {
+        return None;
+    }
+
+    let entry = function.blocks.first()?;
+    let MirTerminator::Jump {
+        label: header_label,
+    } = &entry.terminator
+    else {
+        return None;
+    };
+
+    let header = wasm_block_by_label(function, header_label)?;
+    let MirTerminator::Branch {
+        then_label,
+        else_label,
+        ..
+    } = &header.terminator
+    else {
+        return None;
+    };
+
+    let body = wasm_block_by_label(function, then_label)?;
+    let exit = wasm_block_by_label(function, else_label)?;
+    if !matches!(&body.terminator, MirTerminator::Jump { label } if label == &header.label)
+        || !matches!(exit.terminator, MirTerminator::Return { .. })
+    {
+        return None;
+    }
+
+    let matched_labels = [
+        entry.label.as_str(),
+        header.label.as_str(),
+        body.label.as_str(),
+        exit.label.as_str(),
+    ]
+    .into_iter()
+    .collect::<HashSet<_>>();
+    if matched_labels.len() != function.blocks.len() {
+        return None;
+    }
+
+    let mut used_names = collect_wasm_function_names(function);
+    let loop_label = unique_wasm_internal_name("ik_loop", &mut used_names);
+    let exit_label = unique_wasm_internal_name("ik_exit", &mut used_names);
+    Some(StructuredWasmWhile {
+        entry,
+        header,
+        body,
+        exit,
+        loop_label,
+        exit_label,
+    })
+}
+
+fn wasm_block_by_label<'a>(function: &'a MirFunction, label: &str) -> Option<&'a MirBlock> {
+    function.blocks.iter().find(|block| block.label == label)
+}
+
+fn collect_wasm_function_names(function: &MirFunction) -> HashSet<String> {
+    let mut names = HashSet::new();
+    for param in &function.params {
+        names.insert(param.name.clone());
+    }
+    for local in &function.locals {
+        names.insert(local.name.clone());
+    }
+    for block in &function.blocks {
+        names.insert(block.label.clone());
+        for instruction in &block.instructions {
+            if let Some(MirValue::Temp { name, .. }) = instruction_target(instruction) {
+                names.insert(name.clone());
+            }
+        }
+    }
+    names
+}
+
+fn unique_wasm_internal_name(base_name: &str, used_names: &mut HashSet<String>) -> String {
+    if used_names.insert(base_name.to_string()) {
+        return base_name.to_string();
+    }
+
+    for index in 0.. {
+        let candidate = format!("{base_name}{index}");
+        if used_names.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+    unreachable!("unbounded internal name search should always find a name")
+}
+
+fn emit_structured_wasm_while(
+    out: &mut String,
+    loop_context: &StructuredWasmWhile<'_>,
+    layout: &WasmStructLayout,
+) {
+    for instruction in &loop_context.entry.instructions {
+        emit_wat_instruction(out, instruction, layout, 4);
+    }
+    out.push_str(&format!("    block ${}\n", loop_context.exit_label));
+    out.push_str(&format!("      loop ${}\n", loop_context.loop_label));
+
+    for instruction in &loop_context.header.instructions {
+        emit_wat_instruction(out, instruction, layout, 8);
+    }
+    let MirTerminator::Branch { condition, .. } = &loop_context.header.terminator else {
+        unreachable!("structured while header is always a branch")
+    };
+    emit_wat_value(out, condition, 8);
+    out.push_str("        i32.eqz\n");
+    out.push_str(&format!("        br_if ${}\n", loop_context.exit_label));
+
+    for instruction in &loop_context.body.instructions {
+        emit_wat_instruction(out, instruction, layout, 8);
+    }
+    out.push_str(&format!("        br ${}\n", loop_context.loop_label));
+    out.push_str("      end\n");
+    out.push_str("    end\n");
+
+    for instruction in &loop_context.exit.instructions {
+        emit_wat_instruction(out, instruction, layout, 4);
+    }
+    emit_wat_terminator(out, &loop_context.exit.terminator, None, 4);
+}
+
+fn emit_dispatched_wasm_function(
+    out: &mut String,
+    function: &MirFunction,
+    layout: &WasmStructLayout,
+) {
+    out.push_str("    (local $ik_bb i32)\n");
+    out.push_str(&format!(
+        "    (local $ik_ret {})\n",
+        wasm_type(&function.return_type)
+    ));
+    out.push_str("    i32.const 0\n");
+    out.push_str("    local.set $ik_bb\n");
+    out.push_str("    block $ik_exit\n");
+    out.push_str("      loop $ik_dispatch\n");
+    for index in 0..function.blocks.len() {
+        out.push_str(&format!(
+            "{}block $ik_case{index}\n",
+            " ".repeat(8 + index * 2)
+        ));
+    }
+    let case_labels = (0..function.blocks.len())
+        .map(|index| format!("$ik_case{index}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let dispatch_indent = " ".repeat(8 + function.blocks.len() * 2);
+    out.push_str(&format!("{dispatch_indent}local.get $ik_bb\n"));
+    out.push_str(&format!(
+        "{dispatch_indent}br_table {case_labels} $ik_case0\n"
+    ));
+    for index in (0..function.blocks.len()).rev() {
+        let block_indent = 8 + index * 2;
+        out.push_str(&format!("{}end\n", " ".repeat(block_indent)));
+        let block = &function.blocks[index];
+        for instruction in &block.instructions {
+            emit_wat_instruction(out, instruction, layout, block_indent);
+        }
+        emit_wat_terminator(out, &block.terminator, Some(function), block_indent);
+    }
+    out.push_str("      end\n");
+    out.push_str("    end\n");
+    out.push_str("    local.get $ik_ret\n");
 }
 
 fn emit_wat_instruction(

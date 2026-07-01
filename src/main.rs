@@ -7,11 +7,12 @@ use std::{
 };
 
 use calckernel::{
-    EmitCOptions, EmitLlvmOptions, MirModule, MirPassContext, MirPassDebugFlags,
+    EmitCOptions, EmitLlvmOptions, EmitWasmOptions, MirModule, MirPassContext, MirPassDebugFlags,
     MirPassOverflowMode, MirPassTargetBackend, OverflowMode, SourceFile,
     build_mir_optimization_pipeline, check, emit_c_header, emit_c_module_with_header,
-    emit_llvm_module, emit_wasm_module, emit_wat_module, format_diagnostics, lower_to_mir,
-    print_mir_module, print_mir_pass_pipeline, run_mir_pass_pipeline,
+    emit_llvm_module, emit_wasm_module_with_options, emit_wat_module_with_options,
+    format_diagnostics, lower_to_mir, print_mir_module, print_mir_pass_pipeline,
+    run_mir_pass_pipeline,
 };
 
 fn main() {
@@ -159,7 +160,11 @@ fn run_emit_wat(args: &ParsedArgs) -> Result<(), String> {
         MirPassTargetBackend::Wasm,
         &args.debug,
     )?;
-    write_or_print_single_line(args.out.as_deref(), &emit_wat_module(&mir), "WAT")
+    write_or_print_single_line(
+        args.out.as_deref(),
+        &emit_wat_module_with_options(&mir, EmitWasmOptions { opt_level }),
+        "WAT",
+    )
 }
 
 fn run_emit_wasm(args: &ParsedArgs) -> Result<(), String> {
@@ -181,7 +186,7 @@ fn run_emit_wasm(args: &ParsedArgs) -> Result<(), String> {
         MirPassTargetBackend::Wasm,
         &args.debug,
     )?;
-    let bytes = emit_wasm_module(&mir)?;
+    let bytes = emit_wasm_module_with_options(&mir, EmitWasmOptions { opt_level })?;
     write_bytes_atomic(out, &bytes)?;
     println!("OK: emitted WASM {out}");
     Ok(())

@@ -964,7 +964,7 @@ try {
 }
 
 function binaryStubForTarget(target) {
-  const bytes = Buffer.alloc(4096);
+  const bytes = Buffer.alloc(1_100_000);
   if (target.platform === "darwin") {
     bytes.set([0xcf, 0xfa, 0xed, 0xfe], 0);
     bytes.writeUInt32LE(target.arch === "arm64" ? 0x0100000c : 0x01000007, 4);

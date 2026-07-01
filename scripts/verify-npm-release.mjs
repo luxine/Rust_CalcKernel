@@ -10,6 +10,7 @@ const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computatio
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const TAR_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
   "audit:release-workflow",
   "audit:typescript-test-surface",
@@ -198,7 +199,7 @@ function hasOwnerExecuteBit(mode) {
 }
 
 function runTar(args, action) {
-  const output = spawnSync("tar", args);
+  const output = spawnSync("tar", args, { maxBuffer: TAR_MAX_BUFFER_BYTES });
   if (output.error) {
     fail(`Unable to ${action}: ${output.error.message}`);
   }

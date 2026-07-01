@@ -8,6 +8,10 @@ const EXPECTED_PACKAGE_REPOSITORY = {
   type: "git",
   url: "https://github.com/luxine/Rust_CalcKernel"
 };
+const EXPECTED_REGISTRY_REPOSITORY = {
+  type: "git",
+  url: "git+https://github.com/luxine/Rust_CalcKernel.git"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
@@ -100,7 +104,7 @@ expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
 expectEmptyArray(registry.consumerInstallScripts, "registry consumerInstallScripts");
 expectEqual(registry.description, EXPECTED_PACKAGE_DESCRIPTION, "registry description");
 expectJson(registry.keywords, EXPECTED_PACKAGE_KEYWORDS, "registry keywords");
-expectJson(registry.repository, EXPECTED_PACKAGE_REPOSITORY, "registry repository");
+expectPackageRepository(registry.repository, "registry repository");
 expectEqual(registry.license, EXPECTED_PACKAGE_LICENSE, "registry license");
 expectJson(registry.engines, EXPECTED_PACKAGE_ENGINES, "registry engines");
 expectEqual(
@@ -113,7 +117,7 @@ expectJson(
   manifest.packageMetadata?.keywords,
   "registry keywords from release manifest packageMetadata"
 );
-expectJson(
+expectEquivalentPackageRepository(
   registry.repository,
   manifest.packageMetadata?.repository,
   "registry repository from release manifest packageMetadata"
@@ -250,6 +254,30 @@ function expectJson(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
   }
+}
+
+function expectPackageRepository(actual, label) {
+  if (!isExpectedPackageRepository(actual)) {
+    fail(
+      `${label} must be ${JSON.stringify(EXPECTED_PACKAGE_REPOSITORY)} ` +
+        `or ${JSON.stringify(EXPECTED_REGISTRY_REPOSITORY)}, found ${JSON.stringify(actual)}`
+    );
+  }
+}
+
+function expectEquivalentPackageRepository(actual, expected, label) {
+  if (JSON.stringify(actual) === JSON.stringify(expected)) {
+    return;
+  }
+  if (isExpectedPackageRepository(actual) && isExpectedPackageRepository(expected)) {
+    return;
+  }
+  fail(`${label} must be equivalent to ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+}
+
+function isExpectedPackageRepository(value) {
+  return JSON.stringify(value) === JSON.stringify(EXPECTED_PACKAGE_REPOSITORY)
+    || JSON.stringify(value) === JSON.stringify(EXPECTED_REGISTRY_REPOSITORY);
 }
 
 function expectRegistryTarball(tarball, packageName, tarballFile) {

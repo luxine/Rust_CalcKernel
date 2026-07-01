@@ -9,6 +9,10 @@ const EXPECTED_PACKAGE_REPOSITORY = {
   type: "git",
   url: "https://github.com/luxine/Rust_CalcKernel"
 };
+const EXPECTED_REGISTRY_REPOSITORY = {
+  type: "git",
+  url: "git+https://github.com/luxine/Rust_CalcKernel.git"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const RELEASE_WORKFLOW = "npm release artifact";
@@ -359,7 +363,7 @@ function validatePublishResult(value, manifest) {
   expectEqual(value.publishShasum, value.shasum, "publish result publishShasum");
   expectEqual(value.description, EXPECTED_PACKAGE_DESCRIPTION, "publish result description");
   expectJson(value.keywords, EXPECTED_PACKAGE_KEYWORDS, "publish result keywords");
-  expectJson(value.repository, EXPECTED_PACKAGE_REPOSITORY, "publish result repository");
+  expectPackageRepository(value.repository, "publish result repository");
   expectEqual(value.license, EXPECTED_PACKAGE_LICENSE, "publish result license");
   expectJson(value.engines, EXPECTED_PACKAGE_ENGINES, "publish result engines");
   expectEqual(
@@ -372,7 +376,7 @@ function validatePublishResult(value, manifest) {
     manifest.packageMetadata?.keywords,
     "publish result keywords from release manifest packageMetadata"
   );
-  expectJson(
+  expectEquivalentPackageRepository(
     value.repository,
     manifest.packageMetadata?.repository,
     "publish result repository from release manifest packageMetadata"
@@ -417,6 +421,30 @@ function expectJson(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
   }
+}
+
+function expectPackageRepository(actual, label) {
+  if (!isExpectedPackageRepository(actual)) {
+    fail(
+      `${label} must be ${JSON.stringify(EXPECTED_PACKAGE_REPOSITORY)} ` +
+        `or ${JSON.stringify(EXPECTED_REGISTRY_REPOSITORY)}, found ${JSON.stringify(actual)}`
+    );
+  }
+}
+
+function expectEquivalentPackageRepository(actual, expected, label) {
+  if (JSON.stringify(actual) === JSON.stringify(expected)) {
+    return;
+  }
+  if (isExpectedPackageRepository(actual) && isExpectedPackageRepository(expected)) {
+    return;
+  }
+  fail(`${label} must be equivalent to ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
+}
+
+function isExpectedPackageRepository(value) {
+  return JSON.stringify(value) === JSON.stringify(EXPECTED_PACKAGE_REPOSITORY)
+    || JSON.stringify(value) === JSON.stringify(EXPECTED_REGISTRY_REPOSITORY);
 }
 
 function sameStringArray(actual, expected) {

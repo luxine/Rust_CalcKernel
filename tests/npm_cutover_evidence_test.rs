@@ -3194,7 +3194,7 @@ fn publish_result_json_with_package_version_shasum_publish_side_evidence_and_pro
   "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
   "repository": {{
     "type": "git",
-    "url": "https://github.com/luxine/Rust_CalcKernel"
+    "url": "git+https://github.com/luxine/Rust_CalcKernel.git"
   }},
   "license": "MIT",
   "engines": {{

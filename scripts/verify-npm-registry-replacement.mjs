@@ -11,8 +11,16 @@ const EXPECTED_PACKAGE_REPOSITORY = {
   type: "git",
   url: "https://github.com/luxine/Rust_CalcKernel"
 };
+const EXPECTED_REGISTRY_REPOSITORY = {
+  type: "git",
+  url: "git+https://github.com/luxine/Rust_CalcKernel.git"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
+const EXPECTED_PACKAGE_BIN = { ckc: "./npm/ckc.js" };
+const EXPECTED_REGISTRY_BIN = { ckc: "npm/ckc.js" };
+const REGISTRY_RETRY_ATTEMPTS = positiveIntegerEnv("CK_NPM_REGISTRY_RETRY_ATTEMPTS", 12);
+const REGISTRY_RETRY_DELAY_MS = positiveIntegerEnv("CK_NPM_REGISTRY_RETRY_DELAY_MS", 5000);
 const options = parseArgs(process.argv.slice(2));
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const version = options.version ?? packageJson.version;
@@ -25,14 +33,14 @@ expectEqual(metadata.name, "calckernel", "name");
 expectEqual(metadata.version, version, "version");
 expectEqual(metadata.description, EXPECTED_PACKAGE_DESCRIPTION, "description");
 expectJson(metadata.keywords, EXPECTED_PACKAGE_KEYWORDS, "keywords");
-expectJson(metadata.repository, EXPECTED_PACKAGE_REPOSITORY, "repository");
+expectJsonOneOf(metadata.repository, [EXPECTED_PACKAGE_REPOSITORY, EXPECTED_REGISTRY_REPOSITORY], "repository");
 expectEqual(metadata.license, EXPECTED_PACKAGE_LICENSE, "license");
 expectJson(metadata.engines, EXPECTED_PACKAGE_ENGINES, "engines");
 expectEqual(metadata.type, "module", "type");
 expectEqual(metadata.main, "./npm/index.js", "main");
 expectEqual(metadata.types, "./npm/index.d.ts", "types");
 expectJson(metadata.exports, { ".": { types: "./npm/index.d.ts", import: "./npm/index.js" } }, "exports");
-expectJson(metadata.bin, { ckc: "./npm/ckc.js" }, "bin");
+expectJsonOneOf(metadata.bin, [EXPECTED_PACKAGE_BIN, EXPECTED_REGISTRY_BIN], "bin");
 expectNoDependencyFields(metadata);
 expectNoConsumerInstallScripts(metadata);
 expectTarball(metadata.dist?.tarball, version);
@@ -123,20 +131,27 @@ function readMetadataFile(path) {
 }
 
 function readRegistryMetadata(version) {
-  const result = spawnSync("npm", ["view", `calckernel@${version}`, "--json"], {
-    encoding: "utf8"
-  });
-  if (result.error) {
-    failImmediate(`npm view failed to start: ${result.error.message}`);
+  let lastResult;
+  for (let attempt = 1; attempt <= REGISTRY_RETRY_ATTEMPTS; attempt += 1) {
+    const result = spawnSync("npm", ["view", `calckernel@${version}`, "--json"], {
+      encoding: "utf8"
+    });
+    if (result.error) {
+      failImmediate(`npm view failed to start: ${result.error.message}`);
+    }
+    if (result.status === 0) {
+      return JSON.parse(result.stdout);
+    }
+    lastResult = result;
+    if (attempt < REGISTRY_RETRY_ATTEMPTS) {
+      sleep(REGISTRY_RETRY_DELAY_MS);
+    }
   }
-  if (result.status !== 0) {
-    failImmediate(
-      `npm view calckernel@${version} failed with status ${result.status}\n` +
-        `stdout:\n${result.stdout}\n` +
-        `stderr:\n${result.stderr}`
-    );
-  }
-  return JSON.parse(result.stdout);
+  failImmediate(
+    `npm view calckernel@${version} failed with status ${lastResult.status}\n` +
+      `stdout:\n${lastResult.stdout}\n` +
+      `stderr:\n${lastResult.stderr}`
+  );
 }
 
 function expectEqual(actual, expected, label) {
@@ -149,6 +164,28 @@ function expectJson(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(`${label} must be ${JSON.stringify(expected)}, found ${JSON.stringify(actual)}`);
   }
+}
+
+function expectJsonOneOf(actual, expectedValues, label) {
+  if (!expectedValues.some((expected) => JSON.stringify(actual) === JSON.stringify(expected))) {
+    fail(`${label} must be one of ${JSON.stringify(expectedValues)}, found ${JSON.stringify(actual)}`);
+  }
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function positiveIntegerEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") {
+    return fallback;
+  }
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0) {
+    failImmediate(`${name} must be a positive integer, found ${JSON.stringify(raw)}`);
+  }
+  return value;
 }
 
 function expectNoDependencyFields(metadata) {

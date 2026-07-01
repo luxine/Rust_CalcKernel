@@ -1,9 +1,13 @@
 use std::{
     fs,
+    path::Path,
     path::PathBuf,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 const VALID_SHASUM: &str = "0123456789abcdef0123456789abcdef01234567";
 const VALID_INTEGRITY: &str = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
@@ -71,6 +75,82 @@ fn registry_replacement_verifier_should_accept_rust_package_metadata() {
         "success output should report the public package repository\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn registry_replacement_verifier_should_accept_npm_normalized_metadata() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-registry-normalized");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let metadata = temp.join("metadata.json");
+    fs::write(&metadata, rust_registry_metadata_normalized()).expect("write metadata");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-registry-replacement.mjs")
+        .arg("--metadata-file")
+        .arg(&metadata)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm registry replacement verifier");
+
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        output.status.success(),
+        "npm-normalized Rust package metadata should pass\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn registry_replacement_verifier_should_retry_transient_registry_lookup_failure() {
+    if !node_available() {
+        return;
+    }
+
+    let temp = temp_dir("rust-calckernel-registry-retry");
+    fs::create_dir_all(&temp).expect("create temp dir");
+    let bin_dir = temp.join("bin");
+    fs::create_dir_all(&bin_dir).expect("create fake npm dir");
+    let counter = temp.join("counter.txt");
+    let fake_npm = bin_dir.join("npm");
+    fs::write(&fake_npm, fake_npm_retry_script()).expect("write fake npm");
+    let mut permissions = fs::metadata(&fake_npm)
+        .expect("fake npm metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_npm, permissions).expect("make fake npm executable");
+
+    let output = Command::new("node")
+        .arg("scripts/verify-npm-registry-replacement.mjs")
+        .arg("0.8.0")
+        .env("PATH", prepend_path(&bin_dir))
+        .env("CK_FAKE_NPM_COUNTER", &counter)
+        .env("CK_NPM_REGISTRY_RETRY_ATTEMPTS", "2")
+        .env("CK_NPM_REGISTRY_RETRY_DELAY_MS", "1")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("run npm registry replacement verifier with retrying fake npm");
+
+    let counter_value = fs::read_to_string(&counter).unwrap_or_default();
+    let _ = fs::remove_dir_all(&temp);
+
+    assert!(
+        output.status.success(),
+        "transient npm view failure should be retried\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        counter_value.trim(),
+        "2",
+        "fake npm should be called twice after a transient failure"
     );
 }
 
@@ -374,6 +454,100 @@ fn rust_metadata_with_scripts(scripts: &str) -> String {
   }}
 }}"#
     )
+}
+
+fn rust_registry_metadata_normalized() -> String {
+    format!(
+        r#"{{
+  "name": "calckernel",
+  "version": "0.8.0",
+  "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "repository": {{
+    "type": "git",
+    "url": "git+https://github.com/luxine/Rust_CalcKernel.git"
+  }},
+  "license": "MIT",
+  "engines": {{
+    "node": ">=20"
+  }},
+  "type": "module",
+  "main": "./npm/index.js",
+  "types": "./npm/index.d.ts",
+  "exports": {{
+    ".": {{
+      "types": "./npm/index.d.ts",
+      "import": "./npm/index.js"
+    }}
+  }},
+  "bin": {{
+    "ckc": "npm/ckc.js"
+  }},
+  "dist": {{
+    "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+    "shasum": "{VALID_SHASUM}",
+    "integrity": "{VALID_INTEGRITY}"
+  }}
+}}"#
+    )
+}
+
+#[cfg(unix)]
+fn prepend_path(bin_dir: &Path) -> String {
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    format!("{}:{}", bin_dir.display(), current_path)
+}
+
+#[cfg(unix)]
+fn fake_npm_retry_script() -> &'static str {
+    r#"#!/bin/sh
+count_file="$CK_FAKE_NPM_COUNTER"
+count=0
+if [ -f "$count_file" ]; then
+  count="$(cat "$count_file")"
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$count_file"
+if [ "$count" -eq 1 ]; then
+  cat <<'JSON'
+{"error":{"code":"E404","summary":"Not Found"}}
+JSON
+  exit 1
+fi
+cat <<'JSON'
+{
+  "name": "calckernel",
+  "version": "0.8.0",
+  "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
+  "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luxine/Rust_CalcKernel.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "main": "./npm/index.js",
+  "types": "./npm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./npm/index.d.ts",
+      "import": "./npm/index.js"
+    }
+  },
+  "bin": {
+    "ckc": "npm/ckc.js"
+  },
+  "dist": {
+    "tarball": "https://registry.npmjs.org/calckernel/-/calckernel-0.8.0.tgz",
+    "shasum": "0123456789abcdef0123456789abcdef01234567",
+    "integrity": "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+  }
+}
+JSON
+"#
 }
 
 fn typescript_metadata() -> &'static str {

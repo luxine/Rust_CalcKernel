@@ -28,8 +28,8 @@ try {
   const consumer = join(tmpRoot, "consumer");
   mkdirSync(consumer);
 
-  run(npmCommand(), ["init", "-y"], { cwd: consumer });
-  run(npmCommand(), ["install", "--ignore-scripts", tarball], { cwd: consumer });
+  runNpm(["init", "-y"], { cwd: consumer });
+  runNpm(["install", "--ignore-scripts", tarball], { cwd: consumer });
 
   const installedEnv = { ...process.env };
   delete installedEnv.CKC_BIN;
@@ -178,7 +178,7 @@ function parseArgs(args) {
 }
 
 function npmPack(packDestination) {
-  const output = run(npmCommand(), ["pack", "--json", "--pack-destination", packDestination], { cwd: root });
+  const output = runNpm(["pack", "--json", "--pack-destination", packDestination], { cwd: root });
   const packs = JSON.parse(output.stdout);
   if (!Array.isArray(packs) || packs.length !== 1) {
     fail(`Expected npm pack to return one package entry, got: ${output.stdout}`);
@@ -197,7 +197,15 @@ function commandAvailable(command) {
 }
 
 function readNpmVersion() {
-  return run(npmCommand(), ["--version"], { cwd: root }).stdout.trim();
+  return runNpm(["--version"], { cwd: root }).stdout.trim();
+}
+
+function runNpm(args, options = {}) {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath && existsSync(npmExecPath)) {
+    return run(process.execPath, [npmExecPath, ...args], options);
+  }
+  return run(npmCommand(), args, options);
 }
 
 function npmCommand() {
@@ -361,7 +369,7 @@ function ensureTypeScriptCompiler(consumer, env) {
     return existing;
   }
 
-  run(npmCommand(), ["install", "--ignore-scripts", "--no-audit", "--fund=false", "--save-dev", TYPESCRIPT_COMPILER_PACKAGE], {
+  runNpm(["install", "--ignore-scripts", "--no-audit", "--fund=false", "--save-dev", TYPESCRIPT_COMPILER_PACKAGE], {
     cwd: consumer,
     env
   });

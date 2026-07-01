@@ -295,26 +295,34 @@ fn host_npm_install_verifier_should_resolve_windows_cmd_shims_for_spawn() {
         std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
 
     assert!(
-        verifier.contains("function npmCommand()"),
-        "host npm install verifier should centralize npm command resolution"
+        verifier.contains("function runNpm(args, options = {})"),
+        "host npm install verifier should centralize npm execution"
+    );
+    assert!(
+        verifier.contains("process.env.npm_execpath"),
+        "host npm install verifier must prefer npm_execpath from the surrounding npm script"
+    );
+    assert!(
+        verifier.contains("return run(process.execPath, [npmExecPath, ...args], options)"),
+        "host npm install verifier should run npm through node plus npm-cli.js when npm_execpath is available"
     );
     assert!(
         verifier.contains("process.platform === \"win32\" ? \"npm.cmd\" : \"npm\""),
-        "host npm install verifier must use npm.cmd for Windows process spawning"
+        "host npm install verifier should keep a Windows npm.cmd fallback for direct script runs"
     );
     assert!(
         verifier.contains("shell: shouldUseWindowsCommandShell(command)"),
         "host npm install verifier should run Windows .cmd shims through a command shell"
     );
     for expected in [
-        "run(npmCommand(), [\"init\", \"-y\"]",
-        "run(npmCommand(), [\"install\", \"--ignore-scripts\", tarball]",
-        "run(npmCommand(), [\"--version\"]",
-        "run(npmCommand(), [\"install\", \"--ignore-scripts\", \"--no-audit\", \"--fund=false\", \"--save-dev\", TYPESCRIPT_COMPILER_PACKAGE]",
+        "runNpm([\"init\", \"-y\"]",
+        "runNpm([\"install\", \"--ignore-scripts\", tarball]",
+        "runNpm([\"--version\"]",
+        "runNpm([\"install\", \"--ignore-scripts\", \"--no-audit\", \"--fund=false\", \"--save-dev\", TYPESCRIPT_COMPILER_PACKAGE]",
     ] {
         assert!(
             verifier.contains(expected),
-            "host npm install verifier should invoke npm through npmCommand(): {expected}"
+            "host npm install verifier should invoke npm through runNpm(): {expected}"
         );
     }
 }

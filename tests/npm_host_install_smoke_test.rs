@@ -290,6 +290,36 @@ fn host_npm_install_verifier_should_prepare_typescript_for_ci_without_local_orac
 }
 
 #[test]
+fn host_npm_install_verifier_should_resolve_windows_cmd_shims_for_spawn() {
+    let verifier =
+        std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");
+
+    assert!(
+        verifier.contains("function npmCommand()"),
+        "host npm install verifier should centralize npm command resolution"
+    );
+    assert!(
+        verifier.contains("process.platform === \"win32\" ? \"npm.cmd\" : \"npm\""),
+        "host npm install verifier must use npm.cmd for Windows process spawning"
+    );
+    assert!(
+        verifier.contains("shell: shouldUseWindowsCommandShell(command)"),
+        "host npm install verifier should run Windows .cmd shims through a command shell"
+    );
+    for expected in [
+        "run(npmCommand(), [\"init\", \"-y\"]",
+        "run(npmCommand(), [\"install\", \"--ignore-scripts\", tarball]",
+        "run(npmCommand(), [\"--version\"]",
+        "run(npmCommand(), [\"install\", \"--ignore-scripts\", \"--no-audit\", \"--fund=false\", \"--save-dev\", TYPESCRIPT_COMPILER_PACKAGE]",
+    ] {
+        assert!(
+            verifier.contains(expected),
+            "host npm install verifier should invoke npm through npmCommand(): {expected}"
+        );
+    }
+}
+
+#[test]
 fn host_npm_install_verifier_should_disable_source_checkout_fallback_for_release_signoff() {
     let verifier =
         std::fs::read_to_string("scripts/verify-host-npm-install.mjs").expect("read verifier");

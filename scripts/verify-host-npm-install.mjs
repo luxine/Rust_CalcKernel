@@ -28,8 +28,8 @@ try {
   const consumer = join(tmpRoot, "consumer");
   mkdirSync(consumer);
 
-  run("npm", ["init", "-y"], { cwd: consumer });
-  run("npm", ["install", "--ignore-scripts", tarball], { cwd: consumer });
+  run(npmCommand(), ["init", "-y"], { cwd: consumer });
+  run(npmCommand(), ["install", "--ignore-scripts", tarball], { cwd: consumer });
 
   const installedEnv = { ...process.env };
   delete installedEnv.CKC_BIN;
@@ -178,7 +178,7 @@ function parseArgs(args) {
 }
 
 function npmPack(packDestination) {
-  const output = run("npm", ["pack", "--json", "--pack-destination", packDestination], { cwd: root });
+  const output = run(npmCommand(), ["pack", "--json", "--pack-destination", packDestination], { cwd: root });
   const packs = JSON.parse(output.stdout);
   if (!Array.isArray(packs) || packs.length !== 1) {
     fail(`Expected npm pack to return one package entry, got: ${output.stdout}`);
@@ -197,7 +197,11 @@ function commandAvailable(command) {
 }
 
 function readNpmVersion() {
-  return run("npm", ["--version"], { cwd: root }).stdout.trim();
+  return run(npmCommand(), ["--version"], { cwd: root }).stdout.trim();
+}
+
+function npmCommand() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
 function collectCiProvenance(target) {
@@ -357,7 +361,7 @@ function ensureTypeScriptCompiler(consumer, env) {
     return existing;
   }
 
-  run("npm", ["install", "--ignore-scripts", "--no-audit", "--fund=false", "--save-dev", TYPESCRIPT_COMPILER_PACKAGE], {
+  run(npmCommand(), ["install", "--ignore-scripts", "--no-audit", "--fund=false", "--save-dev", TYPESCRIPT_COMPILER_PACKAGE], {
     cwd: consumer,
     env
   });
@@ -413,7 +417,8 @@ function run(command, args, options = {}) {
   const output = spawnSync(command, args, {
     cwd: options.cwd,
     env: options.env ?? process.env,
-    encoding: "utf8"
+    encoding: "utf8",
+    shell: shouldUseWindowsCommandShell(command)
   });
 
   if (output.error) {
@@ -427,6 +432,10 @@ function run(command, args, options = {}) {
     );
   }
   return output;
+}
+
+function shouldUseWindowsCommandShell(command) {
+  return process.platform === "win32" && /\.cmd$/i.test(command);
 }
 
 function smokeSource() {

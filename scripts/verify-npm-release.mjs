@@ -8,6 +8,10 @@ import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget } from "../npm/platfo
 
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_REPOSITORY = {
+  type: "git",
+  url: "https://github.com/luxine/Rust_CalcKernel"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const TAR_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -298,6 +302,12 @@ function validatePackageMetadata(packageJson) {
         `found ${JSON.stringify(packageJson.keywords)}`
     );
   }
+  if (!sameJson(packageJson.repository, EXPECTED_PACKAGE_REPOSITORY)) {
+    fail(
+      `package/package.json repository must be ${JSON.stringify(EXPECTED_PACKAGE_REPOSITORY)}, ` +
+        `found ${JSON.stringify(packageJson.repository)}`
+    );
+  }
   if (packageJson.license !== EXPECTED_PACKAGE_LICENSE) {
     fail(`package/package.json license must be ${EXPECTED_PACKAGE_LICENSE}, found ${JSON.stringify(packageJson.license)}`);
   }
@@ -354,6 +364,7 @@ function validatePackageMetadata(packageJson) {
   return {
     description: EXPECTED_PACKAGE_DESCRIPTION,
     keywords: EXPECTED_PACKAGE_KEYWORDS,
+    repository: EXPECTED_PACKAGE_REPOSITORY,
     license: EXPECTED_PACKAGE_LICENSE,
     engines: EXPECTED_PACKAGE_ENGINES,
     type: packageJson.type,

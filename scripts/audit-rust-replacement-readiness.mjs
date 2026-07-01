@@ -36,6 +36,11 @@ expectEqual(
   "Rust package description"
 );
 expectJson(packageJson.keywords, ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"], "Rust package keywords");
+expectJson(
+  packageJson.repository,
+  { type: "git", url: "https://github.com/luxine/Rust_CalcKernel" },
+  "Rust package repository"
+);
 expectEqual(packageJson.license, "MIT", "Rust package license");
 expectJson(packageJson.engines, { node: ">=20" }, "Rust package engines");
 expectEqual(packageJson.type, "module", "Rust package type");

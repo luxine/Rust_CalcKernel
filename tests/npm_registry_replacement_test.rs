@@ -66,6 +66,12 @@ fn registry_replacement_verifier_should_accept_rust_package_metadata() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"repository\": {"),
+        "success output should report the public package repository\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -302,6 +308,10 @@ fn rust_metadata_with_public_identity_and_dist(
   "version": "0.8.0",
   "description": "{description}",
   "keywords": {keywords},
+  "repository": {{
+    "type": "git",
+    "url": "https://github.com/luxine/Rust_CalcKernel"
+  }},
   "license": "MIT",
   "engines": {{
     "node": ">=20"
@@ -334,6 +344,10 @@ fn rust_metadata_with_scripts(scripts: &str) -> String {
   "version": "0.8.0",
   "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
   "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "repository": {{
+    "type": "git",
+    "url": "https://github.com/luxine/Rust_CalcKernel"
+  }},
   "license": "MIT",
   "engines": {{
     "node": ">=20"

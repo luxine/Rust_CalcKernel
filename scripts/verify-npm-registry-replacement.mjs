@@ -7,6 +7,10 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_REPOSITORY = {
+  type: "git",
+  url: "https://github.com/luxine/Rust_CalcKernel"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const options = parseArgs(process.argv.slice(2));
@@ -21,6 +25,7 @@ expectEqual(metadata.name, "calckernel", "name");
 expectEqual(metadata.version, version, "version");
 expectEqual(metadata.description, EXPECTED_PACKAGE_DESCRIPTION, "description");
 expectJson(metadata.keywords, EXPECTED_PACKAGE_KEYWORDS, "keywords");
+expectJson(metadata.repository, EXPECTED_PACKAGE_REPOSITORY, "repository");
 expectEqual(metadata.license, EXPECTED_PACKAGE_LICENSE, "license");
 expectJson(metadata.engines, EXPECTED_PACKAGE_ENGINES, "engines");
 expectEqual(metadata.type, "module", "type");
@@ -55,6 +60,7 @@ console.log(JSON.stringify({
   integrity: metadata.dist.integrity,
   description: metadata.description,
   keywords: metadata.keywords,
+  repository: metadata.repository,
   license: metadata.license,
   engines: metadata.engines,
   consumerInstallScripts: [],

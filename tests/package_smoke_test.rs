@@ -597,6 +597,10 @@ try {
     assert.deepEqual(manifest.packageMetadata, {
       description: "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
       keywords: ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+      repository: {
+        type: "git",
+        url: "https://github.com/luxine/Rust_CalcKernel"
+      },
       license: "MIT",
       engines: { node: ">=20" },
       type: "module",

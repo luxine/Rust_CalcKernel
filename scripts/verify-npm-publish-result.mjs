@@ -4,6 +4,10 @@ import { basename, resolve } from "node:path";
 
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_REPOSITORY = {
+  type: "git",
+  url: "https://github.com/luxine/Rust_CalcKernel"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
@@ -30,6 +34,7 @@ const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: EXPECTED_PACKAGE_DESCRIPTION,
   keywords: EXPECTED_PACKAGE_KEYWORDS,
+  repository: EXPECTED_PACKAGE_REPOSITORY,
   license: EXPECTED_PACKAGE_LICENSE,
   engines: EXPECTED_PACKAGE_ENGINES,
   type: "module",
@@ -95,6 +100,7 @@ expectRegistryTarball(registry.tarball, manifest.packageName, manifest.tarball);
 expectEmptyArray(registry.consumerInstallScripts, "registry consumerInstallScripts");
 expectEqual(registry.description, EXPECTED_PACKAGE_DESCRIPTION, "registry description");
 expectJson(registry.keywords, EXPECTED_PACKAGE_KEYWORDS, "registry keywords");
+expectJson(registry.repository, EXPECTED_PACKAGE_REPOSITORY, "registry repository");
 expectEqual(registry.license, EXPECTED_PACKAGE_LICENSE, "registry license");
 expectJson(registry.engines, EXPECTED_PACKAGE_ENGINES, "registry engines");
 expectEqual(
@@ -106,6 +112,11 @@ expectJson(
   registry.keywords,
   manifest.packageMetadata?.keywords,
   "registry keywords from release manifest packageMetadata"
+);
+expectJson(
+  registry.repository,
+  manifest.packageMetadata?.repository,
+  "registry repository from release manifest packageMetadata"
 );
 expectEqual(
   registry.license,
@@ -169,6 +180,7 @@ console.log(JSON.stringify({
   shasum: registry.shasum,
   description: registry.description,
   keywords: registry.keywords,
+  repository: registry.repository,
   license: registry.license,
   engines: registry.engines,
   consumerInstallScripts: registry.consumerInstallScripts,

@@ -5,6 +5,10 @@ import { SUPPORTED_CKC_BINARY_TARGETS, binaryNameForTarget, supportedTargetNames
 
 const EXPECTED_PACKAGE_DESCRIPTION = "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.";
 const EXPECTED_PACKAGE_KEYWORDS = ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"];
+const EXPECTED_PACKAGE_REPOSITORY = {
+  type: "git",
+  url: "https://github.com/luxine/Rust_CalcKernel"
+};
 const EXPECTED_PACKAGE_LICENSE = "MIT";
 const EXPECTED_PACKAGE_ENGINES = { node: ">=20" };
 const RELEASE_WORKFLOW = "npm release artifact";
@@ -36,6 +40,7 @@ const EXPECTED_PACKAGE_SCRIPT_NAMES = Object.freeze([
 const EXPECTED_PACKAGE_METADATA = Object.freeze({
   description: EXPECTED_PACKAGE_DESCRIPTION,
   keywords: EXPECTED_PACKAGE_KEYWORDS,
+  repository: EXPECTED_PACKAGE_REPOSITORY,
   license: EXPECTED_PACKAGE_LICENSE,
   engines: EXPECTED_PACKAGE_ENGINES,
   type: "module",
@@ -153,6 +158,7 @@ console.log(JSON.stringify({
   shasum: publishResult.shasum,
   description: publishResult.description,
   keywords: publishResult.keywords,
+  repository: publishResult.repository,
   license: publishResult.license,
   engines: publishResult.engines,
   consumerInstallScripts: publishResult.consumerInstallScripts,
@@ -353,6 +359,7 @@ function validatePublishResult(value, manifest) {
   expectEqual(value.publishShasum, value.shasum, "publish result publishShasum");
   expectEqual(value.description, EXPECTED_PACKAGE_DESCRIPTION, "publish result description");
   expectJson(value.keywords, EXPECTED_PACKAGE_KEYWORDS, "publish result keywords");
+  expectJson(value.repository, EXPECTED_PACKAGE_REPOSITORY, "publish result repository");
   expectEqual(value.license, EXPECTED_PACKAGE_LICENSE, "publish result license");
   expectJson(value.engines, EXPECTED_PACKAGE_ENGINES, "publish result engines");
   expectEqual(
@@ -364,6 +371,11 @@ function validatePublishResult(value, manifest) {
     value.keywords,
     manifest.packageMetadata?.keywords,
     "publish result keywords from release manifest packageMetadata"
+  );
+  expectJson(
+    value.repository,
+    manifest.packageMetadata?.repository,
+    "publish result repository from release manifest packageMetadata"
   );
   expectEqual(
     value.license,

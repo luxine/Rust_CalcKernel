@@ -291,6 +291,12 @@ fn cutover_evidence_verifier_should_accept_matching_release_and_publish_evidence
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"repository\": {"),
+        "cutover evidence verifier should report the public package repository\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -2285,6 +2291,10 @@ fn release_manifest_json_with_description(tarball_sha256: &str, description: &st
   "packageMetadata": {{
     "description": "{description}",
     "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+    "repository": {{
+      "type": "git",
+      "url": "https://github.com/luxine/Rust_CalcKernel"
+    }},
     "license": "MIT",
     "engines": {{
       "node": ">=20"
@@ -2429,6 +2439,10 @@ fn release_manifest_json_without_file_surface(tarball_sha256: &str) -> String {
   "packageMetadata": {{
     "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
     "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+    "repository": {{
+      "type": "git",
+      "url": "https://github.com/luxine/Rust_CalcKernel"
+    }},
     "license": "MIT",
     "engines": {{
       "node": ">=20"
@@ -3178,6 +3192,10 @@ fn publish_result_json_with_package_version_shasum_publish_side_evidence_and_pro
   "shasum": "{shasum}",
   "description": "A small CK / CalcKernel integer-computation DSL compiler with C, WASM, and LLVM backends.",
   "keywords": ["calckernel", "ck", "compiler", "dsl", "c", "wasm", "llvm"],
+  "repository": {{
+    "type": "git",
+    "url": "https://github.com/luxine/Rust_CalcKernel"
+  }},
   "license": "MIT",
   "engines": {{
     "node": ">=20"

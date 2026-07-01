@@ -47,7 +47,7 @@ fn npm_release_workflow_should_verify_registry_replacement_for_manifest_version(
         "registry replacement verifier must derive the npm version from release-manifest.json"
     );
     assert!(
-        !workflow.contains("npm run verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\""),
+        !workflow.contains("npm run --silent verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\""),
         "registry replacement verifier must not derive the npm version from package.json"
     );
 }
@@ -132,7 +132,7 @@ fn npm_release_workflow_should_verify_publish_result_after_registry_replacement(
     );
     assert!(
         workflow.contains(
-            "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json"
+            "npm run --silent verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json"
         ),
         "publish job must verify npm publish output against release manifest and registry metadata"
     );
@@ -153,7 +153,7 @@ fn npm_release_workflow_should_verify_final_cutover_evidence_after_publish() {
     );
     assert!(
         workflow.contains(
-            "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json"
+            "npm run --silent verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json"
         ),
         "publish job must verify the final cutover evidence bundle including release-signoff-summary.json"
     );
@@ -270,10 +270,29 @@ fn npm_release_workflow_should_verify_signed_tarball_before_publish() {
     );
     assert!(
         workflow.contains(
-            "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist"
+            "npm run --silent verify:publish-artifact -- release-manifest/release-manifest.json dist"
         ),
         "publish job must verify the tarball SHA256 against release-manifest.json before npm publish"
     );
+}
+
+#[test]
+fn npm_release_workflow_should_write_json_verifier_outputs_silently() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+
+    let json_verifier_lines = workflow
+        .lines()
+        .filter(|line| line.contains("verify:") && line.contains('>') && line.contains(".json"));
+    let mut checked = 0;
+    for line in json_verifier_lines {
+        checked += 1;
+        assert!(
+            line.contains("npm run --silent verify:"),
+            "JSON verifier output must not include npm run banners: {line}"
+        );
+    }
+    assert!(checked > 0, "workflow should write JSON verifier outputs");
 }
 
 #[test]
@@ -282,7 +301,7 @@ fn npm_release_workflow_should_verify_release_signoff_summary_before_publish() {
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
 
     let signoff_index = workflow
-        .find("npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json")
+        .find("npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json")
         .expect("publish job should verify release signoff summary before npm publish");
     let publish_index = workflow
         .find("npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json")
@@ -725,7 +744,7 @@ fn npm_release_workflow_audit_should_reject_release_signoff_summary_outside_publ
         return;
     }
 
-    const COMMAND: &str = "      - run: npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json\n";
+    const COMMAND: &str = "      - run: npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json\n";
 
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
@@ -774,7 +793,7 @@ fn npm_release_workflow_audit_should_reject_publish_artifact_verifier_outside_pu
         return;
     }
 
-    const COMMAND: &str = "      - run: npm run verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json\n";
+    const COMMAND: &str = "      - run: npm run --silent verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json\n";
 
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
@@ -945,7 +964,7 @@ fn npm_release_workflow_audit_should_reject_registry_replacement_outside_publish
         return;
     }
 
-    const COMMAND: &str = r#"      - run: npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
+    const COMMAND: &str = r#"      - run: npm run --silent verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
 "#;
 
     let workflow =
@@ -955,7 +974,7 @@ fn npm_release_workflow_audit_should_reject_registry_replacement_outside_publish
         "publish-npm:",
         "",
         COMMAND,
-        "      - run: npm run verify:registry-replacement -- \"0.0.0\" > npm-registry-replacement.json\n",
+        "      - run: npm run --silent verify:registry-replacement -- \"0.0.0\" > npm-registry-replacement.json\n",
     );
     let tampered = publish_without_registry_replacement.replacen(
         "      - run: npm run verify:typescript-oracle\n",
@@ -994,7 +1013,7 @@ fn npm_release_workflow_audit_should_reject_publish_result_outside_publish_job()
         return;
     }
 
-    const COMMAND: &str = r#"      - run: npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
+    const COMMAND: &str = r#"      - run: npm run --silent verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
 "#;
 
     let workflow =
@@ -1042,7 +1061,7 @@ fn npm_release_workflow_audit_should_reject_cutover_evidence_outside_publish_job
         return;
     }
 
-    const COMMAND: &str = r#"      - run: npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
+    const COMMAND: &str = r#"      - run: npm run --silent verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
 "#;
 
     let workflow =

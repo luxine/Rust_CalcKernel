@@ -129,7 +129,7 @@ jobs:
       - run: CKC_NPM_BINARIES_DIR=build/npm-binaries npm pack --json --pack-destination dist > pack.json
       - run: |
           TARBALL="$(node -p "JSON.parse(require('fs').readFileSync('pack.json', 'utf8'))[0].filename")"
-          npm run verify:npm-release -- "dist/${TARBALL}" > release-manifest.json
+          npm run --silent verify:npm-release -- "dist/${TARBALL}" > release-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: release-tarball
@@ -189,7 +189,7 @@ jobs:
       - run: |
           TARBALL="dist/$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball")"
           test -s "${TARBALL}"
-          npm run verify:host-npm-install -- "${TARBALL}" > signoffs/${{ matrix.target }}.json
+          npm run --silent verify:host-npm-install -- "${TARBALL}" > signoffs/${{ matrix.target }}.json
       - uses: actions/upload-artifact@v4
         with:
           name: signoff-${{ matrix.target }}
@@ -213,7 +213,7 @@ jobs:
           pattern: signoff-*
           path: signoffs
           merge-multiple: true
-      - run: npm run verify:release-signoff -- release/release-manifest.json signoffs > release-signoff.json
+      - run: npm run --silent verify:release-signoff -- release/release-manifest.json signoffs > release-signoff.json
       - uses: actions/upload-artifact@v4
         with:
           name: release-signoff
@@ -246,8 +246,8 @@ jobs:
         with:
           name: release-signoff
           path: release
-      - run: npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json
-      - run: npm run verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json
+      - run: npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json
+      - run: npm run --silent verify:publish-artifact -- release-manifest/release-manifest.json dist > npm-publish-artifact.json
       - run: test -n "${NODE_AUTH_TOKEN}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -256,9 +256,9 @@ jobs:
           npm publish "${TARBALL}" --provenance --access public --json > npm-publish.json
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - run: npm run verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
-      - run: npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
-      - run: npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
+      - run: npm run --silent verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json
+      - run: npm run --silent verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json
+      - run: npm run --silent verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json
       - uses: actions/upload-artifact@v4
         with:
           name: npm-publish

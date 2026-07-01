@@ -26,7 +26,7 @@ if (!existsSync(workflowPath)) {
   const npmPublishStep = workflowSection(
     publishJob,
     "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
-    "npm run verify:registry-replacement"
+    "npm run --silent verify:registry-replacement"
   );
   const releaseVerifier = readRepoFile("scripts/verify-npm-release.mjs");
   const hostInstallVerifier = readRepoFile("scripts/verify-host-npm-install.mjs");
@@ -86,26 +86,26 @@ if (!existsSync(workflowPath)) {
   expectIncludes(publishJob, "path: release-manifest", "publish release manifest path");
   expectIncludes(publishJob, "name: release-signoff", "publish release signoff artifact");
   expectIncludes(publishJob, "path: release", "publish release signoff path");
-  expectIncludes(workflow, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
-  expectIncludes(publishJob, "npm run verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
+  expectIncludes(workflow, "npm run --silent verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
+  expectIncludes(publishJob, "npm run --silent verify:publish-artifact -- release-manifest/release-manifest.json dist", "pre-publish tarball manifest verifier command");
   expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");
   expectIncludes(workflow, "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball", "manifest-derived publish tarball");
   expectNotIncludes(workflow, "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish", "publish job ls tarball selection");
   expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
-  expectIncludes(workflow, "npm run verify:registry-replacement", "post-publish registry verifier command");
+  expectIncludes(workflow, "npm run --silent verify:registry-replacement", "post-publish registry verifier command");
   expectIncludes(
     workflow,
-    "npm run verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
+    "npm run --silent verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
     "post-publish registry verifier manifest version command"
   );
   expectIncludes(
     publishJob,
-    "npm run verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
+    "npm run --silent verify:registry-replacement -- \"$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion\")\" > npm-registry-replacement.json",
     "post-publish registry verifier manifest version command"
   );
   expectNotIncludes(
     workflow,
-    "npm run verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\"",
+    "npm run --silent verify:registry-replacement -- \"$(node -p \"require('./package.json').version\")\"",
     "post-publish registry verifier package.json version"
   );
   expectIncludes(workflow, "npm-registry-replacement.json", "post-publish registry verifier artifact");
@@ -114,40 +114,40 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "--test npm_release_signoff_summary_test", "release signoff summary verifier test gate");
   expectIncludes(
     workflow,
-    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
     "pre-publish release signoff summary verifier command"
   );
   expectIncludes(
     publishJob,
-    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
     "pre-publish release signoff summary verifier command"
   );
   expectIncludes(workflow, "release-signoff-summary.json", "pre-publish release signoff summary artifact");
   expectOrder(
     workflow,
-    "npm run verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
+    "npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
     "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
     "release signoff summary verification before npm publish"
   );
   expectIncludes(
     workflow,
-    "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
+    "npm run --silent verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
     "post-publish result verifier command"
   );
   expectIncludes(
     publishJob,
-    "npm run verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
+    "npm run --silent verify:publish-result -- release-manifest/release-manifest.json npm-publish.json npm-registry-replacement.json > npm-publish-result.json",
     "post-publish result verifier command"
   );
   expectIncludes(workflow, "npm-publish-result.json", "post-publish result verifier artifact");
   expectIncludes(
     workflow,
-    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
+    "npm run --silent verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
     "final cutover evidence verifier command"
   );
   expectIncludes(
     publishJob,
-    "npm run verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
+    "npm run --silent verify:cutover-evidence -- release-manifest/release-manifest.json release/release-signoff.json release-signoff-summary.json npm-publish-artifact.json npm-publish-result.json > npm-cutover-evidence.json",
     "final cutover evidence verifier command"
   );
   expectIncludes(workflow, "npm-cutover-evidence.json", "final cutover evidence verifier artifact");
@@ -315,8 +315,8 @@ if (!existsSync(workflowPath)) {
     "Unix executable bit restoration before staged binary verifier"
   );
   expectIncludes(workflow, "CKC_NPM_BINARIES_DIR=build/npm-binaries", "matrix pack environment");
-  expectIncludes(workflow, "npm run verify:npm-release", "release verifier command");
-  expectIncludes(workflow, "npm run verify:host-npm-install", "host install verifier command");
+  expectIncludes(workflow, "npm run --silent verify:npm-release", "release verifier command");
+  expectIncludes(workflow, "npm run --silent verify:host-npm-install", "host install verifier command");
   expectIncludes(platformSignoffJob, "name: release-manifest", "platform signoff release manifest artifact");
   expectIncludes(platformSignoffJob, "path: release-manifest", "platform signoff release manifest path");
   expectIncludes(
@@ -329,7 +329,7 @@ if (!existsSync(workflowPath)) {
     "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"",
     "platform signoff ls tarball selection"
   );
-  expectIncludes(workflow, "npm run verify:release-signoff", "release sign-off command");
+  expectIncludes(workflow, "npm run --silent verify:release-signoff", "release sign-off command");
   expectIncludes(workflow, "release-manifest.json", "release manifest artifact");
   expectIncludes(workflow, "signoffs/${{ matrix.target }}.json", "target sign-off output");
   expectIncludes(workflow, "name: signoff-${{ matrix.target }}", "target sign-off artifact");

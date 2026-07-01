@@ -304,7 +304,7 @@ fn npm_release_workflow_should_verify_release_signoff_summary_before_publish() {
         .find("npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json")
         .expect("publish job should verify release signoff summary before npm publish");
     let publish_index = workflow
-        .find("npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json")
+        .find("npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json")
         .expect("publish job should publish the manifest tarball");
 
     assert!(
@@ -322,7 +322,7 @@ fn npm_release_workflow_should_fail_fast_when_npm_token_is_missing() {
         .find("test -n \"${NODE_AUTH_TOKEN}\"")
         .expect("publish job should verify NPM_TOKEN before npm publish");
     let publish_index = workflow
-        .find("npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json")
+        .find("npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json")
         .expect("publish job should publish the manifest tarball");
 
     assert!(
@@ -379,6 +379,26 @@ fn npm_release_workflow_should_publish_the_manifest_tarball() {
     assert!(
         !workflow.contains("TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish"),
         "publish job must not choose the published tarball via ls dist/*.tgz"
+    );
+}
+
+#[test]
+fn npm_release_workflow_should_publish_tarball_as_explicit_local_path() {
+    let workflow =
+        fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
+    let publish_job = workflow_section(&workflow, "publish-npm:", "");
+
+    assert!(
+        publish_job.contains(
+            "npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json"
+        ),
+        "npm publish must use ./ for manifest-derived tarballs so npm treats dist/*.tgz as a local file"
+    );
+    assert!(
+        !publish_job.contains(
+            "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json"
+        ),
+        "npm publish must not pass dist/*.tgz without ./ because npm resolves it as a package spec"
     );
 }
 
@@ -710,8 +730,8 @@ fn npm_release_workflow_audit_should_reject_publish_step_without_npm_token_secre
     let workflow =
         fs::read_to_string(".github/workflows/npm-release.yml").expect("read npm release workflow");
     let tampered = workflow.replace(
-        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n",
-        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.WRONG_NPM_TOKEN }}\n",
+        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n",
+        "      - run: |\n          TARBALL=\"dist/$(node -p \"JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball\")\"\n          npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.WRONG_NPM_TOKEN }}\n",
     );
     let workflow_path = write_temp_workflow("publish-step-without-npm-token-secret", &tampered);
 

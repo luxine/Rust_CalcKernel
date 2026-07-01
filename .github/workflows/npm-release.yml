@@ -253,7 +253,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: |
           TARBALL="dist/$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball")"
-          npm publish "${TARBALL}" --provenance --access public --json > npm-publish.json
+          npm publish "./${TARBALL}" --provenance --access public --json > npm-publish.json
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm run --silent verify:registry-replacement -- "$(node -p "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).packageVersion")" > npm-registry-replacement.json

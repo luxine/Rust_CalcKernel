@@ -25,7 +25,7 @@ if (!existsSync(workflowPath)) {
   const npmPublishArtifact = workflowSection(publishJob, "name: npm-publish", "if-no-files-found: error");
   const npmPublishStep = workflowSection(
     publishJob,
-    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json",
     "npm run --silent verify:registry-replacement"
   );
   const releaseVerifier = readRepoFile("scripts/verify-npm-release.mjs");
@@ -75,7 +75,7 @@ if (!existsSync(workflowPath)) {
   expectOrder(
     publishJob,
     "test -n \"${NODE_AUTH_TOKEN}\"",
-    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json",
     "NPM_TOKEN preflight before npm publish"
   );
   expectIncludes(workflow, "name: release-manifest", "publish release manifest artifact");
@@ -91,7 +91,7 @@ if (!existsSync(workflowPath)) {
   expectIncludes(workflow, "npm-publish-artifact.json", "pre-publish tarball verifier artifact");
   expectIncludes(workflow, "JSON.parse(require('fs').readFileSync('release-manifest/release-manifest.json', 'utf8')).tarball", "manifest-derived publish tarball");
   expectNotIncludes(workflow, "TARBALL=\"$(ls dist/*.tgz | head -n 1)\"\n          npm publish", "publish job ls tarball selection");
-  expectIncludes(workflow, "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
+  expectIncludes(workflow, "npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json", "npm publish command");
   expectIncludes(workflow, "npm run --silent verify:registry-replacement", "post-publish registry verifier command");
   expectIncludes(
     workflow,
@@ -126,7 +126,7 @@ if (!existsSync(workflowPath)) {
   expectOrder(
     workflow,
     "npm run --silent verify:release-signoff-summary -- release-manifest/release-manifest.json release/release-signoff.json > release-signoff-summary.json",
-    "npm publish \"${TARBALL}\" --provenance --access public --json > npm-publish.json",
+    "npm publish \"./${TARBALL}\" --provenance --access public --json > npm-publish.json",
     "release signoff summary verification before npm publish"
   );
   expectIncludes(

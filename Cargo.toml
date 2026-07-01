@@ -13,6 +13,11 @@ path = "src/lib.rs"
 name = "ckc"
 path = "src/main.rs"
 
+[[bench]]
+name = "ckc_perf"
+path = "benches/ckc_perf.rs"
+harness = false
+
 [dependencies]
 thiserror = "2.0"
 wat = "1.0"
